@@ -1262,7 +1262,8 @@ func (db *Database) Reindex(ctx context.Context) error {
 }
 
 func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
-	return nil, errors.New("TODO: Re-implement full text search")
+	// TODO: Re-implement full text search
+	return nil, nil
 }
 
 // PutIndex puts a package into the search index. ID is the package ID in the database.
