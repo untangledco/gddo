@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,7 +37,6 @@ const (
 	ConfigDBServer      = "db-server"
 	ConfigDBIdleTimeout = "db-idle-timeout"
 	ConfigDBLog         = "db-log"
-	ConfigGAERemoteAPI  = "remoteapi-endpoint"
 
 	// Display Config
 	ConfigSidebar        = "sidebar"
@@ -72,12 +70,6 @@ const (
 
 func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v := viper.New()
-	// Gather information from execution environment.
-	if os.Getenv(gaeProjectEnvVar) != "" {
-		v.Set("on_appengine", true)
-	} else {
-		v.Set("on_appengine", false)
-	}
 	if metadata.OnGCE() {
 		gceProjectAttributeDefault(ctx, v, ConfigGAAccount, "ga-account")
 		gceProjectAttributeDefault(ctx, v, ConfigGCELogName, "gce-log-name")
@@ -117,9 +109,6 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 		return nil, err
 	}
 
-	// Set defaults based on other configs
-	setDefaults(v)
-
 	log.Debug(ctx, "config values loaded", "values", v.AllSettings())
 	return v, nil
 }
@@ -133,18 +122,6 @@ func gceProjectAttributeDefault(ctx context.Context, v *viper.Viper, cfg, attr s
 		return
 	}
 	v.SetDefault(cfg, val)
-}
-
-// setDefaults sets defaults for configuration options that depend on other
-// configuration options. This allows for smart defaults but allows for
-// overrides.
-func setDefaults(v *viper.Viper) {
-	// ConfigGAERemoteAPI is based on project.
-	project := v.GetString(ConfigProject)
-	if project != "" {
-		defaultEndpoint := fmt.Sprintf("serviceproxy-dot-%s.appspot.com", project)
-		v.SetDefault(ConfigGAERemoteAPI, defaultEndpoint)
-	}
 }
 
 func buildFlags() *pflag.FlagSet {
@@ -170,7 +147,6 @@ func buildFlags() *pflag.FlagSet {
 	flags.Duration(ConfigDBIdleTimeout, 250*time.Second, "Close Redis connections after remaining idle for this duration.")
 	flags.Bool(ConfigDBLog, false, "Log database commands")
 	flags.String(ConfigMemcacheAddr, "", "Address in the format host:port gddo uses to point to the memcache backend.")
-	flags.String(ConfigGAERemoteAPI, "", "Remoteapi endpoint for App Engine Search. Defaults to serviceproxy-dot-${project}.appspot.com.")
 	flags.Float64(ConfigTraceSamplerFraction, 0.1, "Fraction of the requests sampled by the trace API.")
 	flags.Float64(ConfigTraceSamplerMaxQPS, 5, "Max number of requests sampled every second by the trace API.")
 

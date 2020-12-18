@@ -965,7 +965,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 		v.GetString(ConfigDBServer),
 		v.GetDuration(ConfigDBIdleTimeout),
 		v.GetBool(ConfigDBLog),
-		v.GetString(ConfigGAERemoteAPI),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %v", err)

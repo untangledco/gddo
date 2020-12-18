@@ -46,13 +46,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"cloud.google.com/go/trace"
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/snappy"
-	"golang.org/x/oauth2/google"
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/remote_api"
-	"google.golang.org/appengine/search"
 
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
@@ -62,13 +57,10 @@ type Database struct {
 	Pool interface {
 		Get() redis.Conn
 	}
-
-	RemoteClient *remote_api.Client
 }
 
 // Package represents the content of a package both for the search index and
-// for the HTML template. It implements the search.FieldLoadSaver interface
-// to customize the Rank function in the search index.
+// for the HTML template.
 type Package struct {
 	Name        string  `json:"name,omitempty"`
 	Path        string  `json:"path"`
@@ -122,39 +114,16 @@ func newDBDialer(server string, logConn bool) func() (c redis.Conn, err error) {
 	}
 }
 
-func newRemoteClient(host string) (*remote_api.Client, error) {
-	client, err := google.DefaultClient(context.TODO(),
-		"https://www.googleapis.com/auth/appengine.apis",
-	)
-	if err != nil {
-		return nil, err
-	}
-	client.Transport = trace.Transport{Base: client.Transport}
-
-	return remote_api.NewClient(host, client)
-}
-
 // New creates a gddo database. serverURI, idleTimeout, and logConn configure
 // the use of redis. gaeEndpoint is the target of the App Engine remoteapi
 // endpoint.
-func New(serverURI string, idleTimeout time.Duration, logConn bool, gaeEndpoint string) (*Database, error) {
+func New(serverURI string, idleTimeout time.Duration, logConn bool) (*Database, error) {
 	pool := &redis.Pool{
 		Dial:        newDBDialer(serverURI, logConn),
 		MaxIdle:     10,
 		IdleTimeout: idleTimeout,
 	}
-
-	var rc *remote_api.Client
-	if gaeEndpoint != "" {
-		var err error
-		if rc, err = newRemoteClient(gaeEndpoint); err != nil {
-			return nil, err
-		}
-	} else {
-		log.Println("remote_api client not setup to use App Engine search")
-	}
-
-	return &Database{Pool: pool, RemoteClient: rc}, nil
+	return &Database{Pool: pool}, nil
 }
 
 func (db *Database) CheckHealth() error {
@@ -792,7 +761,7 @@ func (db *Database) Block(root string) error {
 			if _, err := deleteScript.Do(c, key); err != nil {
 				return err
 			}
-			if err := db.DeleteIndex(ctx, id); err != nil && err != search.ErrNoSuchDocument {
+			if err := db.DeleteIndex(ctx, id); err != nil {
 				return err
 			}
 		}
@@ -1236,17 +1205,9 @@ func (db *Database) IncrementCounter(key string, delta float64) (float64, error)
 // This will update the search index with the path, synopsis, score, import counts
 // of all the packages in the database.
 func (db *Database) Reindex(ctx context.Context) error {
-	if db.RemoteClient == nil {
-		return errors.New("database.Reindex: no App Engine endpoint given")
-	}
-
 	c := db.Pool.Get()
 	defer c.Close()
 
-	idx, err := search.Open("packages")
-	if err != nil {
-		return fmt.Errorf("database: failed to open packages: %v", err)
-	}
 	npkgs := 0
 	for {
 		// Get 200 packages from the nextCrawl set each time. Use npkgs as a cursor
@@ -1286,18 +1247,14 @@ func (db *Database) Reindex(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if _, err := idx.Put(db.RemoteClient.NewContext(ctx), id, &Package{
+			pkg := &Package{
 				Path:        pdoc.ImportPath,
 				Synopsis:    pdoc.Synopsis,
 				Score:       score,
 				ImportCount: n,
-			}); err != nil {
-				if appengine.IsTimeoutError(err) {
-					log.Printf("App Engine timeout: %v. Continue...", err)
-					break
-				}
-				return fmt.Errorf("Failed to put index %s: %v", id, err)
 			}
+			// TODO: Re-implement full text search
+			log.Printf("Would index %s: %v", id, pkg)
 		}
 	}
 	log.Printf("%d packages are reindexed", npkgs)
@@ -1305,26 +1262,17 @@ func (db *Database) Reindex(ctx context.Context) error {
 }
 
 func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
-	if db.RemoteClient == nil {
-		return nil, errors.New("remote_api client not setup to use App Engine search")
-	}
-	return searchAE(db.RemoteClient.NewContext(ctx), q)
+	return nil, errors.New("TODO: Re-implement full text search")
 }
 
-// PutIndex puts a package into App Engine search index. ID is the package ID in the database.
-// It is no-op when running locally without setting up remote_api.
+// PutIndex puts a package into the search index. ID is the package ID in the database.
 func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
-	if db.RemoteClient == nil {
-		return nil
-	}
-	return putIndex(db.RemoteClient.NewContext(ctx), pdoc, id, score, importCount)
+	// TODO: Re-implement full text search
+	return nil
 }
 
-// DeleteIndex deletes a package from App Engine search index. ID is the package ID in the database.
-// It is no-op when running locally without setting up remote_api.
+// DeleteIndex deletes a package from the search index. ID is the package ID in the database.
 func (db *Database) DeleteIndex(ctx context.Context, id string) error {
-	if db.RemoteClient == nil {
-		return nil
-	}
-	return deleteIndex(db.RemoteClient.NewContext(ctx), id)
+	// TODO: Re-implement full text search
+	return nil
 }
