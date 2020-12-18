@@ -1313,7 +1313,7 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 				name, path, import_count, synopsis, fork, stars, score
 			FROM packages
 			WHERE searchtext @@ websearch_to_tsquery('english', $1)
-			ORDER BY score
+			ORDER BY coalesce(score, 0.0)
 			LIMIT 20;
 			`, q)
 		if err != nil {
