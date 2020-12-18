@@ -32,6 +32,7 @@ package database
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -46,6 +47,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	_ "github.com/lib/pq"
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/snappy"
 
@@ -57,6 +59,8 @@ type Database struct {
 	Pool interface {
 		Get() redis.Conn
 	}
+
+	Pg *sql.DB
 }
 
 // Package represents the content of a package both for the search index and
@@ -115,15 +119,24 @@ func newDBDialer(server string, logConn bool) func() (c redis.Conn, err error) {
 }
 
 // New creates a gddo database. serverURI, idleTimeout, and logConn configure
-// the use of redis. gaeEndpoint is the target of the App Engine remoteapi
-// endpoint.
-func New(serverURI string, idleTimeout time.Duration, logConn bool) (*Database, error) {
+// the use of redis.
+func New(serverURI, pgURI string, idleTimeout time.Duration, logConn bool) (*Database, error) {
 	pool := &redis.Pool{
 		Dial:        newDBDialer(serverURI, logConn),
 		MaxIdle:     10,
 		IdleTimeout: idleTimeout,
 	}
-	return &Database{Pool: pool}, nil
+
+	var db *sql.DB
+	if pgURI != "" {
+		var err error
+		db, err = sql.Open("postgres", pgURI)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &Database{Pool: pool, Pg: db}, nil
 }
 
 func (db *Database) CheckHealth() error {

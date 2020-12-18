@@ -976,6 +976,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	}
 	s.db, err = database.New(
 		v.GetString(ConfigDBServer),
+		v.GetString(ConfigPGServer),
 		v.GetDuration(ConfigDBIdleTimeout),
 		v.GetBool(ConfigDBLog),
 	)

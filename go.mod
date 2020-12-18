@@ -18,6 +18,7 @@ require (
 	github.com/hashicorp/hcl v0.0.0-20170914154624-68e816d1c783 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20170622235902-74a0988b5f80
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/lib/pq v1.9.0
 	github.com/magiconair/properties v1.7.4-0.20170902060319-8d7837e64d3c // indirect
 	github.com/mattn/go-colorable v0.0.10-0.20170816031813-ad5389df28cd // indirect
 	github.com/mattn/go-isatty v0.0.2 // indirect

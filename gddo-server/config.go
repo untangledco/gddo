@@ -37,6 +37,7 @@ const (
 	ConfigDBServer      = "db-server"
 	ConfigDBIdleTimeout = "db-idle-timeout"
 	ConfigDBLog         = "db-log"
+	ConfigPGServer      = "pg-server"
 
 	// Display Config
 	ConfigSidebar        = "sidebar"
@@ -146,6 +147,7 @@ func buildFlags() *pflag.FlagSet {
 	flags.String(ConfigDBServer, "redis://127.0.0.1:6379", "URI of Redis server.")
 	flags.Duration(ConfigDBIdleTimeout, 250*time.Second, "Close Redis connections after remaining idle for this duration.")
 	flags.Bool(ConfigDBLog, false, "Log database commands")
+	flags.String(ConfigPGServer, "", "URI of PostgreSQL server (for full text search).")
 	flags.String(ConfigMemcacheAddr, "", "Address in the format host:port gddo uses to point to the memcache backend.")
 	flags.Float64(ConfigTraceSamplerFraction, 0.1, "Fraction of the requests sampled by the trace API.")
 	flags.Float64(ConfigTraceSamplerMaxQPS, 5, "Max number of requests sampled every second by the trace API.")
