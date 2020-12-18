@@ -1,4 +1,4 @@
-{{define "Head"}}<title>{{.pdoc.PageName}} tools - GoDoc</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.pdoc.PageName}} tools - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
@@ -6,16 +6,16 @@
 
   <h3>Badge</h3>
 
-  <p><a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="GoDoc"></a>
+  <p><a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="godocs.io"></a>
 
-  <p>Use one of the snippets below to add a link to GoDoc from your project
+  <p>Use one of the snippets below to add a link to godocs.io from your project
   website or README file:</a>
 
   <h5>HTML</h5>
-  <input type="text" value='<a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="GoDoc"></a>' class="click-select form-control">
+  <input type="text" value='<a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="godocs.io"></a>' class="click-select form-control">
 
   <h5>Markdown</h5>
-  <input type="text" value="[![GoDoc]({{.uri}}?status.svg)]({{.uri}})" class="click-select form-control">
+  <input type="text" value="[![godocs.io]({{.uri}}?status.svg)]({{.uri}})" class="click-select form-control">
 
   {{if .pdoc.Name}}
     <h3>Lint</h3>
@@ -28,7 +28,7 @@
         href="https://blog.golang.org/godoc-documenting-go-code">Go
         documentation guidelines</a> for information on how to write a package
       comment. It's important to write a good summary of the package in the
-      first sentence of the package comment. GoDoc indexes the first sentence
+      first sentence of the package comment. godocs.io indexes the first sentence
       and displays the first sentence in package lists.
     {{end}}
   {{end}}
