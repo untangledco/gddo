@@ -1,3 +1,10 @@
+This is my personal fork of gddo. It is available on the web at
+[godoc.drewdevault.com](https://godoc.drewdevault.com).
+
+Send patches and questions to [sir@cmpwn.com](mailto:sir@cmpwn.com).
+
+---
+
 This project is the source for https://godoc.org/
 
 [![GoDoc](https://godoc.org/github.com/golang/gddo?status.svg)](https://godoc.org/github.com/golang/gddo)
