@@ -1274,19 +1274,92 @@ func (db *Database) Reindex(ctx context.Context) error {
 	return nil
 }
 
+func (db *Database) withTx(ctx context.Context, opts *sql.TxOptions,
+	fn func(tx *sql.Tx) error) error {
+	if db.Pg == nil {
+		return nil
+	}
+
+	conn, err := db.Pg.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	tx, err := conn.BeginTx(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+		tx.Commit()
+	}()
+	err = fn(tx)
+	if err != nil {
+		tx.Rollback()
+	}
+	return err
+}
+
 func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
-	// TODO: Re-implement full text search
-	return nil, nil
+	var packages []Package
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+			SELECT
+				name, path, import_count, synopsis, fork, stars, score
+			FROM packages
+			WHERE searchtext @@ websearch_to_tsquery('english', $1)
+			ORDER BY score
+			LIMIT 20;
+			`, q)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var pkg Package
+			if err := rows.Scan(&pkg.Name, &pkg.Path, &pkg.ImportCount,
+				&pkg.Synopsis, &pkg.Fork, &pkg.Stars, &pkg.Score); err != nil {
+				return err
+			}
+			packages = append(packages, pkg);
+		}
+
+		return rows.Err()
+	})
+	return packages, err
 }
 
 // PutIndex puts a package into the search index. ID is the package ID in the database.
 func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, score float64, importCount int) error {
-	// TODO: Re-implement full text search
-	return nil
+	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO packages (
+				id, name, path, import_count, synopsis, fork, stars, score
+			) VALUES (
+				$1, $2, $3, $4, $5, $6, $7, $8
+			) ON CONFLICT DO NOTHING; -- TODO: Update
+			`, id, pdoc.ProjectName, pdoc.ImportPath, importCount,
+			pdoc.Synopsis, pdoc.Fork, pdoc.Stars, score)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // DeleteIndex deletes a package from the search index. ID is the package ID in the database.
 func (db *Database) DeleteIndex(ctx context.Context, id string) error {
-	// TODO: Re-implement full text search
-	return nil
+	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM packages WHERE id = $1;`, id)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }

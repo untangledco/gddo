@@ -28,7 +28,7 @@ func crawl(c *command) {
 		c.printUsage()
 		os.Exit(1)
 	}
-	db, err := database.New(*redisServer, *dbIdleTimeout, false)
+	db, err := database.New(*redisServer, *pgServer, *dbIdleTimeout, false)
 	if err != nil {
 		log.Fatal(err)
 	}
