@@ -45,7 +45,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	_ "github.com/lib/pq"
 	"github.com/garyburd/redigo/redis"
@@ -1212,66 +1211,6 @@ func (db *Database) incrementCounterInternal(key string, delta float64, t time.T
 
 func (db *Database) IncrementCounter(key string, delta float64) (float64, error) {
 	return db.incrementCounterInternal(key, delta, time.Now())
-}
-
-// Reindex gets all the packages in database and put them into the search index.
-// This will update the search index with the path, synopsis, score, import counts
-// of all the packages in the database.
-func (db *Database) Reindex(ctx context.Context) error {
-	c := db.Pool.Get()
-	defer c.Close()
-
-	npkgs := 0
-	for {
-		// Get 200 packages from the nextCrawl set each time. Use npkgs as a cursor
-		// to store the current position we actually indexed. Retry from the cursor
-		// position if we received a timeout error from app engine.
-		values, err := redis.Values(c.Do(
-			"SORT", "nextCrawl",
-			"LIMIT", strconv.Itoa(npkgs), "200",
-			"GET", "pkg:*->path",
-			"GET", "pkg:*->synopsis",
-			"GET", "pkg:*->score",
-		))
-		if err != nil {
-			return err
-		}
-		if len(values) == 0 {
-			break // all done
-		}
-
-		// The Search API should support put in batches of up to 200 documents,
-		// the Go version of this API does not support this yet.
-		// TODO(shantuo): Put packages in batch operations.
-		for ; len(values) > 0; npkgs++ {
-			var pdoc doc.Package
-			var score float64
-			values, err = redis.Scan(values, &pdoc.ImportPath, &pdoc.Synopsis, &score)
-			if err != nil {
-				return err
-			}
-			// There are some corrupted data in our current database
-			// that causes an error when putting the package into the
-			// search index which only supports UTF8 encoding.
-			if !utf8.ValidString(pdoc.Synopsis) {
-				pdoc.Synopsis = ""
-			}
-			id, n, err := pkgIDAndImportCount(c, pdoc.ImportPath)
-			if err != nil {
-				return err
-			}
-			pkg := &Package{
-				Path:        pdoc.ImportPath,
-				Synopsis:    pdoc.Synopsis,
-				Score:       score,
-				ImportCount: n,
-			}
-			// TODO: Re-implement full text search
-			log.Printf("Would index %s: %v", id, pkg)
-		}
-	}
-	log.Printf("%d packages are reindexed", npkgs)
-	return nil
 }
 
 func (db *Database) withTx(ctx context.Context, opts *sql.TxOptions,
