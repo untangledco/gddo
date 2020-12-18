@@ -25,7 +25,7 @@ func del(c *command) {
 		c.printUsage()
 		os.Exit(1)
 	}
-	db, err := database.New(*redisServer, *dbIdleTimeout, false, gaeEndpoint)
+	db, err := database.New(*redisServer, *dbIdleTimeout, false)
 	if err != nil {
 		log.Fatal(err)
 	}
