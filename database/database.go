@@ -1249,7 +1249,7 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 			SELECT
-				name, path, import_count, synopsis, fork, stars, score
+				name, path, import_count, synopsis, fork, stars, coalesce(score, 0.0)
 			FROM packages
 			WHERE searchtext @@ websearch_to_tsquery('english', $1)
 			ORDER BY coalesce(score, 0.0)
@@ -1279,7 +1279,7 @@ func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, 
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO packages (
-				id, name, path, import_count, synopsis, fork, stars, COALESCE(score, 0.0)
+				id, name, path, import_count, synopsis, fork, stars, score
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8
 			) ON CONFLICT DO NOTHING; -- TODO: Update
