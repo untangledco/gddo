@@ -1279,7 +1279,7 @@ func (db *Database) PutIndex(ctx context.Context, pdoc *doc.Package, id string, 
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO packages (
-				id, name, path, import_count, synopsis, fork, stars, score
+				id, name, path, import_count, synopsis, fork, stars, COALESCE(score, 0.0)
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8
 			) ON CONFLICT DO NOTHING; -- TODO: Update
