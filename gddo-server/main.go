@@ -289,7 +289,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		})
 	case isView(req, "tools"):
 		proto := "http"
-		if req.Host == "godoc.org" {
+		if req.Host == "godocs.io" {
 			proto = "https"
 		}
 		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
