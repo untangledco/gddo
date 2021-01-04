@@ -18,10 +18,6 @@
   <input type="text" value="[![godocs.io]({{.uri}}?status.svg)]({{.uri}})" class="click-select form-control">
 
   {{if .pdoc.Name}}
-    <h3>Lint</h3>
-    <form name="x-lint" method="POST" action="https://go-lint.appspot.com/-/refresh"><input name="importPath" type="hidden" value="{{.pdoc.ImportPath}}"></form>
-    <p><a href="javascript:document.getElementsByName('x-lint')[0].submit();">Run lint</a> on {{.pdoc.PageName}}.
-
     {{if and (not .pdoc.IsCmd) (not .pdoc.Doc)}}
       <p>The {{.pdoc.Name}} package does not have a package declaration
       comment.  See the <a
