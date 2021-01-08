@@ -28,9 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/logging"
-	"cloud.google.com/go/pubsub"
-	"cloud.google.com/go/trace"
 	"github.com/spf13/viper"
 
 	"github.com/golang/gddo/database"
@@ -404,9 +401,6 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
 			}
 		}
-		if s.gceLogger != nil {
-			s.gceLogger.LogEvent(resp, req, nil)
-		}
 
 		template := "dir"
 		switch {
@@ -574,14 +568,6 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	pkgs, err := s.db.Search(req.Context(), q)
 	if err != nil {
 		return err
-	}
-	if s.gceLogger != nil {
-		// Log up to top 10 packages we served upon a search.
-		logPkgs := pkgs
-		if len(pkgs) > 10 {
-			logPkgs = pkgs[:10]
-		}
-		s.gceLogger.LogEvent(resp, req, logPkgs)
 	}
 
 	return s.templates.execute(resp, "results"+templateExt(req), http.StatusOK, nil,
@@ -842,13 +828,10 @@ func defaultBase(path string) string {
 }
 
 type server struct {
-	v           *viper.Viper
-	db          *database.Database
-	httpClient  *http.Client
-	gceLogger   *GCELogger
-	templates   templateMap
-	traceClient *trace.Client
-	crawlTopic  *pubsub.Topic
+	v          *viper.Viper
+	db         *database.Database
+	httpClient *http.Client
+	templates  templateMap
 
 	statusPNG http.Handler
 	statusSVG http.Handler
@@ -864,25 +847,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 		v:              v,
 		httpClient:     newHTTPClient(v),
 		importGraphSem: make(chan struct{}, 10),
-	}
-
-	var err error
-	if proj := s.v.GetString(ConfigProject); proj != "" {
-		if s.traceClient, err = trace.NewClient(ctx, proj); err != nil {
-			return nil, err
-		}
-		sp, err := trace.NewLimitedSampler(s.v.GetFloat64(ConfigTraceSamplerFraction), s.v.GetFloat64(ConfigTraceSamplerMaxQPS))
-		if err != nil {
-			return nil, err
-		}
-		s.traceClient.SetSamplingPolicy(sp)
-
-		// This topic should be created in the cloud console.
-		ps, err := pubsub.NewClient(ctx, proj)
-		if err != nil {
-			return nil, err
-		}
-		s.crawlTopic = ps.Topic(ConfigCrawlPubSubTopic)
 	}
 
 	assets := v.GetString(ConfigAssetsDir)
@@ -961,14 +925,15 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 
 	mainMux := http.NewServeMux()
 	mainMux.Handle("/_ah/", ahMux)
-	mainMux.Handle("/", s.traceClient.HTTPHandler(mux))
+	mainMux.Handle("/", mux)
 
 	s.root = rootHandler{
-		{"api.", httpsRedirectHandler{s.traceClient.HTTPHandler(apiMux)}},
+		{"api.", httpsRedirectHandler{apiMux}},
 		{"talks.godoc.org", otherDomainHandler{"https", "go-talks.appspot.com"}},
 		{"", httpsRedirectHandler{mainMux}},
 	}
 
+	var err error
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
 	s.templates, err = parseTemplates(assets, cacheBusters, v)
 	if err != nil {
@@ -984,50 +949,11 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 		return nil, fmt.Errorf("open database: %v", err)
 	}
 	ready.Add(s.db)
-	if gceLogName := v.GetString(ConfigGCELogName); gceLogName != "" {
-		logc, err := logging.NewClient(ctx, v.GetString(ConfigProject))
-		if err != nil {
-			return nil, fmt.Errorf("create cloud logging client: %v", err)
-		}
-		logger := logc.Logger(gceLogName)
-		if err := logc.Ping(ctx); err != nil {
-			return nil, fmt.Errorf("pinging cloud logging: %v", err)
-		}
-		s.gceLogger = newGCELogger(logger)
-	}
 	return s, nil
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	s.logRequestStart(r)
 	s.root.ServeHTTP(w, r)
-	s.logRequestEnd(r, time.Since(start))
-}
-
-func (s *server) logRequestStart(req *http.Request) {
-	if s.gceLogger == nil {
-		return
-	}
-	s.gceLogger.Log(logging.Entry{
-		HTTPRequest: &logging.HTTPRequest{Request: req},
-		Payload:     fmt.Sprintf("%s request start", req.Host),
-		Severity:    logging.Info,
-	})
-}
-
-func (s *server) logRequestEnd(req *http.Request, latency time.Duration) {
-	if s.gceLogger == nil {
-		return
-	}
-	s.gceLogger.Log(logging.Entry{
-		HTTPRequest: &logging.HTTPRequest{
-			Request: req,
-			Latency: latency,
-		},
-		Payload:  fmt.Sprintf("%s request end", req.Host),
-		Severity: logging.Info,
-	})
 }
 
 func main() {

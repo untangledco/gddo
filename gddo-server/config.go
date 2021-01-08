@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
@@ -15,8 +14,7 @@ import (
 )
 
 const (
-	gaeProjectEnvVar = "GCLOUD_PROJECT"
-	gaAccountEnvVar  = "GA_ACCOUNT"
+	gaAccountEnvVar = "GA_ACCOUNT"
 
 	userAgentEnvVar          = "USER_AGENT"
 	githubTokenEnvVar        = "GITHUB_TOKEN"
@@ -26,12 +24,10 @@ const (
 
 const (
 	// Server Config
-	ConfigProject           = "project"
 	ConfigTrustProxyHeaders = "trust_proxy_headers"
 	ConfigBindAddress       = "http"
 	ConfigAssetsDir         = "assets"
 	ConfigRobotThreshold    = "robot"
-	ConfigGCELogName        = "gce_log_name"
 
 	// Database Config
 	ConfigDBServer      = "db-server"
@@ -71,19 +67,6 @@ const (
 
 func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v := viper.New()
-	if metadata.OnGCE() {
-		gceProjectAttributeDefault(ctx, v, ConfigGAAccount, "ga-account")
-		gceProjectAttributeDefault(ctx, v, ConfigGCELogName, "gce-log-name")
-		gceProjectAttributeDefault(ctx, v, ConfigUserAgent, "user-agent")
-		gceProjectAttributeDefault(ctx, v, ConfigGithubToken, "github-token")
-		gceProjectAttributeDefault(ctx, v, ConfigGithubClientID, "github-client-id")
-		gceProjectAttributeDefault(ctx, v, ConfigGithubClientSecret, "github-client-secret")
-		if id, err := metadata.ProjectID(); err != nil {
-			log.Warn(ctx, "failed to retrieve project ID", "error", err)
-		} else {
-			viper.SetDefault(ConfigProject, id)
-		}
-	}
 
 	// Setup command line flags
 	flags := buildFlags()
@@ -98,7 +81,6 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v.SetEnvPrefix("gddo")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
-	v.BindEnv(ConfigProject, gaeProjectEnvVar)
 	v.BindEnv(ConfigGAAccount, gaAccountEnvVar)
 	v.BindEnv(ConfigUserAgent, userAgentEnvVar)
 	v.BindEnv(ConfigGithubToken, githubTokenEnvVar)
@@ -114,22 +96,10 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	return v, nil
 }
 
-func gceProjectAttributeDefault(ctx context.Context, v *viper.Viper, cfg, attr string) {
-	val, err := metadata.ProjectAttributeValue(attr)
-	if err != nil {
-		if _, undef := err.(metadata.NotDefinedError); !undef {
-			log.Warn(ctx, "failed to query metadata", "key", attr, "error", err)
-		}
-		return
-	}
-	v.SetDefault(cfg, val)
-}
-
 func buildFlags() *pflag.FlagSet {
 	flags := pflag.NewFlagSet("default", pflag.ContinueOnError)
 
 	flags.StringP("config", "c", "", "path to motd config file")
-	flags.String(ConfigProject, "", "Google Cloud Platform project used for Google services")
 	flags.Float64(ConfigRobotThreshold, 100, "Request counter threshold for robots.")
 	flags.String(ConfigAssetsDir, filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	flags.Duration(ConfigGetTimeout, 8*time.Second, "Time to wait for package update from the VCS.")

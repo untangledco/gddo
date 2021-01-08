@@ -8,14 +8,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
 	"time"
-
-	"cloud.google.com/go/pubsub"
 
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
@@ -30,20 +27,6 @@ var (
 // compatibility requirements.
 type crawlNote struct {
 	ImportPath string
-}
-
-func (s *server) publishCrawl(ctx context.Context, importPath string) {
-	if s.crawlTopic == nil {
-		return
-	}
-
-	note := &crawlNote{ImportPath: importPath}
-	b, err := json.Marshal(note)
-	if err != nil {
-		log.Printf("Encoding crawlNote: %v", err)
-		return
-	}
-	s.crawlTopic.Publish(ctx, &pubsub.Message{Data: b})
 }
 
 // crawlDoc fetches the package documentation from the VCS and updates the database.
@@ -109,7 +92,6 @@ func (s *server) crawlDoc(ctx context.Context, source string, importPath string,
 		if err := s.put(ctx, pdoc, nextCrawl); err != nil {
 			log.Println(err)
 		}
-		s.publishCrawl(ctx, importPath)
 		return pdoc, nil
 	} else if e, ok := err.(gosrc.NotModifiedError); ok {
 		if pdoc.Status == gosrc.Active && !s.isActivePkg(importPath, e.Status) {
@@ -128,7 +110,6 @@ func (s *server) crawlDoc(ctx context.Context, source string, importPath string,
 				log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
 			}
 		}
-		s.publishCrawl(ctx, importPath)
 		return pdoc, nil
 	} else if e, ok := err.(gosrc.NotFoundError); ok {
 		message = append(message, "notfound:", e)
