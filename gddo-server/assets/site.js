@@ -103,11 +103,11 @@ $(function() {
         switch(e.which) {
         case 38: // up
             incrActive(-1);
-            e.preventDefault(); 
+            e.preventDefault();
             break;
         case 40: // down
             incrActive(1);
-            e.preventDefault(); 
+            e.preventDefault();
             break;
         case 13: // enter
             if (active >= 0) {
@@ -116,24 +116,6 @@ $(function() {
             break
         }
     });
-
-});
-
-$(function() {
-
-    if ("onhashchange" in window) {
-        var highlightedSel = "";
-        window.onhashchange = function() {
-            if (highlightedSel) {
-                $(highlightedSel).removeClass("highlighted");
-            }
-            highlightedSel = window.location.hash.replace( /(:|\.|\[|\]|,)/g, "\\$1" );
-            if (highlightedSel && (highlightedSel.indexOf("example-") == -1)) {
-                $(highlightedSel).addClass("highlighted");
-            }
-        };
-        window.onhashchange();
-    }
 
 });
 
@@ -215,9 +197,14 @@ $(function() {
 // misc
 $(function() {
     $('span.timeago').timeago();
-    if (window.location.hash.substring(0, 9) == '#example-') {
-        var id = '#ex-' + window.location.hash.substring(9);
-        $(id).addClass('in').removeClass('collapse').height('auto');
+    var hash = window.location.hash;
+
+    if (hash.startsWith('#example-')) {
+        $(hash).attr('open', '');
+    }
+
+    if (hash.startsWith('#ex-')) {
+        $(hash).parent().attr('open', '');
     }
 
     $(document).on("click", "input.click-select", function(e) {

@@ -21,8 +21,8 @@ h4 { margin-top: 20px; }
 
 }
 
-.highlighted {
-    background-color: #FDFF9E;
+:not([id^="example-"]):target {
+    background-color: #FDFF9E !important;
 }
 
 #x-pkginfo {
@@ -103,8 +103,21 @@ a, .navbar-default .navbar-brand {
 }
 
 .panel-default > .panel-heading {
+    cursor: pointer;
+    display: list-item;
     color: #333;
     background-color: transparent;
+
+}
+
+.panel-default > .panel-collapse {
+    transition: max-height 1s ease-in;
+    max-height: 0px;
+    overflow: hidden;
+}
+
+.panel-default[open] > .panel-collapse {
+    max-height: 1000px;
 }
 
 a.permalink {
@@ -119,6 +132,13 @@ a.uses {
 
 h1:hover .permalink, h2:hover .permalink, h3:hover .permalink, h4:hover .permalink, h5:hover .permalink, h6:hover .permalink, h1:hover .uses, h2:hover .uses, h3:hover .uses, h4:hover .uses, h5:hover .uses, h6:hover .uses {
     display: inline;
+}
+
+summary:hover .permalink {
+    display: inline-block;
+    float: right;
+    font-size: 1.3em;
+    line-height: 1.3em;
 }
 
 @media (max-width : 768px) {
