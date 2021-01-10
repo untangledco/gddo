@@ -542,7 +542,6 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		"code":              codeFn,
 		"comment":           commentFn,
 		"equal":             reflect.DeepEqual,
-		"gaAccount":         func() string { return v.GetString(ConfigGAAccount) },
 		"host":              hostFn,
 		"htmlComment":       htmlCommentFn,
 		"importPath":        importPathFn,

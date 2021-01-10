@@ -14,8 +14,6 @@ import (
 )
 
 const (
-	gaAccountEnvVar = "GA_ACCOUNT"
-
 	userAgentEnvVar          = "USER_AGENT"
 	githubTokenEnvVar        = "GITHUB_TOKEN"
 	githubClientIDEnvVar     = "GITHUB_CLIENT_ID"
@@ -39,7 +37,6 @@ const (
 	ConfigSidebar        = "sidebar"
 	ConfigSourcegraphURL = "sourcegraph_url"
 	ConfigDefaultGOOS    = "default_goos"
-	ConfigGAAccount      = "ga_account"
 
 	// Crawl Config
 	ConfigMaxAge          = "max_age"
@@ -81,7 +78,6 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v.SetEnvPrefix("gddo")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
-	v.BindEnv(ConfigGAAccount, gaAccountEnvVar)
 	v.BindEnv(ConfigUserAgent, userAgentEnvVar)
 	v.BindEnv(ConfigGithubToken, githubTokenEnvVar)
 	v.BindEnv(ConfigGithubClientID, githubClientIDEnvVar)
