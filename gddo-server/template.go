@@ -25,6 +25,7 @@ import (
 	ttemp "text/template"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/spf13/viper"
 
 	"github.com/golang/gddo/doc"
@@ -507,6 +508,7 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		"relativePath":      relativePathFn,
 		"sidebarEnabled":    func() bool { return v.GetBool(ConfigSidebar) },
 		"staticPath":        func(p string) string { return cb.AppendQueryParam(p, "v") },
+		"humanize":          func(t time.Time) string { return humanize.Time(t) },
 	}
 	for _, set := range htmlSets {
 		templateName := set[0]

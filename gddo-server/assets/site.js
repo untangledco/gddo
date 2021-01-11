@@ -196,7 +196,6 @@ $(function() {
 
 // misc
 $(function() {
-    $('span.timeago').timeago();
     var hash = window.location.hash;
 
     if (hash.startsWith('#example-')) {
