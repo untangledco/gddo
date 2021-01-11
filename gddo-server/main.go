@@ -867,9 +867,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	apiMux.Handle("/", apiHandler(serveAPIHome))
 
 	mux := http.NewServeMux()
-	mux.Handle("/-/site.js", staticServer.FilesHandler(
-		"third_party/jquery.timeago.js",
-		"site.js"))
+	mux.Handle("/-/site.js", staticServer.FilesHandler("site.js"))
 	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
 	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
 	mux.Handle("/-/bootstrap.min.js", staticServer.FilesHandler("bootstrap.min.js"))
