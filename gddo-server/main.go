@@ -806,19 +806,6 @@ func (m rootHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	h.ServeHTTP(resp, req)
 }
 
-// otherDomainHandler redirects to another domain keeping the rest of the URL.
-type otherDomainHandler struct {
-	scheme       string
-	targetDomain string
-}
-
-func (h otherDomainHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	u := *req.URL
-	u.Scheme = h.scheme
-	u.Host = h.targetDomain
-	http.Redirect(w, req, u.String(), http.StatusFound)
-}
-
 func defaultBase(path string) string {
 	p, err := build.Default.Import(path, "", build.FindOnly)
 	if err != nil {
@@ -925,7 +912,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 
 	s.root = rootHandler{
 		{"api.", httpsRedirectHandler{apiMux}},
-		{"talks.godoc.org", otherDomainHandler{"https", "go-talks.appspot.com"}},
 		{"", httpsRedirectHandler{mainMux}},
 	}
 
