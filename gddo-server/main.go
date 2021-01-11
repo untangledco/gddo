@@ -872,8 +872,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	}
 	apiMux := http.NewServeMux()
 	apiMux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
-	apiMux.Handle("/google3d2f3cd4cc2bb44b.html", staticServer.FileHandler("google3d2f3cd4cc2bb44b.html"))
-	apiMux.Handle("/humans.txt", staticServer.FileHandler("humans.txt"))
 	apiMux.Handle("/robots.txt", staticServer.FileHandler("apiRobots.txt"))
 	apiMux.Handle("/search", apiHandler(s.serveAPISearch))
 	apiMux.Handle("/packages", apiHandler(s.serveAPIPackages))
