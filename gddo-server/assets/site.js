@@ -199,10 +199,6 @@ $(function() {
     var hash = window.location.hash;
 
     if (hash.startsWith('#example-')) {
-        $(hash).attr('open', '');
-    }
-
-    if (hash.startsWith('#ex-')) {
         $(hash).parent().attr('open', '');
     }
 

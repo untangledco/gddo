@@ -21,7 +21,7 @@ h4 { margin-top: 20px; }
 
 }
 
-:not([id^="example-"]):target {
+:target {
     background-color: #FDFF9E !important;
 }
 
