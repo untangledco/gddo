@@ -12,10 +12,10 @@
   website or README file:</a>
 
   <h5>HTML</h5>
-  <input type="text" value='<a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="godocs.io"></a>' class="click-select form-control">
+  <input type="text" value='<a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="godocs.io"></a>' class="click-select form-control" readonly>
 
   <h5>Markdown</h5>
-  <input type="text" value="[![godocs.io]({{.uri}}?status.svg)]({{.uri}})" class="click-select form-control">
+  <input type="text" value="[![godocs.io]({{.uri}}?status.svg)]({{.uri}})" class="click-select form-control" readonly>
 
   {{if .pdoc.Name}}
     {{if and (not .pdoc.IsCmd) (not .pdoc.Doc)}}
