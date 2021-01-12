@@ -1,4 +1,8 @@
-html { background-color: whitesmoke; }
+html {
+    background-color: whitesmoke;
+    /* for smooth scrolling transitions without extra JS */
+    scroll-behavior: smooth;
+}
 body { background-color: white; }
 h4 { margin-top: 20px; }
 .container { max-width: 728px; }
@@ -18,7 +22,6 @@ h4 { margin-top: 20px; }
     background-color: #eee;
     border-top-style: solid;
     border-top-width: 1px;
-
 }
 
 :target {
@@ -159,7 +162,7 @@ summary:hover .permalink {
 }
 
 .synopsis {
-  opacity: 0.87;
+    opacity: 0.87;
 }
 
 .additional-info {
@@ -170,5 +173,44 @@ summary:hover .permalink {
 }
 
 .click-select {
-	user-select: all;
+    user-select: all;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+}
+
+.modal.show {
+    display: block;
+    opacity: 1;
+}
+
+.navbar-collapse {
+    display: none;
+    animation: slide-in 1s linear;
+}
+
+@keyframes slide-in {
+    from {
+        max-height: 0;
+        overflow: hidden;
+    }
+    to {
+        max-height: 1000px;
+    }
+}
+
+@media (min-width: 768px) {
+    .navbar-collapse {
+        display: block;
+    }
 }

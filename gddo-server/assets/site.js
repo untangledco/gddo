@@ -1,209 +1,250 @@
+// modal
+function Modal(el) {
+	if (el == null) {
+		return null
+	}
+
+	this.el = el
+	el.querySelector(".close").onclick = () => this.hide()
+	el.onclick = () => this.hide()
+	el.onkeydown = (e) => {
+		if (e.key == "Escape") {
+			this.hide()
+		}
+	}
+	el.querySelector(".modal-dialog").onclick = function(e) {
+		e.stopPropagation()
+	}
+}
+
+Modal.prototype.show = function() {
+	this.el.classList.add("show")
+	this.el.focus()
+}
+
+Modal.prototype.hide = function() {
+	this.el.classList.remove("show")
+}
+
 // jump modal
-$(function() {
+function JumpModal(el) {
+	if (el == null) {
+		return null
+	}
 
-    var all;
-    var visible;
-    var active = -1;
-    var lastFilter = '';
-    var $body = $('#x-jump-body');
-    var $list = $('#x-jump-list');
-    var $filter = $('#x-jump-filter');
-    var $modal = $('#x-jump');
+	this.all = []
+	this.visible = []
+	this.active = -1
+	this.lastFilter = ""
+	this.modal = new Modal(el)
+	this.body = el.querySelector("#x-jump-body")
+	this.list = el.querySelector("#x-jump-list")
+	this.filter = el.querySelector("#x-jump-filter")
 
-    var update = function(filter) {
-        lastFilter = filter;
-        if (active >= 0) {
-            visible[active].e.removeClass('active');
-            active = -1;
-        }
-        visible = []
-        var re = new RegExp(filter.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"), "gi");
-        all.forEach(function (id) {
-            id.e.detach();
-            var text = id.text;
-            if (filter) {
-                text = id.text.replace(re, function (s) { return '<b>' + s + '</b>'; });
-                if (text == id.text) {
-                    return
-                }
-            }
-            id.e.html(text + ' ' + '<i>' + id.kind + '</i>');
-            visible.push(id);
-        });
-        $body.scrollTop(0);
-        if (visible.length > 0) {
-            active = 0;
-            visible[active].e.addClass('active');
-        }
-        $list.append($.map(visible, function(identifier) { return identifier.e; }));
-    }
+	this.filter.oninput = e => {
+		var filter = e.target.value
+		if (filter.toLowerCase() != this.lastFilter.toLowerCase()) {
+			this.update(filter)
+		}
+	}
 
-    var incrActive = function(delta) {
-        if (visible.length == 0) {
-            return
-        }
-        visible[active].e.removeClass('active');
-        active += delta;
-        if (active < 0) {
-            active = 0;
-            $body.scrollTop(0);
-        } else if (active >= visible.length) {
-            active = visible.length - 1;
-            $body.scrollTop($body[0].scrollHeight - $body[0].clientHeight);
-        } else {
-            var $e = visible[active].e;
-            var t = $e.position().top;
-            var b = t + $e.outerHeight(false);
-            if (t <= 0) {
-                $body.scrollTop($body.scrollTop() + t);
-            } else if (b >= $body.outerHeight(false)) {
-                $body.scrollTop($body.scrollTop() + b - $body.outerHeight(false));
-            }
-        }
-        visible[active].e.addClass('active');
-    }
+	this.filter.onkeydown = e => {
+		switch(e.key) {
+		case "ArrowUp":
+			this.incrActive(-1)
+			e.preventDefault()
+			break
+		case "ArrowDown":
+			this.incrActive(1)
+			e.preventDefault()
+			break
+		case "Enter":
+			if (this.active >= 0) {
+				this.visible[this.active].el.click()
+			}
+			break
+		}
+	}
+}
 
-    $modal.on('show.bs.modal', function() {
-        if (!all) {
-            all = []
-            var kinds = {'c': 'constant', 'v': 'variable', 'f': 'function', 't': 'type', 'd': 'field', 'm': 'method'}
-            $('*[id]').each(function() {
-                var e = $(this);
-                var id = e.attr('id');
-                if (/^[^_][^-]*$/.test(id)) {
-                    all.push({
-                        text: id,
-                        ltext: id.toLowerCase(),
-                        kind: kinds[e.closest('[data-kind]').attr('data-kind')],
-                        e: $('<a/>', {href: '#' + id, 'class': 'list-group-item', tabindex: '-1'})
-                    });
-                }
-            });
-            all.sort(function (a, b) {
-                if (a.ltext > b.ltext) { return 1; }
-                if (a.ltext < b.ltext) { return -1; }
-                return 0
-            });
-        }
-    }).on('shown.bs.modal', function() {
-        update('');
-        $filter.val('').focus();
-    }).on('hide.bs.modal', function() {
-        $filter.blur();
-    }).on('click', '.list-group-item', function() {
-        $modal.modal('hide');
-    });
+JumpModal.prototype.update = function(filter) {
+	this.lastFilter = filter
+	if (this.active >= 0) {
+		this.visible[this.active].el.classList.remove("active")
+		this.active = -1
+	}
 
-    $filter.on('change keyup', function() {
-        var filter = $filter.val();
-        if (filter.toUpperCase() != lastFilter.toUpperCase()) {
-            update(filter);
-        }
-    }).on('keydown', function(e) {
-        switch(e.which) {
-        case 38: // up
-            incrActive(-1);
-            e.preventDefault();
-            break;
-        case 40: // down
-            incrActive(1);
-            e.preventDefault();
-            break;
-        case 13: // enter
-            if (active >= 0) {
-                visible[active].e[0].click();
-            }
-            break
-        }
-    });
+	// Update visible elements
+	this.visible = []
+	var re = new RegExp(filter.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1"), "gi")
+	this.visible = this.all.filter((id) => {
+		// Detatch element
+		if (id.el.parentElement != null) {
+			id.el.parentElement.removeChild(id.el)
+		}
 
-});
+		var text = id.text
+		if (filter.length > 0) {
+			text = id.text.replace(re, function(s) {
+				return "<b>" + s + "</b>"
+			})
+			if (text == id.text) {
+				return false
+			}
+		}
+
+		id.el.innerHTML = text + " " + "<i>" + id.kind + "</i>"
+		return true
+	})
+
+	this.body.scrollTop = 0
+	if (this.visible.length > 0) {
+		this.active = 0
+		this.visible[this.active].el.classList.add("active")
+	}
+
+	for (var i = 0; i < this.visible.length; i++) {
+		this.list.appendChild(this.visible[i].el)
+	}
+}
+
+JumpModal.prototype.incrActive = function(delta) {
+	if (this.visible.length == 0) {
+		return
+	}
+
+	this.visible[this.active].el.classList.remove("active")
+
+	this.active += delta
+	if (this.active < 0) {
+		this.active = 0
+	} else if (this.active >= this.visible.length) {
+		this.active = this.visible.length - 1
+	}
+
+	var el = this.visible[this.active].el
+	el.scrollIntoView({
+		block: "nearest",
+	})
+	el.classList.add("active")
+}
+
+JumpModal.prototype.show = function() {
+	if (this.all.length == 0) {
+		document.querySelectorAll("[id]").forEach(e => {
+			var id = e.id
+			if (/^[^_][^-]*$/.test(id)) {
+				var el = document.createElement("a")
+				el.href = "#" + id
+				el.classList.add("list-group-item")
+				el.tabindex = -1
+				el.onclick = () => {
+					this.modal.hide()
+				}
+
+				this.all.push({
+					text: id,
+					ltext: id.toLowerCase(),
+					kind: e.closest("[data-kind]").dataset.kind,
+					el: el,
+				})
+			}
+		})
+
+		this.all.sort(function(a, b) {
+			if (a.ltext > b.ltext) {
+				return 1
+			}
+			if (a.ltext < b.ltext) {
+				return -1
+			}
+			return 0
+		})
+	}
+
+	this.update("")
+	this.modal.show()
+	this.filter.value = ""
+	this.filter.focus()
+}
+
+// navbar toggle
+var navToggle = document.querySelector(".navbar-toggle")
+navToggle.onclick = function() {
+	document.querySelector(".navbar-collapse").classList.toggle("show")
+}
 
 // keyboard shortcuts
-$(function() {
-    var prevCh = null, prevTime = 0, modal = false;
+var search = document.querySelector("#x-search-query")
+var shortcuts = new Modal(document.querySelector("#x-shortcuts"))
+var jump = new JumpModal(document.querySelector("#x-jump"))
+var prevCh = null
+var prevTime = 0
 
-    $('.modal').on({
-        show: function() { modal = true; },
-        hidden: function() { modal = false; }
-    });
+document.onkeydown = function(e) {
+	var combo = e.timeStamp - prevTime <= 1000
+	prevTime = 0
 
-    $(document).on('keypress', function(e) {
-        var combo = e.timeStamp - prevTime <= 1000;
-        prevTime = 0;
+	if (e.target != document.body) {
+		return
+	}
+	if (e.metaKey || e.ctrlKey) {
+		return true
+	}
 
-        if (modal) {
-            return true;
-        }
+	var ch = e.key
+	if (combo) {
+		switch (prevCh + ch) {
+		case "gg":
+			window.scrollTo(0, 0)
+			return false
+		case "gb":
+			window.scrollTo(0, document.body.scrollHeight)
+			return false
+		case "gi":
+			var pkgIndex = document.querySelector("#pkg-index")
+			if (pkgIndex != null) {
+				pkgIndex.scrollIntoView()
+				return false
+			}
+		case "ge":
+			var pkgExamples = document.querySelector("#pkg-examples")
+			if (pkgExamples != null) {
+				pkgExamples.scrollIntoView()
+				return false
+			}
+		}
+	}
 
-        var t = e.target.tagName
-        if (t == 'INPUT' ||
-            t == 'SELECT' ||
-            t == 'TEXTAREA' ) {
-            return true;
-        }
+	switch (ch) {
+	case "/":
+		if (search != null) {
+			search.focus()
+		}
+		return false
+	case "?":
+		if (shortcuts != null) {
+			shortcuts.show()
+		}
+		return false
+	case "f":
+		if (jump != null) {
+			jump.show()
+			return false
+		}
+	}
 
-        if (e.target.contentEditable && e.target.contentEditable == 'true') {
-            return true;
-        }
+	prevCh = ch
+	prevTime = e.timeStamp
+	return true
+}
 
-        if (e.metaKey || e.ctrlKey) {
-            return true;
-        }
-
-        var ch = String.fromCharCode(e.which);
-
-        if (combo) {
-            switch (prevCh + ch) {
-            case "gg":
-                $('html,body').animate({scrollTop: 0},'fast');
-                return false;
-            case "gb":
-                $('html,body').animate({scrollTop: $(document).height()},'fast');
-                return false;
-            case "gi":
-                if ($('#pkg-index').length > 0) {
-                    $('html,body').animate({scrollTop: $("#pkg-index").offset().top},'fast');
-                    return false;
-                }
-            case "ge":
-                if ($('#pkg-examples').length > 0) {
-                    $('html,body').animate({scrollTop: $("#pkg-examples").offset().top},'fast');
-                    return false;
-                }
-            }
-        }
-
-        switch (ch) {
-        case "/":
-            $('#x-search-query').focus();
-            return false;
-        case "?":
-            $('#x-shortcuts').modal();
-            return false;
-        case  "f":
-            if ($('#x-jump').length > 0) {
-                $('#x-jump').modal();
-                return false;
-            }
-        }
-
-        prevCh = ch
-        prevTime = e.timeStamp
-        return true;
-    });
-});
-
-// misc
-$(function() {
-    var hash = window.location.hash;
-
-    if (hash.startsWith('#example-')) {
-        $(hash).parent().attr('open', '');
-    }
-
-    $('body').scrollspy({
-        target: '.gddo-sidebar',
-        offset: 10
-    });
-});
+function onhashchanged() {
+	// open selected example
+	var hash = window.location.hash
+	if (hash.startsWith("#example-")) {
+		document.querySelector(hash).parentElement.setAttribute("open", "")
+	}
+}
+window.onhashchanged = onhashchanged
+onhashchanged()

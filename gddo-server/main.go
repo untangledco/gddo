@@ -870,8 +870,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/-/site.js", staticServer.FilesHandler("site.js"))
 	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
 	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
-	mux.Handle("/-/bootstrap.min.js", staticServer.FilesHandler("bootstrap.min.js"))
-	mux.Handle("/-/jquery-2.0.3.min.js", staticServer.FilesHandler("jquery-2.0.3.min.js"))
 	if s.v.GetBool(ConfigSidebar) {
 		mux.Handle("/-/sidebar.css", staticServer.FilesHandler("sidebar.css"))
 	}
@@ -893,7 +891,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
-	mux.Handle("/humans.txt", staticServer.FileHandler("humans.txt"))
 	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
 	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/code.jquery.com/", http.NotFoundHandler())
