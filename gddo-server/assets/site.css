@@ -82,8 +82,16 @@ pre .com {
     display: block;
 }
 
-a, .navbar-default .navbar-brand {
+a, .navbar-default .navbar-brand, .link {
     color: #375eab;
+}
+
+.link {
+  display: inline-block;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
 }
 
 .navbar-default, #x-footer {
@@ -144,6 +152,10 @@ summary:hover .permalink {
     .form-control {
         font-size:16px;
     }
+}
+
+.inline-form {
+  display: inline-block;
 }
 
 .synopsis {
