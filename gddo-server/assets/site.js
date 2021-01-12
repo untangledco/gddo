@@ -206,6 +206,10 @@ $(function() {
         $(hash).parent().attr('open', '');
     }
 
+    $(document).on("click", "input.click-select", function(e) {
+        $(e.target).select();
+    });
+
     $('body').scrollspy({
         target: '.gddo-sidebar',
         offset: 10

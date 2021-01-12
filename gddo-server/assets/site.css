@@ -168,7 +168,3 @@ summary:hover .permalink {
     text-transform: uppercase;
     font-size: 0.75em;
 }
-
-.click-select {
-	user-select: all;
-}
