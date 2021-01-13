@@ -167,7 +167,7 @@
     <div class="panel-group">
     {{range .}}
       <details class="panel panel-default">
-        <summary id="example-{{.ID}}" class="panel-heading" >Example{{with .Example.Name}} ({{.}}){{end}}<a class="permalink" href="#ex-{{.ID}}">¶</a></summary>
+        <summary id="example-{{.ID}}" class="panel-heading">Example{{with .Example.Name}} ({{.}}){{end}}<a class="permalink" href="#example-{{.ID}}">¶</a></summary>
         <div class="panel-collapse"><div class="panel-body">
           {{with .Example.Doc}}<p>{{.|comment}}{{end}}
           <p>Code:{{if .Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
