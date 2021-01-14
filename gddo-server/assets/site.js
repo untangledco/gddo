@@ -239,12 +239,12 @@ document.onkeydown = function(e) {
 	return true
 }
 
-function onhashchanged() {
+function onhashchange() {
 	// open selected example
 	var hash = window.location.hash
 	if (hash.startsWith("#example-")) {
 		document.querySelector(hash).parentElement.setAttribute("open", "")
 	}
 }
-window.onhashchanged = onhashchanged
-onhashchanged()
+window.addEventListener("hashchange", onhashchange)
+onhashchange()
