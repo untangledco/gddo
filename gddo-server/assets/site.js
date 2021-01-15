@@ -227,6 +227,9 @@ document.onkeydown = function(e) {
 			shortcuts.show()
 		}
 		return false
+	case "G":
+		window.scrollTo(0, document.body.scrollHeight)
+		return false
 	case "f":
 		if (jump != null) {
 			jump.show()
