@@ -119,15 +119,6 @@ a, .navbar-default .navbar-brand, .link {
 
 }
 
-.panel-default > .panel-collapse {
-    max-height: 0px;
-    overflow: hidden;
-}
-
-.panel-default[open] > .panel-collapse {
-    max-height: 1000px;
-}
-
 a.permalink {
     display: none;
 }
