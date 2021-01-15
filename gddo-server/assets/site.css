@@ -1,7 +1,5 @@
 html {
     background-color: whitesmoke;
-    /* for smooth scrolling transitions without extra JS */
-    scroll-behavior: smooth;
 }
 body { background-color: white; }
 h4 { margin-top: 20px; }
@@ -122,7 +120,6 @@ a, .navbar-default .navbar-brand, .link {
 }
 
 .panel-default > .panel-collapse {
-    transition: max-height 1s ease-in;
     max-height: 0px;
     overflow: hidden;
 }
@@ -196,17 +193,6 @@ summary:hover .permalink {
 
 .navbar-collapse {
     display: none;
-    animation: slide-in 1s linear;
-}
-
-@keyframes slide-in {
-    from {
-        max-height: 0;
-        overflow: hidden;
-    }
-    to {
-        max-height: 1000px;
-    }
 }
 
 @media (min-width: 768px) {
