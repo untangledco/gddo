@@ -209,7 +209,7 @@ document.onkeydown = function(e) {
 			}
 		case "ge":
 			var pkgExamples = document.querySelector("#pkg-examples")
-			if (pkgExamples != null) {
+			if (pkgExamples != null && pkgExamples.children.length > 0) {
 				pkgExamples.scrollIntoView()
 				return false
 			}
