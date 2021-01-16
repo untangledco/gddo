@@ -7,7 +7,7 @@ CREATE TABLE packages (
 	synopsis varchar,
 	fork bool NOT NULL,
 	stars int,
-	score int,
+	score float,
 	searchtext tsvector GENERATED ALWAYS AS (
 		to_tsvector('english', coalesce(synopsis, '')) ||
 		to_tsvector('english', "name") ||
