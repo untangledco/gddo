@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"regexp"
 	"runtime/debug"
 	"sort"
 	"strconv"
@@ -143,25 +142,6 @@ func templateExt(req *http.Request) string {
 	return ".html"
 }
 
-var robotPat = regexp.MustCompile(`(:?\+https?://)|(?:\Wbot\W)|(?:^Python-urllib)|(?:^Go )|(?:^Java/)`)
-
-func (s *server) isRobot(req *http.Request) bool {
-	if robotPat.MatchString(req.Header.Get("User-Agent")) {
-		return true
-	}
-	host := httputil.StripPort(req.RemoteAddr)
-	n, err := s.db.IncrementCounter(host, 1)
-	if err != nil {
-		log.Printf("error incrementing counter for %s, %v", host, err)
-		return false
-	}
-	if n > s.v.GetFloat64(ConfigRobotThreshold) {
-		log.Printf("robot %.2f %s %s", n, host, req.Header.Get("User-Agent"))
-		return true
-	}
-	return false
-}
-
 func popularLinkReferral(req *http.Request) bool {
 	return strings.HasSuffix(req.Header.Get("Referer"), "//"+req.Host+"/")
 }
@@ -227,9 +207,6 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	requestType := humanRequest
-	if s.isRobot(req) {
-		requestType = robotRequest
-	}
 
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
 	pdoc, pkgs, err := s.getDoc(req.Context(), importPath, requestType)
@@ -303,19 +280,12 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return err
 		}
 		template := "importers.html"
-		if requestType == robotRequest {
-			// Hide back links from robots.
-			template = "importers_robot.html"
-		}
 		return s.templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
 			"pdoc":          newTDoc(s.v, pdoc),
 		})
 	case isView(req, "import-graph"):
-		if requestType == robotRequest {
-			return &httpError{status: http.StatusForbidden}
-		}
 		if pdoc.Name == "" {
 			return &httpError{status: http.StatusNotFound}
 		}
