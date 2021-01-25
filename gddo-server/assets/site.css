@@ -191,3 +191,7 @@ summary:hover .permalink {
         display: block;
     }
 }
+
+.jumbotron {
+    margin-bottom: 2rem;
+}

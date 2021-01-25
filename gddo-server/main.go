@@ -508,13 +508,7 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
-		pkgs, err := s.popular()
-		if err != nil {
-			return err
-		}
-
-		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil,
-			map[string]interface{}{"Popular": pkgs})
+		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil, nil)
 	}
 
 	if path, ok := isBrowseURL(q); ok {
