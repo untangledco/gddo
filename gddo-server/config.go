@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-
-	"github.com/golang/gddo/log"
 )
 
 const (
@@ -87,7 +86,12 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 		return nil, err
 	}
 
-	log.Debug(ctx, "config values loaded", "values", v.AllSettings())
+	log.Println("configuration values:")
+	settings := v.AllSettings()
+	for k, v := range settings {
+		log.Printf("  %s = %v\n", k, v)
+	}
+
 	return v, nil
 }
 
@@ -141,9 +145,9 @@ func readViperConfig(ctx context.Context, v *viper.Viper) error {
 		if v.GetString("config") != "" {
 			return fmt.Errorf("load config: %v", err)
 		}
-		log.Warn(ctx, "failed to load configuration file", "error", err)
+		log.Println("failed to load configuration file:", err)
 		return nil
 	}
-	log.Info(ctx, "loaded configuration file successfully", "path", v.ConfigFileUsed())
+	log.Println("succesfully loaded configuration from", v.ConfigFileUsed())
 	return nil
 }
