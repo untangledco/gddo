@@ -103,7 +103,7 @@ func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HT
 		}
 		return ""
 	}
-	return htemp.HTML(fmt.Sprintf(`<a title="View Source" href="%s">%s</a>`,
+	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
 		htemp.HTMLEscapeString(fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)),
 		htemp.HTMLEscapeString(text)))
 }
