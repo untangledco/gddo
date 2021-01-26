@@ -324,26 +324,6 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 		http.Redirect(resp, req, u, http.StatusMovedPermanently)
 		return nil
-	case req.Form.Get("view") != "":
-		// Redirect deprecated view= queries.
-		var q string
-		switch view := req.Form.Get("view"); view {
-		case "imports", "importers":
-			q = view
-		case "import-graph":
-			if req.Form.Get("hide") == "1" {
-				q = "import-graph&hide=1"
-			} else {
-				q = "import-graph"
-			}
-		}
-		if q != "" {
-			u := *req.URL
-			u.RawQuery = q
-			http.Redirect(resp, req, u.String(), http.StatusMovedPermanently)
-			return nil
-		}
-		return &httpError{status: http.StatusNotFound}
 	default:
 		importerCount := 0
 		if pdoc.Name != "" {
