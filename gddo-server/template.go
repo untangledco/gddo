@@ -484,7 +484,6 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		{"dir.html", "common.html", "layout.html"},
 		{"home.html", "common.html", "layout.html"},
 		{"importers.html", "common.html", "layout.html"},
-		{"importers_robot.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"pkg.html", "common.html", "layout.html"},
