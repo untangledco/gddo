@@ -52,11 +52,7 @@ func (s *server) crawlDoc(ctx context.Context, source string, importPath string,
 
 	start := time.Now()
 	var err error
-	if strings.HasPrefix(importPath, "code.google.com/p/go.") {
-		// Old import path for Go sub-repository.
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "old Go sub-repo", Redirect: "golang.org/x/" + importPath[len("code.google.com/p/go."):]}
-	} else if blocked, e := s.db.IsBlocked(importPath); blocked && e == nil {
+	if blocked, e := s.db.IsBlocked(importPath); blocked && e == nil {
 		pdoc = nil
 		err = gosrc.NotFoundError{Message: "blocked."}
 	} else if testdataPat.MatchString(importPath) {
