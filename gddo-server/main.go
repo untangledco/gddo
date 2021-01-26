@@ -491,10 +491,6 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil, nil)
 	}
 
-	if path, ok := isBrowseURL(q); ok {
-		q = path
-	}
-
 	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
 		pdoc, pkgs, err := s.getDoc(req.Context(), q, queryRequest)
 		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
