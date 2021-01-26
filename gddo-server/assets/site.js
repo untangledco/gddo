@@ -1,9 +1,5 @@
 // modal
 function Modal(el) {
-	if (el == null) {
-		return null
-	}
-
 	this.el = el
 	el.querySelector(".close").onclick = () => this.hide()
 	el.onclick = () => this.hide()
@@ -28,10 +24,6 @@ Modal.prototype.hide = function() {
 
 // jump modal
 function JumpModal(el) {
-	if (el == null) {
-		return null
-	}
-
 	this.all = []
 	this.visible = []
 	this.active = -1
@@ -177,7 +169,11 @@ navToggle.onclick = function() {
 // keyboard shortcuts
 var search = document.querySelector("#x-search-query")
 var shortcuts = new Modal(document.querySelector("#x-shortcuts"))
-var jump = new JumpModal(document.querySelector("#x-jump"))
+var jump = null
+var _jump = document.querySelector("#x-jump")
+if (_jump != null) {
+	jump = new JumpModal(_jump)
+}
 var prevCh = null
 var prevTime = 0
 
