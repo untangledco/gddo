@@ -107,7 +107,7 @@ type Project struct {
 	Description string
 }
 
-// NotFoundError indicates that the directory or presentation was not found.
+// NotFoundError indicates that the directory was not found.
 type NotFoundError struct {
 	// Diagnostic message describing why the directory was not found.
 	Message string
@@ -155,11 +155,10 @@ var errNoMatch = errors.New("no match")
 
 // service represents a source code control service.
 type service struct {
-	pattern         *regexp.Regexp
-	prefix          string
-	get             func(context.Context, *http.Client, map[string]string, string) (*Directory, error)
-	getPresentation func(context.Context, *http.Client, map[string]string) (*Presentation, error)
-	getProject      func(context.Context, *http.Client, map[string]string) (*Project, error)
+	pattern    *regexp.Regexp
+	prefix     string
+	get        func(context.Context, *http.Client, map[string]string, string) (*Directory, error)
+	getProject func(context.Context, *http.Client, map[string]string) (*Project, error)
 }
 
 var services []*service
@@ -497,31 +496,6 @@ func Get(ctx context.Context, client *http.Client, importPath string, etag strin
 	}
 
 	return dir, err
-}
-
-// GetPresentation gets a presentation from the the given path.
-func GetPresentation(ctx context.Context, client *http.Client, importPath string) (*Presentation, error) {
-	ext := path.Ext(importPath)
-	if ext != ".slide" && ext != ".article" {
-		return nil, NotFoundError{Message: "unknown file extension."}
-	}
-
-	importPath, file := path.Split(importPath)
-	importPath = strings.TrimSuffix(importPath, "/")
-	for _, s := range services {
-		if s.getPresentation == nil {
-			continue
-		}
-		match, err := s.match(importPath)
-		if err != nil {
-			return nil, err
-		}
-		if match != nil {
-			match["file"] = file
-			return s.getPresentation(ctx, client, match)
-		}
-	}
-	return nil, NotFoundError{Message: "path does not match registered service"}
 }
 
 // GetProject gets information about a repository.

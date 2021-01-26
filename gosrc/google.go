@@ -17,10 +17,9 @@ import (
 
 func init() {
 	addService(&service{
-		pattern:         regexp.MustCompile(`^code\.google\.com/(?P<pr>[pr])/(?P<repo>[a-z0-9\-]+)(:?\.(?P<subrepo>[a-z0-9\-]+))?(?P<dir>/[a-z0-9A-Z_.\-/]+)?$`),
-		prefix:          "code.google.com/",
-		get:             getGoogleDir,
-		getPresentation: getGooglePresentation,
+		pattern: regexp.MustCompile(`^code\.google\.com/(?P<pr>[pr])/(?P<repo>[a-z0-9\-]+)(:?\.(?P<subrepo>[a-z0-9\-]+))?(?P<dir>/[a-z0-9A-Z_.\-/]+)?$`),
+		prefix:  "code.google.com/",
+		get:     getGoogleDir,
 	})
 }
 
@@ -141,51 +140,4 @@ func getGoogleVCS(ctx context.Context, c *httpClient, match map[string]string) e
 	}
 	match["vcs"] = string(m[1])
 	return nil
-}
-
-func getGooglePresentation(ctx context.Context, client *http.Client, match map[string]string) (*Presentation, error) {
-	c := &httpClient{client: client}
-
-	setupGoogleMatch(match)
-	if err := getGoogleVCS(ctx, c, match); err != nil {
-		return nil, err
-	}
-
-	rawBase, err := url.Parse(expand("http://{subrepo}{dot}{repo}.googlecode.com/{vcs}{dir}/", match))
-	if err != nil {
-		return nil, err
-	}
-
-	p, err := c.getBytes(ctx, expand("http://{subrepo}{dot}{repo}.googlecode.com/{vcs}{dir}/{file}", match))
-	if err != nil {
-		return nil, err
-	}
-
-	b := &presBuilder{
-		data:     p,
-		filename: match["file"],
-		fetch: func(fnames []string) ([]*File, error) {
-			var files []*File
-			var dataURLs []string
-			for _, fname := range fnames {
-				u, err := rawBase.Parse(fname)
-				if err != nil {
-					return nil, err
-				}
-				files = append(files, &File{Name: fname})
-				dataURLs = append(dataURLs, u.String())
-			}
-			err := c.getFiles(ctx, dataURLs, files)
-			return files, err
-		},
-		resolveURL: func(fname string) string {
-			u, err := rawBase.Parse(fname)
-			if err != nil {
-				return "/notfound"
-			}
-			return u.String()
-		},
-	}
-
-	return b.build()
 }

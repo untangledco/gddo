@@ -25,9 +25,8 @@ import (
 )
 
 var (
-	etag    = flag.String("etag", "", "Etag")
-	local   = flag.String("local", "", "Get package from local workspace.")
-	present = flag.Bool("present", false, "Get presentation.")
+	etag  = flag.String("etag", "", "Etag")
+	local = flag.String("local", "", "Get package from local workspace.")
 )
 
 func main() {
@@ -35,11 +34,7 @@ func main() {
 	if len(flag.Args()) != 1 {
 		log.Fatal("Usage: go run print.go importPath")
 	}
-	if *present {
-		printPresentation(flag.Args()[0])
-	} else {
-		printDir(flag.Args()[0])
-	}
+	printDir(flag.Args()[0])
 }
 
 func printDir(path string) {
@@ -75,18 +70,5 @@ func printDir(path string) {
 	fmt.Println("Files:")
 	for _, file := range dir.Files {
 		fmt.Printf("%30s %5d %s\n", file.Name, len(file.Data), file.BrowseURL)
-	}
-}
-
-func printPresentation(path string) {
-	pres, err := gosrc.GetPresentation(context.Background(), http.DefaultClient, path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%s\n", pres.Files[pres.Filename])
-	for name, data := range pres.Files {
-		if name != pres.Filename {
-			fmt.Printf("---------- %s ----------\n%s\n", name, data)
-		}
 	}
 }

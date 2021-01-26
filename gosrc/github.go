@@ -19,11 +19,10 @@ import (
 
 func init() {
 	addService(&service{
-		pattern:         regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/.*)?$`),
-		prefix:          "github.com/",
-		get:             getGitHubDir,
-		getPresentation: getGitHubPresentation,
-		getProject:      getGitHubProject,
+		pattern:    regexp.MustCompile(`^github\.com/(?P<owner>[a-z0-9A-Z_.\-]+)/(?P<repo>[a-z0-9A-Z_.\-]+)(?P<dir>/.*)?$`),
+		prefix:     "github.com/",
+		get:        getGitHubDir,
+		getProject: getGitHubProject,
 	})
 
 	addService(&service{
@@ -189,66 +188,6 @@ func isQuickFork(commits []*githubCommit, createdAt time.Time) bool {
 		n++
 	}
 	return n < 3
-}
-
-func getGitHubPresentation(ctx context.Context, client *http.Client, match map[string]string) (*Presentation, error) {
-	c := &httpClient{client: client, header: gitHubRawHeader}
-
-	var repo struct {
-		DefaultBranch string `json:"default_branch"`
-	}
-	if _, err := c.getJSON(ctx, expand("https://api.github.com/repos/{owner}/{repo}", match), &repo); err != nil {
-		return nil, err
-	}
-	branch := repo.DefaultBranch
-
-	p, err := c.getBytes(ctx, expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/{file}", match))
-	if err != nil {
-		return nil, err
-	}
-
-	apiBase, err := url.Parse(expand("https://api.github.com/repos/{owner}/{repo}/contents{dir}/", match))
-	if err != nil {
-		return nil, err
-	}
-	rawBase, err := url.Parse(expand("https://raw.githubusercontent.com/{owner}/{repo}/{0}{dir}/", match, branch))
-	if err != nil {
-		return nil, err
-	}
-
-	c.header = gitHubRawHeader
-
-	b := &presBuilder{
-		data:     p,
-		filename: match["file"],
-		fetch: func(fnames []string) ([]*File, error) {
-			var files []*File
-			var dataURLs []string
-			for _, fname := range fnames {
-				u, err := apiBase.Parse(fname)
-				if err != nil {
-					return nil, err
-				}
-				u.RawQuery = apiBase.RawQuery
-				files = append(files, &File{Name: fname})
-				dataURLs = append(dataURLs, u.String())
-			}
-			err := c.getFiles(ctx, dataURLs, files)
-			return files, err
-		},
-		resolveURL: func(fname string) string {
-			u, err := rawBase.Parse(fname)
-			if err != nil {
-				return "/notfound"
-			}
-			if strings.HasSuffix(fname, ".svg") {
-				u.Host = "rawgithub.com"
-			}
-			return u.String()
-		},
-	}
-
-	return b.build()
 }
 
 // GetGitHubUpdates returns the full names ("owner/repo") of recently pushed GitHub repositories.
