@@ -21,7 +21,6 @@ import (
 	"os"
 	"path"
 	"runtime/debug"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -339,17 +338,6 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			status = http.StatusNotModified
 		}
 
-		if requestType == humanRequest &&
-			pdoc.Name != "" && // not a directory
-			pdoc.ProjectRoot != "" && // not a standard package
-			!pdoc.IsCmd &&
-			len(pdoc.Errors) == 0 &&
-			!popularLinkReferral(req) {
-			if err := s.db.IncrementPopularScore(pdoc.ImportPath); err != nil {
-				log.Printf("ERROR db.IncrementPopularScore(%s): %v", pdoc.ImportPath, err)
-			}
-		}
-
 		template := "dir"
 		switch {
 		case pdoc.IsCmd:
@@ -413,72 +401,6 @@ func (s *server) serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request
 	return s.templates.execute(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
-}
-
-type byPath struct {
-	pkgs []database.Package
-	rank []int
-}
-
-func (bp *byPath) Len() int           { return len(bp.pkgs) }
-func (bp *byPath) Less(i, j int) bool { return bp.pkgs[i].Path < bp.pkgs[j].Path }
-func (bp *byPath) Swap(i, j int) {
-	bp.pkgs[i], bp.pkgs[j] = bp.pkgs[j], bp.pkgs[i]
-	bp.rank[i], bp.rank[j] = bp.rank[j], bp.rank[i]
-}
-
-type byRank struct {
-	pkgs []database.Package
-	rank []int
-}
-
-func (br *byRank) Len() int           { return len(br.pkgs) }
-func (br *byRank) Less(i, j int) bool { return br.rank[i] < br.rank[j] }
-func (br *byRank) Swap(i, j int) {
-	br.pkgs[i], br.pkgs[j] = br.pkgs[j], br.pkgs[i]
-	br.rank[i], br.rank[j] = br.rank[j], br.rank[i]
-}
-
-func (s *server) popular() ([]database.Package, error) {
-	const n = 25
-
-	pkgs, err := s.db.Popular(2 * n)
-	if err != nil {
-		return nil, err
-	}
-
-	rank := make([]int, len(pkgs))
-	for i := range pkgs {
-		rank[i] = i
-	}
-
-	sort.Sort(&byPath{pkgs, rank})
-
-	j := 0
-	prev := "."
-	for i, pkg := range pkgs {
-		if strings.HasPrefix(pkg.Path, prev) {
-			if rank[j-1] < rank[i] {
-				rank[j-1] = rank[i]
-			}
-			continue
-		}
-		prev = pkg.Path + "/"
-		pkgs[j] = pkg
-		rank[j] = rank[i]
-		j++
-	}
-	pkgs = pkgs[:j]
-
-	sort.Sort(&byRank{pkgs, rank})
-
-	if len(pkgs) > n {
-		pkgs = pkgs[:n]
-	}
-
-	sort.Sort(&byPath{pkgs, rank})
-
-	return pkgs, nil
 }
 
 func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {

@@ -20,8 +20,6 @@
 // index:import:<path> set: packages with import path
 // index:project:<root> set: packages in project with root
 // block set: packages to block
-// popular zset: package id, score
-// popular:0 string: scaled base time for popular scores
 // nextCrawl zset: package id, Unix time for next crawl
 // newCrawl set: new paths to crawl
 // badCrawl set: paths that returned error when crawling.
@@ -46,9 +44,9 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/garyburd/redigo/redis"
 	"github.com/golang/snappy"
+	_ "github.com/lib/pq"
 
 	"github.com/golang/gddo/doc"
 	"github.com/golang/gddo/gosrc"
@@ -607,7 +605,6 @@ var deleteScript = redis.NewScript(0, `
 
     redis.call('ZREM', 'nextCrawl', id)
     redis.call('SREM', 'newCrawl', path)
-    redis.call('ZREM', 'popular', id)
     redis.call('DEL', 'pkg:' .. id)
     return redis.call('HDEL', 'ids', path)
 `)
@@ -1072,89 +1069,6 @@ func (db *Database) GetGob(key string, value interface{}) error {
 	return gob.NewDecoder(bytes.NewReader(p)).Decode(value)
 }
 
-var incrementPopularScoreScript = redis.NewScript(0, `
-    local path = ARGV[1]
-    local n = ARGV[2]
-    local t = ARGV[3]
-
-    local id = redis.call('HGET', 'ids', path)
-    if not id then
-        return
-    end
-
-    local t0 = redis.call('GET', 'popular:0') or '0'
-    local f = math.exp(tonumber(t) - tonumber(t0))
-    redis.call('ZINCRBY', 'popular', tonumber(n) * f, id)
-    if f > 10 then
-        redis.call('SET', 'popular:0', t)
-        redis.call('ZUNIONSTORE', 'popular', 1, 'popular', 'WEIGHTS', 1.0 / f)
-        redis.call('ZREMRANGEBYSCORE', 'popular', '-inf', 0.05)
-    end
-`)
-
-const popularHalfLife = time.Hour * 24 * 7
-
-func (db *Database) incrementPopularScoreInternal(path string, delta float64, t time.Time) error {
-	// nt = n0 * math.Exp(-lambda * t)
-	// lambda = math.Ln2 / thalf
-	c := db.Pool.Get()
-	defer c.Close()
-	const lambda = math.Ln2 / float64(popularHalfLife)
-	scaledTime := lambda * float64(t.Sub(time.Unix(1257894000, 0)))
-	_, err := incrementPopularScoreScript.Do(c, path, delta, scaledTime)
-	return err
-}
-
-func (db *Database) IncrementPopularScore(path string) error {
-	return db.incrementPopularScoreInternal(path, 1, time.Now())
-}
-
-var popularScript = redis.NewScript(0, `
-    local stop = ARGV[1]
-    local ids = redis.call('ZREVRANGE', 'popular', '0', stop)
-    local result = {}
-    for i=1,#ids do
-        local values = redis.call('HMGET', 'pkg:' .. ids[i], 'path', 'synopsis', 'kind')
-        result[#result+1] = values[1]
-        result[#result+1] = values[2]
-        result[#result+1] = values[3]
-    end
-    return result
-`)
-
-func (db *Database) Popular(count int) ([]Package, error) {
-	c := db.Pool.Get()
-	defer c.Close()
-	reply, err := popularScript.Do(c, count-1)
-	if err != nil {
-		return nil, err
-	}
-	pkgs, err := packages(reply, false)
-	return pkgs, err
-}
-
-var popularWithScoreScript = redis.NewScript(0, `
-    local ids = redis.call('ZREVRANGE', 'popular', '0', -1, 'WITHSCORES')
-    local result = {}
-    for i=1,#ids,2 do
-        result[#result+1] = redis.call('HGET', 'pkg:' .. ids[i], 'path')
-        result[#result+1] = ids[i+1]
-        result[#result+1] = 'p'
-    end
-    return result
-`)
-
-func (db *Database) PopularWithScores() ([]Package, error) {
-	c := db.Pool.Get()
-	defer c.Close()
-	reply, err := popularWithScoreScript.Do(c)
-	if err != nil {
-		return nil, err
-	}
-	pkgs, err := packages(reply, false)
-	return pkgs, err
-}
-
 func (db *Database) PopNewCrawl() (string, bool, error) {
 	c := db.Pool.Get()
 	defer c.Close()
@@ -1266,7 +1180,7 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 				&pkg.Synopsis, &pkg.Fork, &pkg.Stars, &pkg.Score); err != nil {
 				return err
 			}
-			packages = append(packages, pkg);
+			packages = append(packages, pkg)
 		}
 
 		return rows.Err()

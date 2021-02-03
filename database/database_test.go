@@ -96,12 +96,6 @@ func TestPutGet(t *testing.T) {
 		t.Errorf("actualCrawl=%v, expect value between %v and %v", actualCrawl.Unix(), before, after)
 	}
 
-	// Popular
-
-	if err := db.IncrementPopularScore(pdoc.ImportPath); err != nil {
-		t.Errorf("db.IncrementPopularScore() returned %v", err)
-	}
-
 	// Get "-"
 
 	actualPdoc, _, _, err = db.Get(ctx, "-")
@@ -181,7 +175,6 @@ func TestPutGet(t *testing.T) {
 	c.Send("DEL", "maxQueryId")
 	c.Send("DEL", "maxPackageId")
 	c.Send("DEL", "block")
-	c.Send("DEL", "popular:0")
 	c.Send("DEL", "newCrawl")
 	keys, err := redis.Values(c.Do("HKEYS", "ids"))
 	for _, key := range keys {
