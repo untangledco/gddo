@@ -24,7 +24,6 @@ const (
 	ConfigTrustProxyHeaders = "trust_proxy_headers"
 	ConfigBindAddress       = "http"
 	ConfigAssetsDir         = "assets"
-	ConfigRobotThreshold    = "robot"
 
 	// Database Config
 	ConfigDBServer      = "db-server"
@@ -99,7 +98,6 @@ func buildFlags() *pflag.FlagSet {
 	flags := pflag.NewFlagSet("default", pflag.ContinueOnError)
 
 	flags.StringP("config", "c", "", "path to motd config file")
-	flags.Float64(ConfigRobotThreshold, 100, "Request counter threshold for robots.")
 	flags.String(ConfigAssetsDir, filepath.Join(defaultBase("github.com/golang/gddo/gddo-server"), "assets"), "Base directory for templates and static files.")
 	flags.Duration(ConfigGetTimeout, 8*time.Second, "Time to wait for package update from the VCS.")
 	flags.Duration(ConfigFirstGetTimeout, 5*time.Second, "Time to wait for first fetch of package from the VCS.")
