@@ -57,6 +57,14 @@
           {{range .Vars}}<div class="decl" data-kind="v">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
         {{end}}
 
+        <!-- Functions -->
+        {{range .Funcs}}
+          <h3 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+          <div class="funcdecl decl">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
+          {{template "Examples" .|$.pdoc.ObjExamples}}
+        {{end}}
+
+        <!-- Types -->
         {{range $t := .Types}}
           <h3 id="{{.Name}}" data-kind="t">type {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
           <div class="decl" data-kind="{{if isInterface $t}}m{{else}}d{{end}}">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl $t}}</div>{{.Doc|comment}}
