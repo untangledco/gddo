@@ -505,7 +505,6 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		"map":               mapFn,
 		"noteTitle":         noteTitleFn,
 		"relativePath":      relativePathFn,
-		"sidebarEnabled":    func() bool { return v.GetBool(ConfigSidebar) },
 		"staticPath":        func(p string) string { return cb.AppendQueryParam(p, "v") },
 		"humanize":          func(t time.Time) string { return humanize.Time(t) },
 	}

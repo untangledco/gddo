@@ -166,9 +166,6 @@ func (s *server) httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCo
 		b = append(b, 0)
 		b = append(b, pkg.Synopsis...)
 	}
-	if s.v.GetBool(ConfigSidebar) {
-		b = append(b, "\000xsb"...)
-	}
 	for _, m := range flashMessages {
 		b = append(b, 0)
 		b = append(b, m.ID...)
@@ -624,9 +621,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/-/site.js", staticServer.FilesHandler("site.js"))
 	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
 	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
-	if s.v.GetBool(ConfigSidebar) {
-		mux.Handle("/-/sidebar.css", staticServer.FilesHandler("sidebar.css"))
-	}
 	mux.Handle("/-/", http.NotFoundHandler())
 
 	handler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {

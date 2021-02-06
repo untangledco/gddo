@@ -1,54 +1,10 @@
 {{define "Head"}}
   {{template "PkgCmdHeader" $}}
-  {{if sidebarEnabled}}
-    <link href="{{staticPath "/-/sidebar.css"}}" rel="stylesheet">
-  {{end}}
 {{end}}
 
 {{define "Body"}}
   {{with .pdoc}}
-
-{{if sidebarEnabled}}
-    <div class="row">
-
-      <!-- Sidebar -->
-      <div class="gddo-sidebar col-md-3 hidden-xs hidden-sm">
-        <ul id="sidebar-nav" class="nav" data-spy="affix" data-offset-top="70">
-          <li class="active"><a href="#pkg-overview">Overview</a></li>
-          <li><a href="#pkg-index">Index</a></li>
-          {{if .Examples}}<li><a href="#pkg-examples">Examples</a></li>{{end}}
-          {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
-          {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
-
-          {{if .Funcs}}
-            <li>
-              <a href="#pkg-functions">Functions</a>
-              <ul class="nav">
-                {{range .Funcs}}<li><a href="#{{.Name}}">{{.Name}}</a></li>{{end}}
-              </ul>
-            </li>
-          {{end}}
-
-          {{if .Types}}
-            <li>
-              <a href="#pkg-types">Types</a>
-              <ul class="nav">
-                {{range .Types}}<li><a href="#{{.Name}}">{{.Name}}</a></li>{{end}}
-              </ul>
-            </li>
-          {{end}}
-
-          {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
-          {{if $.pkgs}}<li><a href="#pkg-subdirectories">Directories</a></li>{{end}}
-        </ul>
-      </div>
-
-      <!-- Content -->
-      <div class="col-md-9">
-
-{{end}}<!-- end sidebarEnabled -->
-
-        {{template "ProjectNav" $}}
+    {{template "ProjectNav" $}}
 
         <h2 id="pkg-overview">package {{.Name}}</h2>
 
@@ -101,21 +57,6 @@
           {{range .Vars}}<div class="decl" data-kind="v">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
         {{end}}
 
-        <!-- Functions -->
-        {{if sidebarEnabled}}{{if .Funcs}}
-            <h3 id="pkg-functions" class="section-header">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
-        {{end}}{{end}}
-        {{range .Funcs}}
-          <h3 id="{{.Name}}" data-kind="f">func {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-          <div class="funcdecl decl">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
-          {{template "Examples" .|$.pdoc.ObjExamples}}
-        {{end}}
-
-        <!-- Types -->
-        {{if sidebarEnabled}}{{if .Types}}
-            <h3 id="pkg-types" class="section-header">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
-        {{end}}{{end}}
-
         {{range $t := .Types}}
           <h3 id="{{.Name}}" data-kind="t">type {{$.pdoc.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
           <div class="decl" data-kind="{{if isInterface $t}}m{{else}}d{{end}}">{{$.pdoc.SourceLink .Pos "\u2756" false}}{{code .Decl $t}}</div>{{.Doc|comment}}
@@ -151,12 +92,6 @@
           </div>
         </div>
       </div>
-
-{{if sidebarEnabled}}
-      </div>
-    </div>
-{{end}}
-
   {{end}}
 {{end}}
 

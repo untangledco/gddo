@@ -32,7 +32,6 @@ const (
 	ConfigPGServer      = "pg-server"
 
 	// Display Config
-	ConfigSidebar     = "sidebar"
 	ConfigDefaultGOOS = "default_goos"
 
 	// Crawl Config
@@ -103,7 +102,6 @@ func buildFlags() *pflag.FlagSet {
 	flags.Duration(ConfigFirstGetTimeout, 5*time.Second, "Time to wait for first fetch of package from the VCS.")
 	flags.Duration(ConfigMaxAge, 24*time.Hour, "Update package documents older than this age.")
 	flags.String(ConfigBindAddress, ":8080", "Listen for HTTP connections on this address.")
-	flags.Bool(ConfigSidebar, false, "Enable package page sidebar.")
 	flags.String(ConfigDefaultGOOS, "", "Default GOOS to use when building package documents.")
 	flags.Bool(ConfigTrustProxyHeaders, false, "If enabled, identify the remote address of the request using X-Real-Ip in header.")
 	flags.Duration(ConfigGithubInterval, 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler.")
