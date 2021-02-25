@@ -37,7 +37,6 @@ var commands = []*command{
 	blockCommand,
 	reindexCommand,
 	deleteCommand,
-	popularCommand,
 	dangleCommand,
 	crawlCommand,
 	statsCommand,
