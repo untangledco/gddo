@@ -43,20 +43,6 @@ func (s *server) serveAPISearch(resp http.ResponseWriter, req *http.Request) err
 	return json.NewEncoder(resp).Encode(&data)
 }
 
-func (s *server) serveAPIPackages(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.db.AllPackages()
-	if err != nil {
-		return err
-	}
-	data := struct {
-		Results []database.Package `json:"results"`
-	}{
-		pkgs,
-	}
-	resp.Header().Set("Content-Type", jsonMIMEType)
-	return json.NewEncoder(resp).Encode(&data)
-}
-
 func (s *server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	importPath := strings.TrimPrefix(req.URL.Path, "/importers/")
 	pkgs, err := s.db.Importers(importPath)
