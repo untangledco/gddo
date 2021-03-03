@@ -19,7 +19,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -181,15 +180,6 @@ func (s *server) httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCo
 }
 
 func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error {
-	p := path.Clean(req.URL.Path)
-	if strings.HasPrefix(p, "/pkg/") {
-		p = p[len("/pkg"):]
-	}
-	if p != req.URL.Path {
-		http.Redirect(resp, req, p, http.StatusMovedPermanently)
-		return nil
-	}
-
 	if isView(req, "status.svg") {
 		s.statusSVG.ServeHTTP(resp, req)
 		return nil
