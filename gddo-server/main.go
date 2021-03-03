@@ -304,7 +304,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			"hide":          hide,
 		})
 	case isView(req, "play"):
-		u, err := s.playURL(pdoc, req.Form.Get("play"), req.Header.Get("X-AppEngine-Country"))
+		u, err := s.playURL(pdoc, req.Form.Get("play"))
 		if err != nil {
 			return err
 		}
