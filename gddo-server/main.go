@@ -13,32 +13,30 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
-	"go/build"
 	"html/template"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 
-	"github.com/golang/gddo/database"
-	"github.com/golang/gddo/doc"
-	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
+	"github.com/golang/gddo/internal/database"
+	"github.com/golang/gddo/internal/doc"
 	"github.com/golang/gddo/internal/health"
+	"github.com/golang/gddo/internal/proxy"
+	"github.com/golang/gddo/internal/stdlib"
 )
 
 const (
 	textMIMEType = "text/plain; charset=utf-8"
 	htmlMIMEType = "text/html; charset=utf-8"
 )
-
-var errUpdateTimeout = errors.New("refresh timeout")
 
 type httpError struct {
 	status int   // HTTP status code.
@@ -52,82 +50,67 @@ func (err *httpError) Error() string {
 	return fmt.Sprintf("Status %d", err.status)
 }
 
-const (
-	humanRequest = iota
-	robotRequest
-	queryRequest
-	refreshRequest
-	apiRequest
-)
-
-type crawlResult struct {
-	pdoc *doc.Package
-	err  error
-}
-
-// getDoc gets the package documentation from the database or from the version
-// control system as needed.
-func (s *server) getDoc(ctx context.Context, path string, requestType int) (*doc.Package, []database.Package, error) {
-	if path == "-" {
-		// A hack in the database package uses the path "-" to represent the
-		// next document to crawl. Block "-" here so that requests to /- always
-		// return not found.
-		return nil, nil, &httpError{status: http.StatusNotFound}
+// GetDoc gets the package documentation from the database or from the module
+// proxy as needed.
+func (s *server) GetDoc(ctx context.Context, importPath string) (*database.Module, *database.Package, *doc.Package, error) {
+	type result struct {
+		mod *database.Module
+		pkg *database.Package
+		doc *doc.Package
+		err error
 	}
 
-	pdoc, pkgs, nextCrawl, err := s.db.Get(ctx, path)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	needsCrawl := false
-	switch requestType {
-	case queryRequest, apiRequest:
-		needsCrawl = nextCrawl.IsZero() && len(pkgs) == 0
-	case humanRequest:
-		needsCrawl = nextCrawl.Before(time.Now())
-	case robotRequest:
-		needsCrawl = nextCrawl.IsZero() && len(pkgs) > 0
-	}
-
-	if !needsCrawl {
-		return pdoc, pkgs, nil
-	}
-
-	c := make(chan crawlResult, 1)
+	ch := make(chan result, 1)
 	go func() {
-		pdoc, err := s.crawlDoc(ctx, "web  ", path, pdoc, len(pkgs) > 0, nextCrawl)
-		c <- crawlResult{pdoc, err}
+		ctx := context.Background()
+		pkg, ok, err := s.db.GetPackage(ctx, importPath, "latest")
+		if err != nil {
+			ch <- result{nil, nil, nil, err}
+			return
+		}
+		var mod database.Module
+		if !ok {
+			var err error
+			mod, err = s.crawl(ctx, importPath)
+			if err != nil {
+				ch <- result{nil, nil, nil, err}
+				return
+			}
+			pkg, ok, err = s.db.GetPackage(ctx, importPath, "latest")
+			if err != nil {
+				ch <- result{nil, nil, nil, err}
+				return
+			}
+		} else {
+			var err error
+			mod, _, err = s.db.GetModule(ctx, pkg.ModulePath)
+			if err != nil {
+				ch <- result{nil, nil, nil, err}
+				return
+			}
+		}
+		// TODO: Allow the user to configure the GOOS and GOARCH
+		pdoc, ok, err := s.db.GetDoc(ctx, importPath, pkg.Version, "linux", "amd64")
+		if err == nil && !ok {
+			err = proxy.ErrNotFound
+		}
+		ch <- result{&mod, &pkg, pdoc, err}
+		return
 	}()
 
-	timeout := s.v.GetDuration(ConfigGetTimeout)
-	if pdoc == nil {
-		timeout = s.v.GetDuration(ConfigFirstGetTimeout)
-	}
+	timeout := s.v.GetDuration(ConfigFirstGetTimeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	select {
-	case cr := <-c:
-		err = cr.err
-		if err == nil {
-			pdoc = cr.pdoc
+	case r := <-ch:
+		if r.err != nil {
+			log.Printf("Error getting doc for %q: %v", importPath, r.err)
 		}
-	case <-time.After(timeout):
-		err = errUpdateTimeout
-	}
-
-	switch {
-	case err == nil:
-		return pdoc, pkgs, nil
-	case gosrc.IsNotFound(err):
-		return nil, nil, err
-	case pdoc != nil:
-		log.Printf("Serving %q from database after error getting doc: %v", path, err)
-		return pdoc, pkgs, nil
-	case err == errUpdateTimeout:
-		log.Printf("Serving %q as not found after timeout getting doc", path)
-		return nil, nil, &httpError{status: http.StatusNotFound}
-	default:
-		return nil, nil, err
+		return r.mod, r.pkg, r.doc, r.err
+	case <-ctx.Done():
+		log.Printf("Serving %q as not found after timeout getting doc", importPath)
+		return nil, nil, nil, ctx.Err()
 	}
 }
 
@@ -149,22 +132,11 @@ func isView(req *http.Request, key string) bool {
 }
 
 // httpEtag returns the package entity tag used in HTTP transactions.
-func (s *server) httpEtag(pdoc *doc.Package, pkgs []database.Package, importerCount int, flashMessages []flashMessage) string {
+func (s *server) httpEtag(importPath, version string, flashMessages []flashMessage) string {
 	b := make([]byte, 0, 128)
-	b = strconv.AppendInt(b, pdoc.Updated.Unix(), 16)
+	b = append(b, importPath...)
 	b = append(b, 0)
-	b = append(b, pdoc.Etag...)
-	if importerCount >= 8 {
-		importerCount = 8
-	}
-	b = append(b, 0)
-	b = strconv.AppendInt(b, int64(importerCount), 16)
-	for _, pkg := range pkgs {
-		b = append(b, 0)
-		b = append(b, pkg.Path...)
-		b = append(b, 0)
-		b = append(b, pkg.Synopsis...)
-	}
+	b = append(b, version...)
 	for _, m := range flashMessages {
 		b = append(b, 0)
 		b = append(b, m.ID...)
@@ -190,60 +162,40 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return nil
 	}
 
-	requestType := humanRequest
-
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
-	pdoc, pkgs, err := s.getDoc(req.Context(), importPath, requestType)
-
-	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-		// To prevent dumb clients from following redirect loops, respond with
-		// status 404 if the target document is not found.
-		if _, _, err := s.getDoc(req.Context(), e.Redirect, requestType); gosrc.IsNotFound(err) {
-			return &httpError{status: http.StatusNotFound}
-		}
-		u := "/" + e.Redirect
-		if req.URL.RawQuery != "" {
-			u += "?" + req.URL.RawQuery
-		}
-		setFlashMessages(resp, []flashMessage{{ID: "redir", Args: []string{importPath}}})
-		http.Redirect(resp, req, u, http.StatusFound)
-		return nil
-	}
+	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath)
 	if err != nil {
 		return err
 	}
 
 	flashMessages := getFlashMessages(resp, req)
+	tdoc := &tdoc{
+		Package:    pdoc,
+		ModulePath: pkg.ModulePath,
+		Version:    pkg.Version,
+		Versions:   mod.Versions,
+		CommitTime: pkg.CommitTime,
+		Updated:    mod.Updated,
+	}
 
-	if pdoc == nil {
-		if len(pkgs) == 0 {
-			return &httpError{status: http.StatusNotFound}
-		}
-		pdocChild, _, _, err := s.db.Get(req.Context(), pkgs[0].Path)
-		if err != nil {
-			return err
-		}
-		pdoc = &doc.Package{
-			ProjectName: pdocChild.ProjectName,
-			ProjectRoot: pdocChild.ProjectRoot,
-			ProjectURL:  pdocChild.ProjectURL,
-			ImportPath:  importPath,
-		}
+	meta, ok, err := s.db.GetMeta(req.Context(), mod.SeriesPath)
+	if err != nil {
+		return err
+	} else if ok {
+		tdoc.meta = &meta
 	}
 
 	switch {
 	case isView(req, "imports"):
-		if pdoc.Name == "" {
-			return &httpError{status: http.StatusNotFound}
-		}
-		pkgs, err = s.db.Packages(pdoc.Imports)
+		pkgs, err := s.db.Packages(req.Context(), pdoc.Imports)
 		if err != nil {
 			return err
 		}
 		return s.templates.execute(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(s.v, pdoc),
+			"pdoc":          tdoc,
+			"meta":          tdoc.meta,
 		})
 	case isView(req, "tools"):
 		proto := "http"
@@ -253,13 +205,11 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"uri":           fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
-			"pdoc":          newTDoc(s.v, pdoc),
+			"pdoc":          tdoc,
+			"meta":          tdoc.meta,
 		})
 	case isView(req, "importers"):
-		if pdoc.Name == "" {
-			return &httpError{status: http.StatusNotFound}
-		}
-		pkgs, err = s.db.Importers(importPath)
+		pkgs, err := s.db.Importers(req.Context(), importPath)
 		if err != nil {
 			return err
 		}
@@ -267,13 +217,10 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return s.templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"pkgs":          pkgs,
-			"pdoc":          newTDoc(s.v, pdoc),
+			"pdoc":          tdoc,
+			"meta":          tdoc.meta,
 		})
 	case isView(req, "import-graph"):
-		if pdoc.Name == "" {
-			return &httpError{status: http.StatusNotFound}
-		}
-
 		// Throttle ?import-graph requests.
 		select {
 		case s.importGraphSem <- struct{}{}:
@@ -289,7 +236,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		case "2":
 			hide = database.HideStandardAll
 		}
-		pkgs, edges, err := s.db.ImportGraph(pdoc, hide)
+		pkgs, edges, err := s.db.ImportGraph(req.Context(), pdoc, hide)
 		if err != nil {
 			return err
 		}
@@ -300,7 +247,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return s.templates.execute(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
 			"flashMessages": flashMessages,
 			"svg":           template.HTML(b),
-			"pdoc":          newTDoc(s.v, pdoc),
+			"pdoc":          tdoc,
 			"hide":          hide,
 		})
 	case isView(req, "play"):
@@ -311,15 +258,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		http.Redirect(resp, req, u, http.StatusMovedPermanently)
 		return nil
 	default:
-		importerCount := 0
-		if pdoc.Name != "" {
-			importerCount, err = s.db.ImporterCount(importPath)
-			if err != nil {
-				return err
-			}
-		}
-
-		etag := s.httpEtag(pdoc, pkgs, importerCount, flashMessages)
+		etag := s.httpEtag(pkg.ImportPath, pkg.Version, flashMessages)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified
@@ -327,67 +266,86 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 
 		template := "dir"
 		switch {
-		case pdoc.IsCmd:
+		case pdoc.IsCommand:
 			template = "cmd"
 		case pdoc.Name != "":
 			template = "pkg"
 		}
 		template += templateExt(req)
 
+		importerCount, err := s.db.ImporterCount(req.Context(), importPath)
+		if err != nil {
+			return err
+		}
+
+		subpkgs, err := s.db.SubPackages(req.Context(), pkg.ModulePath, pkg.Version, importPath)
+		if err != nil {
+			return err
+		}
+
 		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
 			"flashMessages": flashMessages,
-			"pkgs":          pkgs,
-			"pdoc":          newTDoc(s.v, pdoc),
+			"pkgs":          subpkgs,
+			"pdoc":          tdoc,
+			"meta":          tdoc.meta,
 			"importerCount": importerCount,
 		})
 	}
+	return nil
 }
 
 func (s *server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
+	ctx, cancel := context.WithTimeout(req.Context(), s.v.GetDuration(ConfigGetTimeout))
+	defer cancel()
+
 	importPath := req.Form.Get("path")
-	_, pkgs, _, err := s.db.Get(req.Context(), importPath)
+	pkg, ok, err := s.db.GetPackage(ctx, importPath, "latest")
 	if err != nil {
 		return err
 	}
-	c := make(chan error, 1)
+	if !ok {
+		return nil
+	}
+
+	ch := make(chan error, 1)
 	go func() {
-		_, err := s.crawlDoc(req.Context(), "rfrsh", importPath, nil, len(pkgs) > 0, time.Time{})
-		c <- err
+		_, err := s.crawl(ctx, pkg.ModulePath)
+		ch <- err
 	}()
 	select {
-	case err = <-c:
-	case <-time.After(s.v.GetDuration(ConfigGetTimeout)):
-		err = errUpdateTimeout
+	case err = <-ch:
+	case <-ctx.Done():
+		err = ctx.Err()
 	}
-	if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-		setFlashMessages(resp, []flashMessage{{ID: "redir", Args: []string{importPath}}})
-		importPath = e.Redirect
-		err = nil
-	} else if err != nil {
+	if err != nil {
 		setFlashMessages(resp, []flashMessage{{ID: "refresh", Args: []string{errorText(err)}}})
 	}
 	http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 	return nil
 }
 
-func (s *server) serveGoIndex(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.db.GoIndex()
+func (s *server) serveStdlib(resp http.ResponseWriter, req *http.Request) error {
+	mod, ok, err := s.db.GetModule(req.Context(), stdlib.ModulePath)
+	if err != nil {
+		return err
+	} else if !ok {
+		_, err = s.crawl(req.Context(), stdlib.ModulePath)
+		if err != nil {
+			return err
+		}
+		mod, _, err = s.db.GetModule(req.Context(), stdlib.ModulePath)
+		if err != nil {
+			return err
+		}
+	}
+	pkgs, err := s.db.ModulePackages(req.Context(), mod.Path, mod.Version)
 	if err != nil {
 		return err
 	}
 	return s.templates.execute(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
 		"pkgs": pkgs,
 	})
-}
-
-func (s *server) serveGoSubrepoIndex(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.db.GoSubrepoIndex()
-	if err != nil {
-		return err
-	}
-	return s.templates.execute(resp, "subrepo.html", http.StatusOK, nil, map[string]interface{}{
-		"pkgs": pkgs,
-	})
+	return errors.New("unimplemented")
 }
 
 func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
@@ -400,16 +358,10 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil, nil)
 	}
 
-	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, pkgs, err := s.getDoc(req.Context(), q, queryRequest)
-		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-			http.Redirect(resp, req, "/"+e.Redirect, http.StatusFound)
-			return nil
-		}
-		if err == nil && (pdoc != nil || len(pkgs) > 0) {
-			http.Redirect(resp, req, "/"+q, http.StatusFound)
-			return nil
-		}
+	_, _, _, err := s.GetDoc(req.Context(), q)
+	if err == nil {
+		http.Redirect(resp, req, "/"+q, http.StatusFound)
+		return nil
 	}
 
 	pkgs, err := s.db.Search(req.Context(), q)
@@ -483,7 +435,9 @@ func (eh errorHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			logError(req, err, nil)
 		}
 		eh.errFn(resp, req, e.status, e.err)
-	} else if gosrc.IsNotFound(err) {
+	} else if errors.Is(err, proxy.ErrNotFound) ||
+		errors.Is(err, proxy.ErrInvalidArgument) ||
+		errors.Is(err, ErrBlocked) {
 		eh.errFn(resp, req, http.StatusNotFound, nil)
 	} else {
 		logError(req, err, nil)
@@ -492,11 +446,8 @@ func (eh errorHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 }
 
 func errorText(err error) string {
-	if err == errUpdateTimeout {
+	if errors.Is(err, context.DeadlineExceeded) {
 		return "Timeout getting package files from the version control system."
-	}
-	if e, ok := err.(*gosrc.RemoteError); ok {
-		return "Error getting package files from " + e.Host + "."
 	}
 	return "Internal server error."
 }
@@ -548,19 +499,12 @@ func (m rootHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	h.ServeHTTP(resp, req)
 }
 
-func defaultBase(path string) string {
-	p, err := build.Default.Import(path, "", build.FindOnly)
-	if err != nil {
-		return "."
-	}
-	return p.Dir
-}
-
 type server struct {
-	v          *viper.Viper
-	db         *database.Database
-	httpClient *http.Client
-	templates  templateMap
+	v           *viper.Viper
+	db          *database.Database
+	httpClient  *http.Client
+	proxyClient *proxy.Client
+	templates   templateMap
 
 	statusPNG http.Handler
 	statusSVG http.Handler
@@ -572,9 +516,29 @@ type server struct {
 }
 
 func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
+	requestTimeout := v.GetDuration(ConfigRequestTimeout)
+	var t http.RoundTripper = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		Dial: (&net.Dialer{
+			Timeout:   v.GetDuration(ConfigDialTimeout),
+			KeepAlive: requestTimeout / 2,
+		}).Dial,
+		ResponseHeaderTimeout: requestTimeout / 2,
+		TLSHandshakeTimeout:   requestTimeout / 2,
+	}
+	httpClient := &http.Client{
+		Transport: t,
+		Timeout:   requestTimeout,
+	}
+	proxyClient := &proxy.Client{
+		URL:        v.GetString(ConfigGoProxy),
+		HTTPClient: *httpClient,
+	}
+
 	s := &server{
 		v:              v,
-		httpClient:     newHTTPClient(v),
+		httpClient:     httpClient,
+		proxyClient:    proxyClient,
 		importGraphSem: make(chan struct{}, 10),
 	}
 
@@ -622,8 +586,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	}
 	mux.Handle("/-/about", handler(s.serveAbout))
 	mux.Handle("/-/bot", handler(s.serveBot))
-	mux.Handle("/-/go", handler(s.serveGoIndex))
-	mux.Handle("/-/subrepo", handler(s.serveGoSubrepoIndex))
+	mux.Handle("/std", handler(s.serveStdlib))
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
@@ -652,12 +615,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.db, err = database.New(
-		v.GetString(ConfigDBServer),
-		v.GetString(ConfigPGServer),
-		v.GetDuration(ConfigDBIdleTimeout),
-		v.GetBool(ConfigDBLog),
-	)
+	s.db, err = database.New(v.GetString(ConfigPGServer))
 	if err != nil {
 		return nil, fmt.Errorf("open database: %v", err)
 	}
@@ -675,27 +633,13 @@ func main() {
 	if err != nil {
 		log.Fatal(ctx, "load config", "error", err.Error())
 	}
-	doc.SetDefaultGOOS(v.GetString(ConfigDefaultGOOS))
 
 	s, err := newServer(ctx, v)
 	if err != nil {
 		log.Fatal("error creating server:", err)
 	}
+	// TODO: Crawl old modules in the background.
 
-	go func() {
-		for range time.Tick(s.v.GetDuration(ConfigCrawlInterval)) {
-			if err := s.doCrawl(ctx); err != nil {
-				log.Printf("Task Crawl: %v", err)
-			}
-		}
-	}()
-	go func() {
-		for range time.Tick(s.v.GetDuration(ConfigGithubInterval)) {
-			if err := s.readGitHubUpdates(ctx); err != nil {
-				log.Printf("Task GitHub updates: %v", err)
-			}
-		}
-	}()
 	http.Handle("/", s)
 	log.Fatal(http.ListenAndServe(s.v.GetString(ConfigBindAddress), s))
 }

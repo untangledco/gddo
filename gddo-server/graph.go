@@ -13,8 +13,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/golang/gddo/database"
-	"github.com/golang/gddo/doc"
+	"github.com/golang/gddo/internal/database"
+	"github.com/golang/gddo/internal/doc"
 )
 
 func renderGraph(pdoc *doc.Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {
@@ -23,7 +23,7 @@ func renderGraph(pdoc *doc.Package, pkgs []database.Package, edges [][2]int) ([]
 	fmt.Fprintf(&in, "digraph %s { \n", pdoc.Name)
 	for i, pkg := range pkgs {
 		fmt.Fprintf(&in, " n%d [label=\"%s\", URL=\"/%s\", tooltip=\"%s\"];\n",
-			i, pkg.Path, pkg.Path,
+			i, pkg.ImportPath, pkg.ImportPath,
 			strings.Replace(pkg.Synopsis, `"`, `\"`, -1))
 	}
 	for _, edge := range edges {

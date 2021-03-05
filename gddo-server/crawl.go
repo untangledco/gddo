@@ -8,141 +8,115 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"go/build"
 	"log"
-	"regexp"
-	"strings"
 	"time"
 
-	"github.com/golang/gddo/doc"
-	"github.com/golang/gddo/gosrc"
+	"github.com/golang/gddo/internal/database"
+	"github.com/golang/gddo/internal/doc"
+	"github.com/golang/gddo/internal/proxy"
+	"github.com/golang/gddo/internal/source"
+	"github.com/golang/gddo/internal/stdlib"
+	"golang.org/x/mod/module"
 )
 
-var (
-	testdataPat = regexp.MustCompile(`/testdata(?:/|$)`)
-)
+var ErrBlocked = errors.New("blocked")
 
-// crawlNote is a message sent to Pub/Sub when a crawl occurs.
-// It is encoded as JSON, so changes should match its
-// compatibility requirements.
-type crawlNote struct {
-	ImportPath string
-}
+// crawl fetches package documentation and updates the database.
+func (s *server) crawl(ctx context.Context, modulePath string) (database.Module, error) {
+	start := time.Now().UTC()
 
-// crawlDoc fetches the package documentation from the VCS and updates the database.
-func (s *server) crawlDoc(ctx context.Context, source string, importPath string, pdoc *doc.Package, hasSubdirs bool, nextCrawl time.Time) (*doc.Package, error) {
-	message := []interface{}{source}
-	defer func() {
-		message = append(message, importPath)
-		log.Println(message...)
-	}()
-
-	if !nextCrawl.IsZero() {
-		d := time.Since(nextCrawl) / time.Hour
-		if d > 0 {
-			message = append(message, "late:", int64(d))
-		}
+	if blocked, err := s.db.IsBlocked(ctx, modulePath); err != nil {
+		return database.Module{}, err
+	} else if blocked {
+		return database.Module{}, ErrBlocked
 	}
 
-	etag := ""
-	if pdoc != nil {
-		etag = pdoc.Etag
-		message = append(message, "etag:", etag)
-	}
-
-	start := time.Now()
+	// Get latest version
 	var err error
-	if blocked, e := s.db.IsBlocked(importPath); blocked && e == nil {
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "blocked."}
-	} else if testdataPat.MatchString(importPath) {
-		pdoc = nil
-		err = gosrc.NotFoundError{Message: "testdata."}
+	var info *proxy.VersionInfo
+	if modulePath == stdlib.ModulePath {
+		info = &proxy.VersionInfo{}
+		info.Version, err = stdlib.ZipInfo("latest")
 	} else {
-		var pdocNew *doc.Package
-		pdocNew, err = doc.Get(ctx, s.httpClient, importPath, etag)
-		message = append(message, "fetch:", int64(time.Since(start)/time.Millisecond))
-		if err == nil && pdocNew.Name == "" && !hasSubdirs {
-			for _, e := range pdocNew.Errors {
-				message = append(message, "err:", e)
-			}
-			pdoc = nil
-			err = gosrc.NotFoundError{Message: "no Go files or subdirs"}
-		} else if _, ok := err.(gosrc.NotModifiedError); !ok {
-			pdoc = pdocNew
-		}
+		info, err = s.proxyClient.GetInfo(ctx, modulePath, "latest")
+	}
+	if err != nil {
+		return database.Module{}, err
 	}
 
-	maxAge := s.v.GetDuration(ConfigMaxAge)
-	nextCrawl = start.Add(maxAge)
-	switch {
-	case strings.HasPrefix(importPath, "github.com/") || (pdoc != nil && len(pdoc.Errors) > 0):
-		nextCrawl = start.Add(maxAge * 7)
-	case strings.HasPrefix(importPath, "gist.github.com/"):
-		// Don't spend time on gists. It's silly thing to do.
-		nextCrawl = start.Add(maxAge * 30)
-	}
+	seriesPath, _, _ := module.SplitPathVersion(modulePath)
 
-	if err == nil {
-		message = append(message, "put:", pdoc.Etag)
-		if err := s.put(ctx, pdoc, nextCrawl); err != nil {
-			log.Println(err)
+	mod, ok, err := s.db.GetModule(ctx, modulePath)
+	if err != nil {
+		return database.Module{}, err
+	}
+	if ok && mod.Version == info.Version {
+		// Update last crawl time
+		mod.Updated = start
+		if err := s.db.PutModule(ctx, mod); err != nil {
+			return database.Module{}, err
 		}
-		return pdoc, nil
-	} else if e, ok := err.(gosrc.NotModifiedError); ok {
-		if pdoc.Status == gosrc.Active && !s.isActivePkg(importPath, e.Status) {
-			if e.Status == gosrc.NoRecentCommits {
-				e.Status = gosrc.Inactive
-			}
-			message = append(message, "archive", e)
-			pdoc.Status = e.Status
-			if err := s.db.Put(ctx, pdoc, nextCrawl, false); err != nil {
-				log.Printf("ERROR db.Put(%q): %v", importPath, err)
-			}
+		return mod, nil
+	} else {
+		// Retrieve the list of versions
+		var versions []string
+		var err error
+		if modulePath == stdlib.ModulePath {
+			versions, err = stdlib.Versions()
 		} else {
-			// Touch the package without updating and move on to next one.
-			message = append(message, "touch")
-			if err := s.db.SetNextCrawl(importPath, nextCrawl); err != nil {
-				log.Printf("ERROR db.SetNextCrawl(%q): %v", importPath, err)
-			}
+			versions, err = s.proxyClient.ListVersions(ctx, modulePath)
 		}
-		return pdoc, nil
-	} else if e, ok := err.(gosrc.NotFoundError); ok {
-		message = append(message, "notfound:", e)
-		if err := s.db.Delete(ctx, importPath); err != nil {
-			log.Printf("ERROR db.Delete(%q): %v", importPath, err)
-		}
-		return nil, e
-	} else {
-		message = append(message, "ERROR:", err)
-		return nil, err
-	}
-}
-
-func (s *server) put(ctx context.Context, pdoc *doc.Package, nextCrawl time.Time) error {
-	if pdoc.Status == gosrc.NoRecentCommits &&
-		s.isActivePkg(pdoc.ImportPath, gosrc.NoRecentCommits) {
-		pdoc.Status = gosrc.Active
-	}
-	if err := s.db.Put(ctx, pdoc, nextCrawl, false); err != nil {
-		return fmt.Errorf("ERROR db.Put(%q): %v", pdoc.ImportPath, err)
-	}
-	return nil
-}
-
-// isActivePkg reports whether a package is considered active,
-// either because its directory is active or because it is imported by another package.
-func (s *server) isActivePkg(pkg string, status gosrc.DirectoryStatus) bool {
-	switch status {
-	case gosrc.Active:
-		return true
-	case gosrc.NoRecentCommits:
-		// It should be inactive only if it has no imports as well.
-		n, err := s.db.ImporterCount(pkg)
 		if err != nil {
-			log.Printf("ERROR db.ImporterCount(%q): %v", pkg, err)
+			return database.Module{}, err
 		}
-		return n > 0
+		mod.Versions = versions
+
+		// Update the module
+		mod = database.Module{
+			Path:       modulePath,
+			SeriesPath: seriesPath,
+			Version:    info.Version,
+			Versions:   versions,
+			Updated:    start,
+		}
+		if err := s.db.PutModule(ctx, mod); err != nil {
+			return database.Module{}, err
+		}
 	}
-	return false
+
+	// Add packages to the database
+	src, err := source.Get(ctx, s.proxyClient, modulePath, info.Version)
+	if err != nil {
+		return database.Module{}, err
+	}
+	for _, pkg := range src.Packages {
+		// TODO: Allow configuring the default GOOS,
+		// and optionally let the user specify their own
+		pdoc, err := doc.New(pkg, &build.Context{
+			GOOS:   "linux",
+			GOARCH: "amd64",
+		})
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		if err := s.db.PutPackage(ctx, modulePath, seriesPath, info.Version, info.Time, pdoc); err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+
+	// Fetch meta
+	meta, err := source.FetchMeta(ctx, s.httpClient, modulePath)
+	if err != nil {
+		log.Printf("Error fetching source meta for %s: %s", modulePath, err)
+	} else {
+		if err := s.db.PutMeta(ctx, *meta); err != nil {
+			return database.Module{}, err
+		}
+	}
+
+	return mod, nil
 }

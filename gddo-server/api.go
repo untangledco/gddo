@@ -5,8 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/gddo/database"
-	"github.com/golang/gddo/gosrc"
+	"github.com/golang/gddo/internal/database"
 )
 
 const jsonMIMEType = "application/json; charset=utf-8"
@@ -16,14 +15,9 @@ func (s *server) serveAPISearch(resp http.ResponseWriter, req *http.Request) err
 
 	var pkgs []database.Package
 
-	if gosrc.IsValidRemotePath(q) || (strings.Contains(q, "/") && gosrc.IsGoRepoPath(q)) {
-		pdoc, _, err := s.getDoc(req.Context(), q, apiRequest)
-		if e, ok := err.(gosrc.NotFoundError); ok && e.Redirect != "" {
-			pdoc, _, err = s.getDoc(req.Context(), e.Redirect, robotRequest)
-		}
-		if err == nil && pdoc != nil {
-			pkgs = []database.Package{{Path: pdoc.ImportPath, Synopsis: pdoc.Synopsis}}
-		}
+	pkg, ok, err := s.db.GetPackage(req.Context(), q, "latest")
+	if err == nil && ok {
+		pkgs = []database.Package{pkg}
 	}
 
 	if pkgs == nil {
@@ -45,7 +39,7 @@ func (s *server) serveAPISearch(resp http.ResponseWriter, req *http.Request) err
 
 func (s *server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	importPath := strings.TrimPrefix(req.URL.Path, "/importers/")
-	pkgs, err := s.db.Importers(importPath)
+	pkgs, err := s.db.Importers(req.Context(), importPath)
 	if err != nil {
 		return err
 	}

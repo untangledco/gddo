@@ -8,7 +8,7 @@
     <body>
       <div class="well-small">
         Package <a href="/{{.pdoc.ImportPath}}">{{.pdoc.Name}}</a>
-        {{if .pdoc.ProjectRoot}}<span class="text-muted">|</span> 
+        {{if ne .pdoc.ModulePath "std"}}<span class="text-muted">|</span>
             {{if .hide}}
                 <a href="?import-graph">Show</a>
             {{else}}

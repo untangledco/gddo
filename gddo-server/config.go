@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"go/build"
 	"log"
 	"path/filepath"
 	"strings"
@@ -13,50 +14,32 @@ import (
 )
 
 const (
-	userAgentEnvVar          = "USER_AGENT"
-	githubTokenEnvVar        = "GITHUB_TOKEN"
-	githubClientIDEnvVar     = "GITHUB_CLIENT_ID"
-	githubClientSecretEnvVar = "GITHUB_CLIENT_SECRET"
-)
-
-const (
-	// Server Config
-	ConfigTrustProxyHeaders = "trust_proxy_headers"
+	ConfigGoProxy           = "goproxy"
+	ConfigTrustProxyHeaders = "trust-proxy-headers"
 	ConfigBindAddress       = "http"
 	ConfigAssetsDir         = "assets"
-
-	// Database Config
-	ConfigDBServer      = "db-server"
-	ConfigDBIdleTimeout = "db-idle-timeout"
-	ConfigDBLog         = "db-log"
-	ConfigPGServer      = "pg-server"
+	ConfigPGServer          = "pg-server"
+	ConfigUserAgent         = "user-agent"
 
 	// Display Config
-	ConfigDefaultGOOS = "default_goos"
+	ConfigDefaultGOOS = "default-goos"
 
 	// Crawl Config
-	ConfigMaxAge          = "max_age"
-	ConfigGetTimeout      = "get_timeout"
-	ConfigFirstGetTimeout = "first_get_timeout"
-	ConfigGithubInterval  = "github_interval"
-	ConfigCrawlInterval   = "crawl_interval"
-	ConfigDialTimeout     = "dial_timeout"
-	ConfigRequestTimeout  = "request_timeout"
-	ConfigMemcacheAddr    = "memcache_addr"
-
-	// Trace Config
-	ConfigTraceSamplerFraction = "trace_fraction"
-	ConfigTraceSamplerMaxQPS   = "trace_max_qps"
-
-	// Outbound HTTP Config
-	ConfigUserAgent          = "user_agent"
-	ConfigGithubToken        = "github_token"
-	ConfigGithubClientID     = "github_client_id"
-	ConfigGithubClientSecret = "github_client_secret"
-
-	// Pub/Sub Config
-	ConfigCrawlPubSubTopic = "crawl-events"
+	ConfigMaxAge          = "max-age"
+	ConfigGetTimeout      = "get-timeout"
+	ConfigFirstGetTimeout = "first-get-timeout"
+	ConfigCrawlInterval   = "crawl-interval"
+	ConfigDialTimeout     = "dial-timeout"
+	ConfigRequestTimeout  = "request-timeout"
 )
+
+func defaultBase(path string) string {
+	p, err := build.Default.Import(path, "", build.FindOnly)
+	if err != nil {
+		return "."
+	}
+	return p.Dir
+}
 
 func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v := viper.New()
@@ -74,10 +57,6 @@ func loadConfig(ctx context.Context, args []string) (*viper.Viper, error) {
 	v.SetEnvPrefix("gddo")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
-	v.BindEnv(ConfigUserAgent, userAgentEnvVar)
-	v.BindEnv(ConfigGithubToken, githubTokenEnvVar)
-	v.BindEnv(ConfigGithubClientID, githubClientIDEnvVar)
-	v.BindEnv(ConfigGithubClientSecret, githubClientSecretEnvVar)
 
 	// Read from config.
 	if err := readViperConfig(ctx, v); err != nil {
@@ -104,17 +83,11 @@ func buildFlags() *pflag.FlagSet {
 	flags.String(ConfigBindAddress, ":8080", "Listen for HTTP connections on this address.")
 	flags.String(ConfigDefaultGOOS, "", "Default GOOS to use when building package documents.")
 	flags.Bool(ConfigTrustProxyHeaders, false, "If enabled, identify the remote address of the request using X-Real-Ip in header.")
-	flags.Duration(ConfigGithubInterval, 0, "Github updates crawler sleeps for this duration between fetches. Zero disables the crawler.")
 	flags.Duration(ConfigCrawlInterval, 0, "Package updater sleeps for this duration between package updates. Zero disables updates.")
 	flags.Duration(ConfigDialTimeout, 5*time.Second, "Timeout for dialing an HTTP connection.")
 	flags.Duration(ConfigRequestTimeout, 20*time.Second, "Time out for roundtripping an HTTP request.")
-	flags.String(ConfigDBServer, "redis://127.0.0.1:6379", "URI of Redis server.")
-	flags.Duration(ConfigDBIdleTimeout, 250*time.Second, "Close Redis connections after remaining idle for this duration.")
-	flags.Bool(ConfigDBLog, false, "Log database commands")
 	flags.String(ConfigPGServer, "", "URI of PostgreSQL server (for full text search).")
-	flags.String(ConfigMemcacheAddr, "", "Address in the format host:port gddo uses to point to the memcache backend.")
-	flags.Float64(ConfigTraceSamplerFraction, 0.1, "Fraction of the requests sampled by the trace API.")
-	flags.Float64(ConfigTraceSamplerMaxQPS, 5, "Max number of requests sampled every second by the trace API.")
+	flags.String(ConfigGoProxy, "https://proxy.golang.org", "Go module proxy.")
 
 	return flags
 }

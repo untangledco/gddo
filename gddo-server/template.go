@@ -28,9 +28,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/viper"
 
-	"github.com/golang/gddo/doc"
-	"github.com/golang/gddo/gosrc"
 	"github.com/golang/gddo/httputil"
+	"github.com/golang/gddo/internal/doc"
+	"github.com/golang/gddo/internal/source"
+	"github.com/golang/gddo/internal/stdlib"
 )
 
 type flashMessage struct {
@@ -79,6 +80,12 @@ func setFlashMessages(resp http.ResponseWriter, messages []flashMessage) {
 
 type tdoc struct {
 	*doc.Package
+	ModulePath  string
+	Version     string
+	Versions    []string
+	CommitTime  time.Time
+	Updated     time.Time
+	meta        *source.Meta
 	allExamples []*texample
 }
 
@@ -90,26 +97,21 @@ type texample struct {
 	obj     interface{}
 }
 
-func newTDoc(v *viper.Viper, pdoc *doc.Package) *tdoc {
-	return &tdoc{
-		Package: pdoc,
-	}
-}
-
 func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
-	if pos.Line == 0 || pdoc.LineFmt == "" || pdoc.Files[pos.File].URL == "" {
+	if pos.Line == 0 || pdoc.meta == nil {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
 		return ""
 	}
+	dir := strings.TrimPrefix(pdoc.ImportPath, pdoc.meta.ProjectRoot)
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
-		htemp.HTMLEscapeString(fmt.Sprintf(pdoc.LineFmt, pdoc.Files[pos.File].URL, pos.Line)),
+		htemp.HTMLEscapeString(pdoc.meta.Line(dir, pdoc.Filenames[pos.File], int(pos.Line))),
 		htemp.HTMLEscapeString(text)))
 }
 
 func (pdoc *tdoc) PageName() string {
-	if pdoc.Name != "" && !pdoc.IsCmd {
+	if pdoc.Name != "" && !pdoc.IsCommand {
 		return pdoc.Name
 	}
 	_, name := path.Split(pdoc.ImportPath)
@@ -130,7 +132,7 @@ func (pdoc *tdoc) addExamples(obj interface{}, export, method string, examples [
 			Example: e,
 			obj:     obj,
 			// Only show play links for packages within the standard library.
-			Play: e.Play != "" && gosrc.IsGoRepoPath(pdoc.ImportPath),
+			Play: e.Play != "" && stdlib.Contains(pdoc.ImportPath),
 		}
 		if e.Name != "" {
 			te.Label += " (" + e.Name + ")"
@@ -184,12 +186,15 @@ func (pdoc *tdoc) ObjExamples(obj interface{}) []*texample {
 }
 
 func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
-	if !strings.HasPrefix(pdoc.ImportPath, pdoc.ProjectRoot) {
+	modulePath := pdoc.ModulePath
+	if modulePath == stdlib.ModulePath {
+		modulePath = ""
+	} else if !strings.HasPrefix(pdoc.ImportPath, pdoc.ModulePath) {
 		return ""
 	}
 	var buf bytes.Buffer
 	i := 0
-	j := len(pdoc.ProjectRoot)
+	j := len(modulePath)
 	if j == 0 {
 		j = strings.IndexRune(pdoc.ImportPath, '/')
 		if j < 0 {
@@ -227,19 +232,6 @@ func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
 		}
 	}
 	return htemp.HTML(buf.String())
-}
-
-func (pdoc *tdoc) StatusDescription() htemp.HTML {
-	desc := ""
-	switch pdoc.Package.Status {
-	case gosrc.DeadEndFork:
-		desc = "This is a dead-end fork (no commits since the fork)."
-	case gosrc.QuickFork:
-		desc = "This is a quick bug-fix fork (has fewer than three commits, and only during the week it was created)."
-	case gosrc.Inactive:
-		desc = "This is an inactive package (no imports and no commits in at least two years)."
-	}
-	return htemp.HTML(desc)
 }
 
 func formatPathFrag(path, fragment string) string {
@@ -346,9 +338,6 @@ func commentFn(v string) htemp.HTML {
 	})
 	p = replaceAll(p, packagePat, func(out, src []byte, m []int) []byte {
 		path := bytes.TrimRight(src[m[2]:m[3]], ".!?:")
-		if !gosrc.IsValidPath(string(path)) {
-			return append(out, src[m[0]:m[1]]...)
-		}
 		out = append(out, src[m[0]:m[2]]...)
 		out = append(out, `<a href="/`...)
 		out = append(out, path...)
@@ -490,23 +479,21 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		{"results.html", "common.html", "layout.html"},
 		{"tools.html", "common.html", "layout.html"},
 		{"std.html", "common.html", "layout.html"},
-		{"subrepo.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
 	}
 	hfuncs := htemp.FuncMap{
-		"code":              codeFn,
-		"comment":           commentFn,
-		"equal":             reflect.DeepEqual,
-		"host":              hostFn,
-		"htmlComment":       htmlCommentFn,
-		"importPath":        importPathFn,
-		"isInterface":       isInterfaceFn,
-		"isValidImportPath": gosrc.IsValidPath,
-		"map":               mapFn,
-		"noteTitle":         noteTitleFn,
-		"relativePath":      relativePathFn,
-		"staticPath":        func(p string) string { return cb.AppendQueryParam(p, "v") },
-		"humanize":          func(t time.Time) string { return humanize.Time(t) },
+		"code":         codeFn,
+		"comment":      commentFn,
+		"equal":        reflect.DeepEqual,
+		"host":         hostFn,
+		"htmlComment":  htmlCommentFn,
+		"importPath":   importPathFn,
+		"isInterface":  isInterfaceFn,
+		"map":          mapFn,
+		"noteTitle":    noteTitleFn,
+		"relativePath": relativePathFn,
+		"staticPath":   func(p string) string { return cb.AppendQueryParam(p, "v") },
+		"humanize":     func(t time.Time) string { return humanize.Time(t) },
 	}
 	for _, set := range htmlSets {
 		templateName := set[0]

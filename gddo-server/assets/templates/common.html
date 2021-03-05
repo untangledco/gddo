@@ -10,11 +10,11 @@
 {{end}}
 
 {{define "ProjectNav"}}{{template "FlashMessages" .flashMessages}}<div class="clearfix" id="x-projnav">
-  {{if .pdoc.ProjectRoot}}{{if .pdoc.ProjectURL}}<a rel="noopener nofollow" href="{{.pdoc.ProjectURL}}"><strong>{{.pdoc.ProjectName}}:</strong></a>{{else}}<strong>{{.pdoc.ProjectName}}:</strong>{{end}}{{else}}<a href="/-/go">Go:</a>{{end}}
+  {{if eq .pdoc.ModulePath "std"}}<a href="/-/go">Go:</a>{{else if .meta}}<a rel="noopener nofollow" href="{{.meta.ProjectURL}}"><strong>{{.meta.ProjectName}}:</strong></a>{{end}}
   {{.pdoc.Breadcrumbs templateName}}
   {{if and .pdoc.Name (or templateName "pkg.html" templateName "cmd.html")}}
   <span class="pull-right">
-    {{if not .pdoc.IsCmd}}
+    {{if not .pdoc.IsCommand}}
       <a href="#pkg-index">Index</a>
       {{if .pdoc.AllExamples}}<span class="text-muted">|</span> <a href="#pkg-examples">Examples</a>{{end}}
       <span class="text-muted">|</span>
@@ -28,7 +28,7 @@
 {{define "Pkgs"}}
   <table class="table table-condensed">
   <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-  <tbody>{{range .}}<tr><td>{{if .Path|isValidImportPath}}<a rel="noopener nofollow" href="/{{.Path}}">{{.Path|importPath}}</a>{{else}}{{.Path|importPath}}{{end}}</td><td>{{.Synopsis|importPath}}</td></tr>
+  <tbody>{{range .}}<tr><td><a rel="noopener nofollow" href="/{{.ImportPath}}">{{.ImportPath}}</a></td><td>{{.Synopsis}}</td></tr>
   {{end}}</tbody>
   </table>
 {{end}}
@@ -38,15 +38,10 @@
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>{{range .}}
       <tr><td>
-        {{if .Path|isValidImportPath}}
-        <a href="/{{.Path}}">{{.Path|importPath}}</a>
+        <a href="/{{.ImportPath}}">{{.ImportPath|importPath}}</a>
           <ul class="list-inline">
             <li class="additional-info">{{.ImportCount}} imports</li>
-            {{if .Fork}}<li class="additional-info">· fork</li>{{end}}
-            {{if .Stars}}<li class="additional-info">· {{.Stars}} stars</li>{{end}}
           </ul>
-        {{else}}{{.Path|importPath}}</td>
-        {{end}}
       <td class="synopsis">{{.Synopsis|importPath}}</td></tr>
     {{end}}</tbody>
   </table>
@@ -55,24 +50,23 @@
 {{define "PkgCmdHeader"}}{{with .pdoc}}
   <title>{{.PageName}} - godocs.io</title>
   {{if .Synopsis}}
-    <meta name="twitter:title" content="{{if .IsCmd}}Command{{else}}Package{{end}} {{.PageName}}">
-    <meta property="og:title" content="{{if .IsCmd}}Command{{else}}Package{{end}} {{.PageName}}">
+    <meta name="twitter:title" content="{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}}">
+    <meta property="og:title" content="{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}}">
     <meta name="description" content="{{.Synopsis}}">
     <meta name="twitter:description" content="{{.Synopsis}}">
     <meta property="og:description" content="{{.Synopsis}}">
     <meta name="twitter:card" content="summary">
     <meta name="twitter:site" content="@golang">
   {{end}}
-  {{if .Errors}}<meta name="robots" content="NOINDEX">{{end}}
 {{end}}{{end}}
 
-{{define "PkgFiles"}}{{with .pdoc}}
+{{define "PkgFiles"}}{{$meta := .meta}}{{with .pdoc}}
 <h4 id="pkg-files">
-  {{with .BrowseURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
+  {{with $.meta}}<a rel="noopener nofollow" href="{{.Dir ""}}">Package Files</a>{{else}}Package Files{{end}}
   <a class="permalink" href="#pkg-files">&para;</a>
 </h4>
 
-<p>{{range .Files}}{{if .URL}}<a rel="noopener nofollow" href="{{.URL}}">{{.Name}}</a>{{else}}{{.Name}}{{end}} {{end}}</p>
+<p>{{range .Filenames}}{{if $meta}}<a rel="noopener nofollow" href="{{$meta.File "" .}}">{{.}}</a>{{else}}{{.}}{{end}} {{end}}</p>
 {{end}}{{end}}
 
 {{define "PkgCmdFooter"}}
@@ -84,34 +78,31 @@
 {{if $.pkgs}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-    <tbody>{{range $.pkgs}}<tr><td><a href="/{{.Path}}">{{relativePath .Path $.pdoc.ImportPath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
+    <tbody>{{range $.pkgs}}<tr><td><a href="/{{.ImportPath}}">{{relativePath .ImportPath .ModulePath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
     </table>
 {{end}}
 <div id="x-pkginfo">
 {{with $.pdoc}}
-  <p>{{if or .Imports $.importerCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.importerCount}} and {{end}}{{if $.importerCount}}is imported by <a href="?importers">{{$.importerCount}} packages</a>{{end}}.{{end}}
-  {{if not .Updated.IsZero}}Updated <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>{{if or (equal .GOOS "windows") (equal .GOOS "darwin")}} with GOOS={{.GOOS}}{{end}}.{{end}}
+  <p>{{if or .Imports $.importerCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.importerCount}} and {{end}}{{if $.importerCount}}is imported by <a href="?importers">{{$.importerCount}} packages</a>{{end}}.{{end}}</p>
+  <p>Version {{.Version}}
+  <span class="text-muted">|</span>
+  Published <span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span>
+  {{if ne .GOOS "linux"}}<span class="text-muted">|</span> GOOS={{.GOOS}}{{end}}
+  <span class="text-muted">|</span>
+  Updated <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
+  </p>
   <form class="inline-form" method="POST" action="/-/refresh">
     <input type="hidden" name="path" value="{{.ImportPath}}">
     <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>.
   </form>
   <a href="?tools">Tools</a> for package owners.
-  {{.StatusDescription}}
-{{end}}
-{{with $.pdoc.Errors}}
-    <p>The <a href="https://golang.org/cmd/go/#Download_and_install_packages_and_dependencies">go get</a>
-    command cannot install this package because of the following issues:
-    <ul>
-      {{range .}}<li>{{.}}{{end}}
-  </ul>
 {{end}}
 </div>
 {{end}}
 
 
 {{define "FlashMessages"}}{{range .}}
-  {{if eq .ID "redir"}}{{if eq (len .Args) 1}}<div class="alert alert-warning">Redirected from {{index .Args 0}}.</div>{{end}}
-  {{else if eq .ID "refresh"}}{{if eq (len .Args) 1}}<div class="alert alert-danger">Error refreshing package: {{index .Args 0}}</div>{{end}}
+  {{if eq .ID "refresh"}}{{if eq (len .Args) 1}}<div class="alert alert-danger">Error refreshing package: {{index .Args 0}}</div>{{end}}
   {{end}}
 {{end}}{{end}}
 

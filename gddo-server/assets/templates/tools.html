@@ -18,7 +18,7 @@
   <pre class="click-select">[![godocs.io]({{.uri}}?status.svg)]({{.uri}})</pre>
 
   {{if .pdoc.Name}}
-    {{if and (not .pdoc.IsCmd) (not .pdoc.Doc)}}
+    {{if and (not .pdoc.IsCommand) (not .pdoc.Doc)}}
       <p>The {{.pdoc.Name}} package does not have a package declaration
       comment.  See the <a
         href="https://blog.golang.org/godoc-documenting-go-code">Go
