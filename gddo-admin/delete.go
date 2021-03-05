@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/golang/gddo/database"
+	"github.com/golang/gddo/internal/database"
 )
 
 var deleteCommand = &command{
@@ -25,7 +25,7 @@ func del(c *command) {
 		c.printUsage()
 		os.Exit(1)
 	}
-	db, err := database.New(*redisServer, *pgServer, *dbIdleTimeout, false)
+	db, err := database.New(*pgServer)
 	if err != nil {
 		log.Fatal(err)
 	}

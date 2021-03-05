@@ -7,10 +7,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
-	"github.com/golang/gddo/database"
+	"github.com/golang/gddo/internal/database"
 )
 
 var blockCommand = &command{
@@ -24,11 +25,12 @@ func block(c *command) {
 		c.printUsage()
 		os.Exit(1)
 	}
-	db, err := database.New(*redisServer, *pgServer, *dbIdleTimeout, false)
+	db, err := database.New(*pgServer)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := db.Block(c.flag.Args()[0]); err != nil {
+	ctx := context.Background()
+	if err := db.Block(ctx, c.flag.Args()[0]); err != nil {
 		log.Fatal(err)
 	}
 }

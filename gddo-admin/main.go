@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 )
 
 type command struct {
@@ -28,9 +27,7 @@ func (c *command) printUsage() {
 }
 
 var (
-	redisServer   = flag.String("db-server", "redis://127.0.0.1:6379", "URI of Redis server.")
-	pgServer      = flag.String("pg-server", "", "URI of Postgres server.")
-	dbIdleTimeout = flag.Duration("db-idle-timeout", 250*time.Second, "Close database connections after remaining idle for this duration.")
+	pgServer = flag.String("pg-server", "postgres://", "URI of Postgres server.")
 )
 
 var commands = []*command{
