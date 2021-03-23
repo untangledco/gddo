@@ -603,7 +603,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	apiMux.Handle("/robots.txt", staticServer.FileHandler("apiRobots.txt"))
 	apiMux.Handle("/search", apiHandler(s.serveAPISearch))
 	apiMux.Handle("/importers/", apiHandler(s.serveAPIImporters))
-	apiMux.Handle("/imports/", apiHandler(s.serveAPIImports))
 	apiMux.Handle("/", apiHandler(serveAPIHome))
 
 	mux := http.NewServeMux()

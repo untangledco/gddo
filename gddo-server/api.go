@@ -58,34 +58,6 @@ func (s *server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) 
 	return json.NewEncoder(resp).Encode(&data)
 }
 
-func (s *server) serveAPIImports(resp http.ResponseWriter, req *http.Request) error {
-	importPath := strings.TrimPrefix(req.URL.Path, "/imports/")
-	pdoc, _, err := s.getDoc(req.Context(), importPath, robotRequest)
-	if err != nil {
-		return err
-	}
-	if pdoc == nil || pdoc.Name == "" {
-		return &httpError{status: http.StatusNotFound}
-	}
-	imports, err := s.db.Packages(pdoc.Imports)
-	if err != nil {
-		return err
-	}
-	testImports, err := s.db.Packages(pdoc.TestImports)
-	if err != nil {
-		return err
-	}
-	data := struct {
-		Imports     []database.Package `json:"imports"`
-		TestImports []database.Package `json:"testImports"`
-	}{
-		imports,
-		testImports,
-	}
-	resp.Header().Set("Content-Type", jsonMIMEType)
-	return json.NewEncoder(resp).Encode(&data)
-}
-
 func serveAPIHome(resp http.ResponseWriter, req *http.Request) error {
 	return &httpError{status: http.StatusNotFound}
 }
