@@ -35,7 +35,6 @@ var (
 
 var commands = []*command{
 	blockCommand,
-	reindexCommand,
 	deleteCommand,
 	dangleCommand,
 	crawlCommand,
