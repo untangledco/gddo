@@ -36,7 +36,6 @@ var (
 var commands = []*command{
 	blockCommand,
 	deleteCommand,
-	statsCommand,
 }
 
 func printUsage() {
