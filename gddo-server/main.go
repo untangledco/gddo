@@ -591,7 +591,7 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
-	mux.Handle("/C", http.RedirectHandler("http://golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
+	mux.Handle("/C", http.RedirectHandler("https://blog.golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/", handler(s.serveHome))
 
 	ahMux := http.NewServeMux()
