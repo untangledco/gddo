@@ -103,6 +103,7 @@
 
 {{define "FlashMessages"}}{{range .}}
   {{if eq .ID "refresh"}}{{if eq (len .Args) 1}}<div class="alert alert-danger">Error refreshing package: {{index .Args 0}}</div>{{end}}
+  {{else if eq .ID "timeout"}}<div class="alert alert-info">This package is being fetched in the background. Feel free to refresh while we're working on it.</div>
   {{end}}
 {{end}}{{end}}
 

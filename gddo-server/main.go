@@ -359,7 +359,7 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	_, _, _, err := s.GetDoc(req.Context(), q)
-	if err == nil {
+	if err == nil || errors.Is(err, context.DeadlineExceeded) {
 		http.Redirect(resp, req, "/"+q, http.StatusFound)
 		return nil
 	}
@@ -439,6 +439,8 @@ func (eh errorHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		errors.Is(err, proxy.ErrInvalidArgument) ||
 		errors.Is(err, ErrBlocked) {
 		eh.errFn(resp, req, http.StatusNotFound, nil)
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		eh.errFn(resp, req, http.StatusNotFound, err)
 	} else {
 		logError(req, err, nil)
 		eh.errFn(resp, req, http.StatusInternalServerError, err)
@@ -453,8 +455,12 @@ func errorText(err error) string {
 }
 
 func (s *server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
-	switch status {
-	case http.StatusNotFound:
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		s.templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
+			"flashMessages": append(getFlashMessages(resp, req), flashMessage{ID: "timeout"}),
+		})
+	case status == http.StatusNotFound:
 		s.templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
 			"flashMessages": getFlashMessages(resp, req),
 		})
