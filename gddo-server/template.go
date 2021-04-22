@@ -22,7 +22,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	ttemp "text/template"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -350,15 +349,6 @@ func commentFn(v string) htemp.HTML {
 	return htemp.HTML(p)
 }
 
-// commentTextFn formats a source code comment as text.
-func commentTextFn(v string) string {
-	const indent = "    "
-	var buf bytes.Buffer
-	godoc.ToText(&buf, v, indent, "\t", 80-2*len(indent))
-	p := buf.Bytes()
-	return string(p)
-}
-
 var period = []byte{'.'}
 
 func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
@@ -427,11 +417,6 @@ func htmlCommentFn(s string) htemp.HTML {
 	return htemp.HTML("<!-- " + s + " -->")
 }
 
-var mimeTypes = map[string]string{
-	".html": htmlMIMEType,
-	".txt":  textMIMEType,
-}
-
 type templateMap map[string]interface {
 	Execute(io.Writer, interface{}) error
 }
@@ -440,11 +425,7 @@ func (m templateMap) execute(resp http.ResponseWriter, name string, status int, 
 	for k, v := range header {
 		resp.Header()[k] = v
 	}
-	mimeType, ok := mimeTypes[path.Ext(name)]
-	if !ok {
-		mimeType = textMIMEType
-	}
-	resp.Header().Set("Content-Type", mimeType)
+	resp.Header().Set("Content-Type", htmlMIMEType)
 	t := m[name]
 	if t == nil {
 		return fmt.Errorf("template %s not found", name)
@@ -500,28 +481,6 @@ func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (temp
 		t := htemp.New("").Funcs(hfuncs).Funcs(htemp.FuncMap{
 			"templateName": func() string { return templateName },
 		})
-		if _, err := t.ParseFiles(joinTemplateDir(dir, set)...); err != nil {
-			return nil, err
-		}
-		t = t.Lookup("ROOT")
-		if t == nil {
-			return nil, fmt.Errorf("ROOT template not found in %v", set)
-		}
-		m[set[0]] = t
-	}
-	textSets := [][]string{
-		{"cmd.txt", "common.txt"},
-		{"dir.txt", "common.txt"},
-		{"home.txt", "common.txt"},
-		{"notfound.txt", "common.txt"},
-		{"pkg.txt", "common.txt"},
-		{"results.txt", "common.txt"},
-	}
-	tfuncs := ttemp.FuncMap{
-		"comment": commentTextFn,
-	}
-	for _, set := range textSets {
-		t := ttemp.New("").Funcs(tfuncs)
 		if _, err := t.ParseFiles(joinTemplateDir(dir, set)...); err != nil {
 			return nil, err
 		}

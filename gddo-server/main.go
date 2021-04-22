@@ -114,13 +114,6 @@ func (s *server) GetDoc(ctx context.Context, importPath string) (*database.Modul
 	}
 }
 
-func templateExt(req *http.Request) string {
-	if httputil.NegotiateContentType(req, []string{"text/html", "text/plain"}, "text/html") == "text/plain" {
-		return ".txt"
-	}
-	return ".html"
-}
-
 func popularLinkReferral(req *http.Request) bool {
 	return strings.HasSuffix(req.Header.Get("Referer"), "//"+req.Host+"/")
 }
@@ -275,14 +268,13 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			status = http.StatusNotModified
 		}
 
-		template := "dir"
+		template := "dir.html"
 		switch {
 		case pdoc.IsCommand:
-			template = "cmd"
+			template = "cmd.html"
 		case pdoc.Name != "":
-			template = "pkg"
+			template = "pkg.html"
 		}
-		template += templateExt(req)
 
 		importerCount, err := s.db.ImporterCount(req.Context(), importPath)
 		if err != nil {
@@ -366,7 +358,7 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
-		return s.templates.execute(resp, "home"+templateExt(req), http.StatusOK, nil, nil)
+		return s.templates.execute(resp, "home.html", http.StatusOK, nil, nil)
 	}
 
 	_, _, _, err := s.GetDoc(req.Context(), q)
@@ -380,7 +372,7 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	return s.templates.execute(resp, "results"+templateExt(req), http.StatusOK, nil,
+	return s.templates.execute(resp, "results.html", http.StatusOK, nil,
 		map[string]interface{}{"q": q, "pkgs": pkgs})
 }
 
@@ -468,11 +460,11 @@ func errorText(err error) string {
 func (s *server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		s.templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
+		s.templates.execute(resp, "notfound.html", status, nil, map[string]interface{}{
 			"flashMessages": append(getFlashMessages(resp, req), flashMessage{ID: "timeout"}),
 		})
 	case status == http.StatusNotFound:
-		s.templates.execute(resp, "notfound"+templateExt(req), status, nil, map[string]interface{}{
+		s.templates.execute(resp, "notfound.html", status, nil, map[string]interface{}{
 			"flashMessages": getFlashMessages(resp, req),
 		})
 	default:
