@@ -165,7 +165,18 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
 	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath)
 	if err != nil {
-		return err
+		if mod != nil && errors.Is(err, proxy.ErrNotFound) {
+			pkg = &database.Package{
+				ImportPath: importPath,
+				ModulePath: mod.Path,
+				Version:    mod.Version,
+			}
+			pdoc = &doc.Package{
+				ImportPath: importPath,
+			}
+		} else {
+			return err
+		}
 	}
 
 	flashMessages := getFlashMessages(resp, req)
