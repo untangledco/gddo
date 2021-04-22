@@ -30,6 +30,7 @@ import (
 	"github.com/golang/gddo/internal/doc"
 	"github.com/golang/gddo/internal/health"
 	"github.com/golang/gddo/internal/proxy"
+	"github.com/golang/gddo/internal/source"
 	"github.com/golang/gddo/internal/stdlib"
 )
 
@@ -161,7 +162,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if mod != nil && errors.Is(err, proxy.ErrNotFound) {
 			pkg = &database.Package{
 				ImportPath: importPath,
-				ModulePath: mod.Path,
+				ModulePath: mod.ModulePath,
 				Version:    mod.Version,
 			}
 			pdoc = &doc.Package{
@@ -172,58 +173,68 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 	}
 
-	flashMessages := getFlashMessages(resp, req)
-	tdoc := &tdoc{
-		Package:    pdoc,
-		ModulePath: pkg.ModulePath,
-		Version:    pkg.Version,
-		Versions:   mod.Versions,
-		CommitTime: pkg.CommitTime,
-		Updated:    mod.Updated,
-	}
-
-	meta, ok, err := s.db.GetMeta(req.Context(), mod.SeriesPath)
+	var meta *source.Meta
+	_meta, ok, err := s.db.GetMeta(req.Context(), mod.SeriesPath)
 	if err != nil {
 		return err
 	} else if ok {
-		tdoc.meta = &meta
+		meta = &_meta
+	}
+
+	// The template context.
+	type Context struct {
+		Package
+		Messages []flashMessage
+	}
+
+	tpkg := Package{
+		Package:    *pdoc,
+		ModulePath: mod.ModulePath,
+		Version:    mod.Version,
+		Versions:   mod.Versions,
+		CommitTime: pkg.CommitTime,
+		Updated:    mod.Updated,
+		Meta:       meta,
+	}
+	flashMessages := getFlashMessages(resp, req)
+
+	tctx := Context{
+		Package:  tpkg,
+		Messages: flashMessages,
 	}
 
 	switch {
 	case isView(req, "imports"):
-		pkgs, err := s.db.Packages(req.Context(), pdoc.Imports)
+		imports, err := s.db.Packages(req.Context(), pdoc.Imports)
 		if err != nil {
 			return err
 		}
-		return s.templates.execute(resp, "imports.html", http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          pkgs,
-			"pdoc":          tdoc,
-			"meta":          tdoc.meta,
-		})
+		return s.templates.execute(resp, "imports.html", http.StatusOK, nil, &struct {
+			Context
+			Imports []database.Package
+		}{tctx, imports})
+
 	case isView(req, "tools"):
 		proto := "http"
 		if req.Host == "godocs.io" {
 			proto = "https"
 		}
-		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"uri":           fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath),
-			"pdoc":          tdoc,
-			"meta":          tdoc.meta,
-		})
+		uri := fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath)
+		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, &struct {
+			Context
+			URI string
+		}{tctx, uri})
+
 	case isView(req, "importers"):
-		pkgs, err := s.db.Importers(req.Context(), importPath)
+		importers, err := s.db.Importers(req.Context(), importPath)
 		if err != nil {
 			return err
 		}
-		template := "importers.html"
-		return s.templates.execute(resp, template, http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          pkgs,
-			"pdoc":          tdoc,
-			"meta":          tdoc.meta,
-		})
+		return s.templates.execute(resp, "importers.html", http.StatusOK, nil, &struct {
+			Context
+			Importers []database.Package
+		}{tctx, importers})
+
 	case isView(req, "import-graph"):
 		// Throttle ?import-graph requests.
 		select {
@@ -248,12 +259,12 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if err != nil {
 			return err
 		}
-		return s.templates.execute(resp, "graph.html", http.StatusOK, nil, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"svg":           template.HTML(b),
-			"pdoc":          tdoc,
-			"hide":          hide,
-		})
+		return s.templates.execute(resp, "graph.html", http.StatusOK, nil, &struct {
+			Context
+			SVG  template.HTML
+			Hide database.DepLevel
+		}{tctx, template.HTML(b), hide})
+
 	case isView(req, "play"):
 		u, err := s.playURL(pdoc, req.Form.Get("play"))
 		if err != nil {
@@ -261,6 +272,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 		http.Redirect(resp, req, u, http.StatusMovedPermanently)
 		return nil
+
 	default:
 		etag := s.httpEtag(pkg.ImportPath, pkg.Version, flashMessages)
 		status := http.StatusOK
@@ -276,23 +288,19 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			template = "pkg.html"
 		}
 
-		importerCount, err := s.db.ImporterCount(req.Context(), importPath)
+		importCount, err := s.db.ImportCount(req.Context(), importPath)
 		if err != nil {
 			return err
 		}
+		tctx.Package.ImportCount = importCount
 
 		subpkgs, err := s.db.SubPackages(req.Context(), pkg.ModulePath, pkg.Version, importPath)
 		if err != nil {
 			return err
 		}
+		tctx.Package.SubPackages = subpkgs
 
-		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, map[string]interface{}{
-			"flashMessages": flashMessages,
-			"pkgs":          subpkgs,
-			"pdoc":          tdoc,
-			"meta":          tdoc.meta,
-			"importerCount": importerCount,
-		})
+		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, &tctx)
 	}
 	return nil
 }
@@ -341,7 +349,7 @@ func (s *server) serveStdlib(resp http.ResponseWriter, req *http.Request) error 
 			return err
 		}
 	}
-	pkgs, err := s.db.ModulePackages(req.Context(), mod.Path, mod.Version)
+	pkgs, err := s.db.ModulePackages(req.Context(), mod.ModulePath, mod.Version)
 	if err != nil {
 		return err
 	}
@@ -372,13 +380,14 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	return s.templates.execute(resp, "results.html", http.StatusOK, nil,
-		map[string]interface{}{"q": q, "pkgs": pkgs})
+	return s.templates.execute(resp, "results.html", http.StatusOK, nil, struct {
+		Query   string
+		Results []database.Package
+	}{q, pkgs})
 }
 
 func (s *server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
-	return s.templates.execute(resp, "about.html", http.StatusOK, nil,
-		map[string]interface{}{"Host": req.Host})
+	return s.templates.execute(resp, "about.html", http.StatusOK, nil, nil)
 }
 
 func (s *server) serveBot(resp http.ResponseWriter, req *http.Request) error {
@@ -460,13 +469,13 @@ func errorText(err error) string {
 func (s *server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		s.templates.execute(resp, "notfound.html", status, nil, map[string]interface{}{
-			"flashMessages": append(getFlashMessages(resp, req), flashMessage{ID: "timeout"}),
-		})
+		s.templates.execute(resp, "notfound.html", status, nil,
+			struct{ Messages []flashMessage }{
+				append(getFlashMessages(resp, req), flashMessage{ID: "timeout"}),
+			})
 	case status == http.StatusNotFound:
-		s.templates.execute(resp, "notfound.html", status, nil, map[string]interface{}{
-			"flashMessages": getFlashMessages(resp, req),
-		})
+		s.templates.execute(resp, "notfound.html", status, nil,
+			struct{ Messages []flashMessage }{getFlashMessages(resp, req)})
 	default:
 		resp.Header().Set("Content-Type", textMIMEType)
 		resp.WriteHeader(http.StatusInternalServerError)

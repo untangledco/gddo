@@ -1,25 +1,25 @@
-{{define "Head"}}<title>{{.pdoc.PageName}} tools - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} tools - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h2>Tools for {{$.pdoc.PageName}}</h2>
+  <h2>Tools for {{$.PageName}}</h2>
 
   <h3>Badge</h3>
 
-  <p><a href="{{.uri}}"><img src="{{.uri}}?status.svg" alt="godocs.io"></a>
+  <p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="godocs.io"></a>
 
   <p>Use one of the snippets below to add a link to godocs.io from your project
   website or README file:</a>
 
   <h5>HTML</h5>
-  <pre class="click-select">&lt;a href="{{.uri}}"&gt;&lt;img src="{{.uri}}?status.svg" alt="godocs.io"&gt;&lt;/a&gt;</pre>
+  <pre class="click-select">&lt;a href="{{.URI}}"&gt;&lt;img src="{{.URI}}?status.svg" alt="godocs.io"&gt;&lt;/a&gt;</pre>
 
   <h5>Markdown</h5>
-  <pre class="click-select">[![godocs.io]({{.uri}}?status.svg)]({{.uri}})</pre>
+  <pre class="click-select">[![godocs.io]({{.URI}}?status.svg)]({{.URI}})</pre>
 
-  {{if .pdoc.Name}}
-    {{if and (not .pdoc.IsCommand) (not .pdoc.Doc)}}
-      <p>The {{.pdoc.Name}} package does not have a package declaration
+  {{if .Name}}
+    {{if and (not .IsCommand) (not .Doc)}}
+      <p>The {{.Name}} package does not have a package declaration
       comment.  See the <a
         href="https://blog.golang.org/godoc-documenting-go-code">Go
         documentation guidelines</a> for information on how to write a package

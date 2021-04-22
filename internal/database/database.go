@@ -20,7 +20,7 @@ import (
 
 // Module represents a module.
 type Module struct {
-	Path       string    // module path
+	ModulePath string    // module path
 	SeriesPath string    // series path
 	Version    string    // latest version
 	Versions   []string  // all versions
@@ -103,7 +103,7 @@ func (db *Database) GetModule(ctx context.Context, modulePath string) (mod Modul
 				(*pq.StringArray)(&mod.Versions), &mod.Updated); err != nil {
 				return err
 			}
-			mod.Path = modulePath
+			mod.ModulePath = modulePath
 			ok = true
 		}
 		return rows.Err()
@@ -168,7 +168,7 @@ func (db *Database) PutModule(ctx context.Context, mod Module) error {
 			) VALUES ( $1, $2, $3, $4, $5 )
 			ON CONFLICT (module_path) DO
 			UPDATE SET series_path = $2, latest_version = $3, versions = $4, updated = $5;
-			`, mod.Path, mod.SeriesPath, mod.Version, pq.StringArray(mod.Versions), mod.Updated)
+			`, mod.ModulePath, mod.SeriesPath, mod.Version, pq.StringArray(mod.Versions), mod.Updated)
 		if err != nil {
 			return err
 		}
@@ -459,7 +459,7 @@ func (db *Database) Importers(ctx context.Context, importPath string) ([]Package
 	return packages, nil
 }
 
-func (db *Database) ImporterCount(ctx context.Context, importPath string) (int, error) {
+func (db *Database) ImportCount(ctx context.Context, importPath string) (int, error) {
 	var count int
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `

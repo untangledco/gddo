@@ -75,7 +75,7 @@ func (s *server) crawl(ctx context.Context, modulePath string) (database.Module,
 
 		// Update the module
 		mod = database.Module{
-			Path:       modulePath,
+			ModulePath: modulePath,
 			SeriesPath: seriesPath,
 			Version:    info.Version,
 			Versions:   versions,

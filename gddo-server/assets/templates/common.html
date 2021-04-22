@@ -9,18 +9,18 @@
   </form>
 {{end}}
 
-{{define "ProjectNav"}}{{template "FlashMessages" .flashMessages}}<div class="clearfix" id="x-projnav">
-  {{if eq .pdoc.ModulePath "std"}}<a href="/-/go">Go:</a>{{else if .meta}}<a rel="noopener nofollow" href="{{.meta.ProjectURL}}"><strong>{{.meta.ProjectName}}:</strong></a>{{end}}
-  {{.pdoc.Breadcrumbs templateName}}
-  {{if and .pdoc.Name (or templateName "pkg.html" templateName "cmd.html")}}
+{{define "ProjectNav"}}{{template "FlashMessages" .Messages}}<div class="clearfix" id="x-projnav">
+  {{if eq .ModulePath "std"}}<a href="/-/go">Go:</a>{{else if .Meta}}<a rel="noopener nofollow" href="{{.Meta.ProjectURL}}"><strong>{{.Meta.ProjectName}}:</strong></a>{{end}}
+  {{.Breadcrumbs templateName}}
+  {{if and .Name (or templateName "pkg.html" templateName "cmd.html")}}
   <span class="pull-right">
-    {{if not .pdoc.IsCommand}}
+    {{if not .IsCommand}}
       <a href="#pkg-index">Index</a>
-      {{if .pdoc.AllExamples}}<span class="text-muted">|</span> <a href="#pkg-examples">Examples</a>{{end}}
+      {{if .AllExamples}}<span class="text-muted">|</span> <a href="#pkg-examples">Examples</a>{{end}}
       <span class="text-muted">|</span>
     {{end}}
     <a href="#pkg-files">Files</a>
-    {{if .pkgs}}<span class="text-muted">|</span> <a href="#pkg-subdirectories">Directories</a>{{end}}
+    {{if .SubPackages}}<span class="text-muted">|</span> <a href="#pkg-subdirectories">Directories</a>{{end}}
   </span>
   {{end}}
 </div>{{end}}
@@ -47,7 +47,7 @@
   </table>
 {{end}}
 
-{{define "PkgCmdHeader"}}{{with .pdoc}}
+{{define "PkgCmdHeader"}}
   <title>{{.PageName}} - godocs.io</title>
   {{if .Synopsis}}
     <meta name="twitter:title" content="{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}}">
@@ -58,32 +58,31 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:site" content="@golang">
   {{end}}
-{{end}}{{end}}
+{{end}}
 
-{{define "PkgFiles"}}{{$meta := .meta}}{{with .pdoc}}
+{{define "PkgFiles"}}
 <h4 id="pkg-files">
-  {{with $.meta}}<a rel="noopener nofollow" href="{{.Dir ""}}">Package Files</a>{{else}}Package Files{{end}}
+  {{with $.Meta}}<a rel="noopener nofollow" href="{{.Dir ""}}">Package Files</a>{{else}}Package Files{{end}}
   <a class="permalink" href="#pkg-files">&para;</a>
 </h4>
 
-<p>{{range .Filenames}}{{if $meta}}<a rel="noopener nofollow" href="{{$meta.File "" .}}">{{.}}</a>{{else}}{{.}}{{end}} {{end}}</p>
-{{end}}{{end}}
+<p>{{range .Filenames}}{{if $.Meta}}<a rel="noopener nofollow" href="{{$.Meta.File "" .}}">{{.}}</a>{{else}}{{.}}{{end}} {{end}}</p>
+{{end}}
 
 {{define "PkgCmdFooter"}}
 <!-- Bugs -->
-{{with .pdoc}}{{with .Notes}}{{with .BUG}}
-  <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.pdoc.SourceLink .Pos "☞" true}} {{.Body}}{{end}}
-{{end}}{{end}}{{end}}
+{{with .Notes}}{{with .BUG}}
+  <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{.SourceLink .Pos "☞" true}} {{.Body}}{{end}}
+{{end}}{{end}}
 
-{{if $.pkgs}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
+{{if $.SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-    <tbody>{{range $.pkgs}}<tr><td><a href="/{{.ImportPath}}">{{relativePath .ImportPath .ModulePath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
+    <tbody>{{range $.SubPackages}}<tr><td><a href="/{{.ImportPath}}">{{relativePath .ImportPath .ModulePath}}</a><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
     </table>
 {{end}}
 <div id="x-pkginfo">
-{{with $.pdoc}}
-  <p>{{if or .Imports $.importerCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.importerCount}} and {{end}}{{if $.importerCount}}is imported by <a href="?importers">{{$.importerCount}} packages</a>{{end}}.{{end}}</p>
+  <p>{{if or .Imports $.ImportCount}}Package {{.Name}} {{if .Imports}}imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>){{end}}{{if and .Imports $.ImportCount}} and {{end}}{{if $.ImportCount}}is imported by <a href="?importers">{{$.ImportCount}} packages</a>{{end}}.{{end}}</p>
   <p>Version {{.Version}}
   <span class="text-muted">|</span>
   Published <span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span>
@@ -96,7 +95,6 @@
     <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>.
   </form>
   <a href="?tools">Tools</a> for package owners.
-{{end}}
 </div>
 {{end}}
 

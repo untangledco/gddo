@@ -1,7 +1,7 @@
-{{define "Head"}}<title>{{.pdoc.PageName}} imports - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} imports - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h3>Packages imported by {{.pdoc.Name}}</h3>
-  {{template "Pkgs" $.pkgs}}
+  <h3>Packages imported by {{.Name}}</h3>
+  {{template "Pkgs" $.Imports}}
 {{end}}

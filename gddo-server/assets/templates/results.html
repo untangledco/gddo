@@ -1,11 +1,11 @@
-{{define "Head"}}<title>{{.q}} - godocs.io</title><meta name="robots" content="NOINDEX">{{end}}
+{{define "Head"}}<title>{{.Query}} - godocs.io</title><meta name="robots" content="NOINDEX">{{end}}
 
 {{define "Body"}}
   <div class="well">
-    {{template "SearchBox" .q}}
+    {{template "SearchBox" .Query}}
   </div>
-  {{if .pkgs}}
-    {{template "SearchPkgs" .pkgs}}
+  {{if .Results}}
+    {{template "SearchPkgs" .Results}}
   {{else}}
     <p>No packages found.
   {{end}}

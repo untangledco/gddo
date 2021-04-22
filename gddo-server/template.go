@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/golang/gddo/httputil"
+	"github.com/golang/gddo/internal/database"
 	"github.com/golang/gddo/internal/doc"
 	"github.com/golang/gddo/internal/source"
 	"github.com/golang/gddo/internal/stdlib"
@@ -77,14 +78,17 @@ func setFlashMessages(resp http.ResponseWriter, messages []flashMessage) {
 	http.SetCookie(resp, &http.Cookie{Name: "flash", Value: value, Path: "/"})
 }
 
-type tdoc struct {
-	*doc.Package
+// Represents a package for use in templates.
+type Package struct {
+	doc.Package
 	ModulePath  string
 	Version     string
 	Versions    []string
 	CommitTime  time.Time
 	Updated     time.Time
-	meta        *source.Meta
+	SubPackages []database.Package
+	Meta        *source.Meta
+	ImportCount int
 	allExamples []*texample
 }
 
@@ -96,20 +100,20 @@ type texample struct {
 	obj     interface{}
 }
 
-func (pdoc *tdoc) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
-	if pos.Line == 0 || pdoc.meta == nil {
+func (pdoc *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
+	if pos.Line == 0 || pdoc.Meta == nil {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
 		return ""
 	}
-	dir := strings.TrimPrefix(pdoc.ImportPath, pdoc.meta.ProjectRoot)
+	dir := strings.TrimPrefix(pdoc.ImportPath, pdoc.Meta.ProjectRoot)
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
-		htemp.HTMLEscapeString(pdoc.meta.Line(dir, pdoc.Filenames[pos.File], int(pos.Line))),
+		htemp.HTMLEscapeString(pdoc.Meta.Line(dir, pdoc.Filenames[pos.File], int(pos.Line))),
 		htemp.HTMLEscapeString(text)))
 }
 
-func (pdoc *tdoc) PageName() string {
+func (pdoc *Package) PageName() string {
 	if pdoc.Name != "" && !pdoc.IsCommand {
 		return pdoc.Name
 	}
@@ -117,7 +121,7 @@ func (pdoc *tdoc) PageName() string {
 	return name
 }
 
-func (pdoc *tdoc) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
+func (pdoc *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
 	label := export
 	id := export
 	if method != "" {
@@ -150,7 +154,7 @@ func (e byExampleID) Len() int           { return len(e) }
 func (e byExampleID) Less(i, j int) bool { return e[i].ID < e[j].ID }
 func (e byExampleID) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 
-func (pdoc *tdoc) AllExamples() []*texample {
+func (pdoc *Package) AllExamples() []*texample {
 	if pdoc.allExamples != nil {
 		return pdoc.allExamples
 	}
@@ -174,7 +178,7 @@ func (pdoc *tdoc) AllExamples() []*texample {
 	return pdoc.allExamples
 }
 
-func (pdoc *tdoc) ObjExamples(obj interface{}) []*texample {
+func (pdoc *Package) ObjExamples(obj interface{}) []*texample {
 	var examples []*texample
 	for _, e := range pdoc.allExamples {
 		if e.obj == obj {
@@ -184,7 +188,7 @@ func (pdoc *tdoc) ObjExamples(obj interface{}) []*texample {
 	return examples
 }
 
-func (pdoc *tdoc) Breadcrumbs(templateName string) htemp.HTML {
+func (pdoc *Package) Breadcrumbs(templateName string) htemp.HTML {
 	modulePath := pdoc.ModulePath
 	if modulePath == stdlib.ModulePath {
 		modulePath = ""
