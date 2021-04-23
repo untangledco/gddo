@@ -12,6 +12,24 @@ into the search box. To add a badge to your project like this:
 
 Click on "tools" for package owners at the bottom of the page.
 
+## Installation
+
+First install the dependencies:
+
+- Go 1.13 or above
+- PostgreSQL 13
+
+Initialize the PostgreSQL database:
+
+	psql -f schema.sql
+
+Then run:
+
+	go run ./gddo-server \
+		--db "postgres://localhost" \
+		--http ":8080" \
+		--goproxy "https://proxy.golang.org"
+
 ## Questions? Patches?
 
 Send them to the [godocs.io list](https://lists.sr.ht/~sircmpwn/godocs.io).
