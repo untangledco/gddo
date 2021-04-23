@@ -14,4 +14,4 @@ Click on "tools" for package owners at the bottom of the page.
 
 ## Questions? Patches?
 
-Send them to my [public inbox](https://lists.sr.ht/~sircmpwn/public-inbox).
+Send them to the [godocs.io list](https://lists.sr.ht/~sircmpwn/godocs.io).
