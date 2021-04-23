@@ -25,7 +25,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/golang/gddo/httputil"
+	"github.com/golang/gddo/internal/httputil"
 	"github.com/golang/gddo/internal/database"
 	"github.com/golang/gddo/internal/doc"
 	"github.com/golang/gddo/internal/health"
