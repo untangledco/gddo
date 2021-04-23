@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/version"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -28,8 +30,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"git.sr.ht/~sircmpwn/gddo/internal/version"
 	"golang.org/x/mod/semver"
 )
 
@@ -270,7 +270,8 @@ func Versions() ([]string, error) {
 
 // Directory returns the directory of the standard library relative to the repo root.
 func Directory(version string) string {
-	if semver.Compare(version, "v1.4.0-beta.1") >= 0 || version == "master" {
+	if semver.Compare(version, "v1.4.0-beta.1") >= 0 ||
+		version == "master" || strings.HasPrefix(version, "v0.0.0") {
 		return "src"
 	}
 	// For versions older than v1.4.0-beta.1, the stdlib is in src/pkg.
