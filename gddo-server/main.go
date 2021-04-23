@@ -25,10 +25,10 @@ import (
 
 	"github.com/spf13/viper"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/health"
+	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
@@ -113,10 +113,6 @@ func (s *server) GetDoc(ctx context.Context, importPath string) (*database.Modul
 		log.Printf("Serving %q as not found after timeout getting doc", importPath)
 		return nil, nil, nil, ctx.Err()
 	}
-}
-
-func popularLinkReferral(req *http.Request) bool {
-	return strings.HasSuffix(req.Header.Get("Referer"), "//"+req.Host+"/")
 }
 
 func isView(req *http.Request, key string) bool {
