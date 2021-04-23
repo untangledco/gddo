@@ -3,7 +3,7 @@ package database
 import (
 	"strings"
 
-	"github.com/golang/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 )
 
 // searchScore calculates the search searchScore for the provided package documentation.

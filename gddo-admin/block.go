@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/golang/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
 )
 
 var blockCommand = &command{

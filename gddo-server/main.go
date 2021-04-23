@@ -25,13 +25,13 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/golang/gddo/internal/httputil"
-	"github.com/golang/gddo/internal/database"
-	"github.com/golang/gddo/internal/doc"
-	"github.com/golang/gddo/internal/health"
-	"github.com/golang/gddo/internal/proxy"
-	"github.com/golang/gddo/internal/source"
-	"github.com/golang/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/health"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 const (

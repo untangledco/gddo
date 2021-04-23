@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/gddo/internal/doc"
-	"github.com/golang/gddo/internal/source"
-	"github.com/golang/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"github.com/lib/pq"
 )
 

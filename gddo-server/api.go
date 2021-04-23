@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
 )
 
 const jsonMIMEType = "application/json; charset=utf-8"

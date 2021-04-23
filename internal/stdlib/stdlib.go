@@ -28,8 +28,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/golang/gddo/internal/proxy"
-	"github.com/golang/gddo/internal/version"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/version"
 	"golang.org/x/mod/semver"
 )
 

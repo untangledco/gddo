@@ -1,4 +1,4 @@
-module github.com/golang/gddo
+module git.sr.ht/~sircmpwn/gddo
 
 go 1.13
 

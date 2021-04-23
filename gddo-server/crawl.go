@@ -13,11 +13,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/golang/gddo/internal/database"
-	"github.com/golang/gddo/internal/doc"
-	"github.com/golang/gddo/internal/proxy"
-	"github.com/golang/gddo/internal/source"
-	"github.com/golang/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/module"
 )
 

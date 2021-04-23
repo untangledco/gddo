@@ -13,8 +13,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/golang/gddo/internal/database"
-	"github.com/golang/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 )
 
 func renderGraph(pdoc *doc.Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {

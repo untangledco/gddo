@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/gddo/internal/proxy"
-	"github.com/golang/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/modfile"
 )
 

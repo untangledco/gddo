@@ -9,7 +9,7 @@ import (
 	"go/token"
 	"sort"
 
-	"github.com/golang/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/source"
 )
 
 // Package is the documentation for an entire package.

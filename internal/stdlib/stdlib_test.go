@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/gddo/internal/version"
+	"git.sr.ht/~sircmpwn/gddo/internal/version"
 	"golang.org/x/mod/semver"
 )
 
