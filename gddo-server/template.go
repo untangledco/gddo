@@ -25,11 +25,10 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/spf13/viper"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
@@ -449,7 +448,7 @@ func joinTemplateDir(base string, files []string) []string {
 	return result
 }
 
-func parseTemplates(dir string, cb *httputil.CacheBusters, v *viper.Viper) (templateMap, error) {
+func parseTemplates(dir string, cb *httputil.CacheBusters) (templateMap, error) {
 	m := make(templateMap)
 	htmlSets := [][]string{
 		{"about.html", "common.html", "layout.html"},

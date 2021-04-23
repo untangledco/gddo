@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/viper"
-
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/health"
@@ -99,8 +97,7 @@ func (s *server) GetDoc(ctx context.Context, importPath string) (*database.Modul
 		return
 	}()
 
-	timeout := s.v.GetDuration(ConfigFirstGetTimeout)
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.GetTimeout)
 	defer cancel()
 
 	select {
@@ -302,7 +299,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
-	ctx, cancel := context.WithTimeout(req.Context(), s.v.GetDuration(ConfigGetTimeout))
+	ctx, cancel := context.WithTimeout(req.Context(), s.cfg.GetTimeout)
 	defer cancel()
 
 	importPath := req.Form.Get("path")
@@ -508,7 +505,7 @@ func (m rootHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 }
 
 type server struct {
-	v           *viper.Viper
+	cfg         *Config
 	db          *database.Database
 	httpClient  *http.Client
 	proxyClient *proxy.Client
@@ -523,12 +520,12 @@ type server struct {
 	importGraphSem chan struct{}
 }
 
-func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
-	requestTimeout := v.GetDuration(ConfigRequestTimeout)
+func newServer(ctx context.Context, cfg *Config) (*server, error) {
+	requestTimeout := cfg.RequestTimeout
 	var t http.RoundTripper = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		Dial: (&net.Dialer{
-			Timeout:   v.GetDuration(ConfigDialTimeout),
+			Timeout:   cfg.DialTimeout,
 			KeepAlive: requestTimeout / 2,
 		}).Dial,
 		ResponseHeaderTimeout: requestTimeout / 2,
@@ -539,20 +536,19 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 		Timeout:   requestTimeout,
 	}
 	proxyClient := &proxy.Client{
-		URL:        v.GetString(ConfigGoProxy),
+		URL:        cfg.GoProxy,
 		HTTPClient: *httpClient,
 	}
 
 	s := &server{
-		v:              v,
+		cfg:            cfg,
 		httpClient:     httpClient,
 		proxyClient:    proxyClient,
 		importGraphSem: make(chan struct{}, 10),
 	}
 
-	assets := v.GetString(ConfigAssetsDir)
 	staticServer := httputil.StaticServer{
-		Dir:    assets,
+		Dir:    cfg.AssetsDir,
 		MaxAge: time.Hour,
 		MIMETypes: map[string]string{
 			".css": "text/css; charset=utf-8",
@@ -616,11 +612,11 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 
 	var err error
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
-	s.templates, err = parseTemplates(assets, cacheBusters, v)
+	s.templates, err = parseTemplates(cfg.AssetsDir, cacheBusters)
 	if err != nil {
 		return nil, err
 	}
-	s.db, err = database.New(v.GetString(ConfigPGServer))
+	s.db, err = database.New(cfg.Database)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %v", err)
 	}
@@ -634,17 +630,19 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ctx := context.Background()
-	v, err := loadConfig(ctx, os.Args)
-	if err != nil {
-		log.Fatal(ctx, "load config", "error", err.Error())
+
+	cfg := &Config{}
+	flags := cfg.FlagSet()
+	if err := flags.Parse(os.Args[1:]); err != nil {
+		log.Fatal(err)
 	}
 
-	s, err := newServer(ctx, v)
+	s, err := newServer(ctx, cfg)
 	if err != nil {
 		log.Fatal("error creating server:", err)
 	}
 	// TODO: Crawl old modules in the background.
 
 	http.Handle("/", s)
-	log.Fatal(http.ListenAndServe(s.v.GetString(ConfigBindAddress), s))
+	log.Fatal(http.ListenAndServe(cfg.BindHTTP, s))
 }
