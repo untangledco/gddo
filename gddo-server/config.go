@@ -14,12 +14,11 @@ import (
 )
 
 const (
-	ConfigGoProxy           = "goproxy"
-	ConfigTrustProxyHeaders = "trust-proxy-headers"
-	ConfigBindAddress       = "http"
-	ConfigAssetsDir         = "assets"
-	ConfigPGServer          = "pg-server"
-	ConfigUserAgent         = "user-agent"
+	ConfigGoProxy     = "goproxy"
+	ConfigBindAddress = "http"
+	ConfigAssetsDir   = "assets"
+	ConfigPGServer    = "pg-server"
+	ConfigUserAgent   = "user-agent"
 
 	// Display Config
 	ConfigDefaultGOOS = "default-goos"
@@ -82,7 +81,6 @@ func buildFlags() *pflag.FlagSet {
 	flags.Duration(ConfigMaxAge, 24*time.Hour, "Update package documents older than this age.")
 	flags.String(ConfigBindAddress, ":8080", "Listen for HTTP connections on this address.")
 	flags.String(ConfigDefaultGOOS, "", "Default GOOS to use when building package documents.")
-	flags.Bool(ConfigTrustProxyHeaders, false, "If enabled, identify the remote address of the request using X-Real-Ip in header.")
 	flags.Duration(ConfigCrawlInterval, 0, "Package updater sleeps for this duration between package updates. Zero disables updates.")
 	flags.Duration(ConfigDialTimeout, 5*time.Second, "Timeout for dialing an HTTP connection.")
 	flags.Duration(ConfigRequestTimeout, 20*time.Second, "Time out for roundtripping an HTTP request.")

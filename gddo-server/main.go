@@ -403,18 +403,12 @@ func logError(req *http.Request, err error, rv interface{}) {
 }
 
 type requestCleaner struct {
-	h                 http.Handler
-	trustProxyHeaders bool
+	h http.Handler
 }
 
 func (rc requestCleaner) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req2 := new(http.Request)
 	*req2 = *req
-	if rc.trustProxyHeaders {
-		if s := req.Header.Get("X-Forwarded-For"); s != "" {
-			req2.RemoteAddr = s
-		}
-	}
 	req2.Body = http.MaxBytesReader(w, req.Body, 2048)
 	req2.ParseForm()
 	rc.h.ServeHTTP(w, req2)
@@ -574,7 +568,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 				fn:    f,
 				errFn: handleAPIError,
 			},
-			trustProxyHeaders: v.GetBool(ConfigTrustProxyHeaders),
 		}
 	}
 	apiMux := http.NewServeMux()
@@ -595,7 +588,6 @@ func newServer(ctx context.Context, v *viper.Viper) (*server, error) {
 				fn:    f,
 				errFn: s.handleError,
 			},
-			trustProxyHeaders: v.GetBool(ConfigTrustProxyHeaders),
 		}
 	}
 	mux.Handle("/-/about", handler(s.serveAbout))
