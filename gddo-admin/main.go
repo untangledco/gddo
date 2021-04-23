@@ -27,7 +27,7 @@ func (c *command) printUsage() {
 }
 
 var (
-	pgServer = flag.String("pg-server", "postgres://", "URI of Postgres server.")
+	pgServer = flag.String("db", "postgres://localhost", "PostgreSQL database URL")
 )
 
 var commands = []*command{
