@@ -9,7 +9,6 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	godoc "go/doc"
 	htemp "html/template"
@@ -245,45 +244,12 @@ func formatPathFrag(path, fragment string) string {
 	return u.String()
 }
 
-func hostFn(urlStr string) string {
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		return ""
-	}
-	return u.Host
-}
-
-func mapFn(kvs ...interface{}) (map[string]interface{}, error) {
-	if len(kvs)%2 != 0 {
-		return nil, errors.New("map requires even number of arguments")
-	}
-	m := make(map[string]interface{})
-	for i := 0; i < len(kvs); i += 2 {
-		s, ok := kvs[i].(string)
-		if !ok {
-			return nil, errors.New("even args to map must be strings")
-		}
-		m[s] = kvs[i+1]
-	}
-	return m, nil
-}
-
 // relativePathFn formats an import path as HTML.
 func relativePathFn(path string, parentPath interface{}) string {
 	if p, ok := parentPath.(string); ok && p != "" && strings.HasPrefix(path, p) {
 		path = path[len(p)+1:]
 	}
 	return path
-}
-
-// importPathFn formats an import with zero width space characters to allow for breaks.
-func importPathFn(path string) htemp.HTML {
-	path = htemp.HTMLEscapeString(path)
-	if len(path) > 45 {
-		// Allow long import paths to break following "/"
-		path = strings.Replace(path, "/", "/&#8203;", -1)
-	}
-	return htemp.HTML(path)
 }
 
 var (
@@ -417,40 +383,67 @@ func noteTitleFn(s string) string {
 	return strings.Title(strings.ToLower(s))
 }
 
-func htmlCommentFn(s string) htemp.HTML {
-	return htemp.HTML("<!-- " + s + " -->")
-}
-
-type templateMap map[string]interface {
+type TemplateMap map[string]interface {
 	Execute(io.Writer, interface{}) error
 }
 
-func (m templateMap) execute(resp http.ResponseWriter, name string, status int, header http.Header, data interface{}) error {
-	for k, v := range header {
-		resp.Header()[k] = v
-	}
+func (m TemplateMap) ExecuteHTML(resp http.ResponseWriter, name string, status int, data interface{}) error {
 	resp.Header().Set("Content-Type", htmlMIMEType)
-	t := m[name]
-	if t == nil {
-		return fmt.Errorf("template %s not found", name)
-	}
+	return m.ExecuteHTTP(resp, name, status, data)
+}
+
+func (m TemplateMap) ExecuteHTTP(resp http.ResponseWriter, name string, status int, data interface{}) error {
 	resp.WriteHeader(status)
 	if status == http.StatusNotModified {
 		return nil
 	}
+	t := m[name]
+	if t == nil {
+		return fmt.Errorf("template %s not found", name)
+	}
 	return t.Execute(resp, data)
+}
+
+func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, files ...string) error {
+	t := htemp.New("").Funcs(funcs).Funcs(htemp.FuncMap{
+		"templateName": func() string { return name },
+	})
+	if _, err := t.ParseFiles(files...); err != nil {
+		return err
+	}
+	t = t.Lookup("ROOT")
+	if t == nil {
+		return fmt.Errorf("ROOT template not found in %v", files)
+	}
+	m[name] = t
+	return nil
+}
+
+func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, files ...string) error {
+	t := ttemp.New("").Funcs(funcs).Funcs(ttemp.FuncMap{
+		"templateName": func() string { return name },
+	})
+	if _, err := t.ParseFiles(files...); err != nil {
+		return err
+	}
+	t = t.Lookup("ROOT")
+	if t == nil {
+		return fmt.Errorf("ROOT template not found in %v", files)
+	}
+	m[name] = t
+	return nil
 }
 
 func joinTemplateDir(base string, files []string) []string {
 	result := make([]string, len(files))
 	for i := range files {
-		result[i] = filepath.Join(base, "templates", files[i])
+		result[i] = filepath.Join(base, files[i])
 	}
 	return result
 }
 
-func parseTemplates(dir string, cb *httputil.CacheBusters) (templateMap, error) {
-	m := make(templateMap)
+func parseTemplates(dir string, cb *httputil.CacheBusters) (TemplateMap, error) {
+	m := make(TemplateMap)
 	htmlSets := [][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"bot.html", "common.html", "layout.html"},
@@ -470,35 +463,16 @@ func parseTemplates(dir string, cb *httputil.CacheBusters) (templateMap, error) 
 		"code":         codeFn,
 		"comment":      commentFn,
 		"equal":        reflect.DeepEqual,
-		"host":         hostFn,
-		"htmlComment":  htmlCommentFn,
-		"importPath":   importPathFn,
 		"isInterface":  isInterfaceFn,
-		"map":          mapFn,
-		"noteTitle":    noteTitleFn,
 		"relativePath": relativePathFn,
 		"staticPath":   func(p string) string { return cb.AppendQueryParam(p, "v") },
 		"humanize":     func(t time.Time) string { return humanize.Time(t) },
 	}
 	for _, set := range htmlSets {
-		templateName := set[0]
-		t := htemp.New("").Funcs(hfuncs).Funcs(htemp.FuncMap{
-			"templateName": func() string { return templateName },
-		})
-		if _, err := t.ParseFiles(joinTemplateDir(dir, set)...); err != nil {
-			return nil, err
-		}
-		t = t.Lookup("ROOT")
-		if t == nil {
-			return nil, fmt.Errorf("ROOT template not found in %v", set)
-		}
-		m[set[0]] = t
+		m.ParseHTML(set[0], hfuncs, joinTemplateDir(dir, set)...)
 	}
-	opensearch := ttemp.New("opensearch.xml")
-	_, err := opensearch.ParseFiles(filepath.Join(dir, "templates", "opensearch.xml"))
-	if err != nil {
-		return nil, err
-	}
-	m["opensearch.xml"] = opensearch
+
+	m.ParseText("opensearch.xml", nil, filepath.Join(dir, "opensearch.xml"))
+
 	return m, nil
 }

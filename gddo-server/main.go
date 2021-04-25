@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -202,7 +203,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if err != nil {
 			return err
 		}
-		return s.templates.execute(resp, "imports.html", http.StatusOK, nil, &struct {
+		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &struct {
 			Context
 			Imports []database.Package
 		}{tctx, imports})
@@ -213,7 +214,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			proto = "https"
 		}
 		uri := fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath)
-		return s.templates.execute(resp, "tools.html", http.StatusOK, nil, &struct {
+		return s.templates.ExecuteHTML(resp, "tools.html", http.StatusOK, &struct {
 			Context
 			URI string
 		}{tctx, uri})
@@ -223,7 +224,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if err != nil {
 			return err
 		}
-		return s.templates.execute(resp, "importers.html", http.StatusOK, nil, &struct {
+		return s.templates.ExecuteHTML(resp, "importers.html", http.StatusOK, &struct {
 			Context
 			Importers []database.Package
 		}{tctx, importers})
@@ -252,7 +253,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if err != nil {
 			return err
 		}
-		return s.templates.execute(resp, "graph.html", http.StatusOK, nil, &struct {
+		return s.templates.ExecuteHTML(resp, "graph.html", http.StatusOK, &struct {
 			Context
 			SVG  template.HTML
 			Hide database.DepLevel
@@ -293,7 +294,8 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 		tctx.Package.SubPackages = subpkgs
 
-		return s.templates.execute(resp, template, status, http.Header{"Etag": {etag}}, &tctx)
+		resp.Header().Set("Etag", etag)
+		return s.templates.ExecuteHTML(resp, template, status, &tctx)
 	}
 	return nil
 }
@@ -346,7 +348,7 @@ func (s *server) serveStdlib(resp http.ResponseWriter, req *http.Request) error 
 	if err != nil {
 		return err
 	}
-	return s.templates.execute(resp, "std.html", http.StatusOK, nil, map[string]interface{}{
+	return s.templates.ExecuteHTML(resp, "std.html", http.StatusOK, map[string]interface{}{
 		"pkgs": pkgs,
 	})
 	return errors.New("unimplemented")
@@ -359,7 +361,7 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
-		return s.templates.execute(resp, "home.html", http.StatusOK, nil, nil)
+		return s.templates.ExecuteHTML(resp, "home.html", http.StatusOK, nil)
 	}
 
 	_, _, _, err := s.GetDoc(req.Context(), q)
@@ -373,18 +375,18 @@ func (s *server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	return s.templates.execute(resp, "results.html", http.StatusOK, nil, struct {
+	return s.templates.ExecuteHTML(resp, "results.html", http.StatusOK, struct {
 		Query   string
 		Results []database.Package
 	}{q, pkgs})
 }
 
 func (s *server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
-	return s.templates.execute(resp, "about.html", http.StatusOK, nil, nil)
+	return s.templates.ExecuteHTML(resp, "about.html", http.StatusOK, nil)
 }
 
 func (s *server) serveBot(resp http.ResponseWriter, req *http.Request) error {
-	return s.templates.execute(resp, "bot.html", http.StatusOK, nil, nil)
+	return s.templates.ExecuteHTML(resp, "bot.html", http.StatusOK, nil)
 }
 
 func getRootURL(req *http.Request) string {
@@ -397,7 +399,8 @@ func getRootURL(req *http.Request) string {
 
 func (s *server) serveOpenSearch(resp http.ResponseWriter, req *http.Request) error {
 	resp.Header().Set("Content-Type", "application/opensearchdescription+xml")
-	return s.templates["opensearch.xml"].Execute(resp, getRootURL(req))
+	root := getRootURL(req)
+	return s.templates.ExecuteHTTP(resp, "opensearch.xml", http.StatusOK, root)
 }
 
 func logError(req *http.Request, err error, rv interface{}) {
@@ -469,12 +472,12 @@ func errorText(err error) string {
 func (s *server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		s.templates.execute(resp, "notfound.html", status, nil,
+		s.templates.ExecuteHTML(resp, "notfound.html", status,
 			struct{ Messages []flashMessage }{
 				append(getFlashMessages(resp, req), flashMessage{ID: "timeout"}),
 			})
 	case status == http.StatusNotFound:
-		s.templates.execute(resp, "notfound.html", status, nil,
+		s.templates.ExecuteHTML(resp, "notfound.html", status,
 			struct{ Messages []flashMessage }{getFlashMessages(resp, req)})
 	default:
 		resp.Header().Set("Content-Type", textMIMEType)
@@ -522,7 +525,7 @@ type server struct {
 	db          *database.Database
 	httpClient  *http.Client
 	proxyClient *proxy.Client
-	templates   templateMap
+	templates   TemplateMap
 
 	statusPNG http.Handler
 	statusSVG http.Handler
@@ -626,7 +629,8 @@ func newServer(ctx context.Context, cfg *Config) (*server, error) {
 
 	var err error
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
-	s.templates, err = parseTemplates(cfg.AssetsDir, cacheBusters)
+	templatesDir := filepath.Join(cfg.AssetsDir, "templates")
+	s.templates, err = parseTemplates(templatesDir, cacheBusters)
 	if err != nil {
 		return nil, err
 	}
