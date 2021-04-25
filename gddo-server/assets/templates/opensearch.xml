@@ -1,9 +1,7 @@
-{{define "ROOT"}}<?xml version="1.0"?>
+<?xml version="1.0"?>
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
     <InputEncoding>UTF-8</InputEncoding>
-    <ShortName>GoDoc</ShortName>
-    <Description>GoDoc: Go Documentation Service</Description>
-    <Url type="text/html" method="get" template="http://{{.}}/?q={searchTerms}"/>
-    <Url type="application/x-suggestions+json" template="http://{{.}}/-/suggest?q={searchTerms}"/>
+    <ShortName>godocs.io</ShortName>
+    <Description>godocs.io: Go Documentation Service</Description>
+    <Url type="text/html" method="get" template="{{.}}/?q={searchTerms}"/>
 </OpenSearchDescription>
-{{end}}

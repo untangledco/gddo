@@ -387,6 +387,19 @@ func (s *server) serveBot(resp http.ResponseWriter, req *http.Request) error {
 	return s.templates.execute(resp, "bot.html", http.StatusOK, nil, nil)
 }
 
+func getRootURL(req *http.Request) string {
+	// TODO: Maybe this should be specified in configuration?
+	if req.TLS != nil {
+		return fmt.Sprintf("https://%s", strings.TrimSuffix(req.Host, ":443"))
+	}
+	return fmt.Sprintf("http://%s", strings.TrimSuffix(req.Host, ":80"))
+}
+
+func (s *server) serveOpenSearch(resp http.ResponseWriter, req *http.Request) error {
+	resp.Header().Set("Content-Type", "application/opensearchdescription+xml")
+	return s.templates["opensearch.xml"].Execute(resp, getRootURL(req))
+}
+
 func logError(req *http.Request, err error, rv interface{}) {
 	if err != nil {
 		var buf bytes.Buffer
@@ -588,6 +601,7 @@ func newServer(ctx context.Context, cfg *Config) (*server, error) {
 	}
 	mux.Handle("/-/about", handler(s.serveAbout))
 	mux.Handle("/-/bot", handler(s.serveBot))
+	mux.Handle("/-/opensearch.xml", handler(s.serveOpenSearch))
 	mux.Handle("/std", handler(s.serveStdlib))
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/about", http.RedirectHandler("/-/about", http.StatusMovedPermanently))

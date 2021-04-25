@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	ttemp "text/template"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -493,5 +494,11 @@ func parseTemplates(dir string, cb *httputil.CacheBusters) (templateMap, error) 
 		}
 		m[set[0]] = t
 	}
+	opensearch := ttemp.New("opensearch.xml")
+	_, err := opensearch.ParseFiles(filepath.Join(dir, "templates", "opensearch.xml"))
+	if err != nil {
+		return nil, err
+	}
+	m["opensearch.xml"] = opensearch
 	return m, nil
 }
