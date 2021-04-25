@@ -50,13 +50,9 @@
 {{define "PkgCmdHeader"}}
   <title>{{.PageName}} - godocs.io</title>
   {{if .Synopsis}}
-    <meta name="twitter:title" content="{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}}">
     <meta property="og:title" content="{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}}">
     <meta name="description" content="{{.Synopsis}}">
-    <meta name="twitter:description" content="{{.Synopsis}}">
     <meta property="og:description" content="{{.Synopsis}}">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:site" content="@golang">
   {{end}}
 {{end}}
 
