@@ -153,18 +153,7 @@ func (s *server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
 	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath)
 	if err != nil {
-		if mod != nil && errors.Is(err, proxy.ErrNotFound) {
-			pkg = &database.Package{
-				ImportPath: importPath,
-				ModulePath: mod.ModulePath,
-				Version:    mod.Version,
-			}
-			pdoc = &doc.Package{
-				ImportPath: importPath,
-			}
-		} else {
-			return err
-		}
+		return err
 	}
 
 	var meta *source.Meta

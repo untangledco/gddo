@@ -102,6 +102,9 @@ func (s *server) crawl(ctx context.Context, modulePath string) (database.Module,
 			log.Println(err)
 			continue
 		}
+		if len(pkg.Files) == 0 {
+			pdoc.ImportPath = pkg.Path
+		}
 		if err := s.db.PutPackage(ctx, modulePath, seriesPath, info.Version, info.Time, pdoc); err != nil {
 			log.Println(err)
 			continue

@@ -116,8 +116,7 @@ func (pdoc *Package) PageName() string {
 	if pdoc.Name != "" && !pdoc.IsCommand {
 		return pdoc.Name
 	}
-	_, name := path.Split(pdoc.ImportPath)
-	return name
+	return path.Base(pdoc.ImportPath)
 }
 
 func (pdoc *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
