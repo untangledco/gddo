@@ -68,7 +68,7 @@
 {{define "PkgCmdFooter"}}
 <!-- Bugs -->
 {{with .Notes}}{{with .BUG}}
-  <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{.SourceLink .Pos "☞" true}} {{.Body}}{{end}}
+  <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{$.SourceLink .Pos "☞" true}} {{.Body}}{{end}}
 {{end}}{{end}}
 
 {{if $.SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
