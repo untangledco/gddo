@@ -26,7 +26,6 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
-	"git.sr.ht/~sircmpwn/gddo/internal/health"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
@@ -602,18 +601,9 @@ func newServer(ctx context.Context, cfg *Config) (*server, error) {
 	mux.Handle("/C", http.RedirectHandler("https://blog.golang.org/doc/articles/c_go_cgo.html", http.StatusMovedPermanently))
 	mux.Handle("/", handler(s.serveHome))
 
-	ahMux := http.NewServeMux()
-	ready := new(health.Handler)
-	ahMux.HandleFunc("/_ah/health", health.HandleLive)
-	ahMux.Handle("/_ah/ready", ready)
-
-	mainMux := http.NewServeMux()
-	mainMux.Handle("/_ah/", ahMux)
-	mainMux.Handle("/", mux)
-
 	s.root = rootHandler{
 		{"api.", httpsRedirectHandler{apiMux}},
-		{"", httpsRedirectHandler{mainMux}},
+		{"", httpsRedirectHandler{mux}},
 	}
 
 	var err error
@@ -627,7 +617,6 @@ func newServer(ctx context.Context, cfg *Config) (*server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %v", err)
 	}
-	ready.Add(s.db)
 	return s, nil
 }
 

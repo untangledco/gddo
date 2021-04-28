@@ -53,11 +53,6 @@ func New(serverURI string) (*Database, error) {
 	return &Database{pg: db}, nil
 }
 
-// CheckHealth checks the health of the database.
-func (db *Database) CheckHealth() error {
-	return db.pg.Ping()
-}
-
 func (db *Database) withTx(ctx context.Context, opts *sql.TxOptions,
 	fn func(tx *sql.Tx) error) error {
 
