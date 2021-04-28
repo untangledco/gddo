@@ -396,11 +396,15 @@ func (m TemplateMap) ExecuteHTTP(resp http.ResponseWriter, name string, status i
 	if status == http.StatusNotModified {
 		return nil
 	}
+	return m.Execute(resp, name, data)
+}
+
+func (m TemplateMap) Execute(w io.Writer, name string, data interface{}) error {
 	t := m[name]
 	if t == nil {
 		return fmt.Errorf("template %s not found", name)
 	}
-	return t.Execute(resp, data)
+	return t.Execute(w, data)
 }
 
 func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, files ...string) error {
@@ -419,15 +423,11 @@ func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, files ...string
 }
 
 func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, files ...string) error {
-	t := ttemp.New("").Funcs(funcs).Funcs(ttemp.FuncMap{
+	t := ttemp.New(name).Funcs(funcs).Funcs(ttemp.FuncMap{
 		"templateName": func() string { return name },
 	})
 	if _, err := t.ParseFiles(files...); err != nil {
 		return err
-	}
-	t = t.Lookup("ROOT")
-	if t == nil {
-		return fmt.Errorf("ROOT template not found in %v", files)
 	}
 	m[name] = t
 	return nil
@@ -441,9 +441,8 @@ func joinTemplateDir(base string, files []string) []string {
 	return result
 }
 
-func parseTemplates(dir string, cb *httputil.CacheBusters) (TemplateMap, error) {
-	m := make(TemplateMap)
-	htmlSets := [][]string{
+func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) error {
+	sets := [][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"bot.html", "common.html", "layout.html"},
 		{"cmd.html", "common.html", "layout.html"},
@@ -458,20 +457,53 @@ func parseTemplates(dir string, cb *httputil.CacheBusters) (TemplateMap, error) 
 		{"std.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
 	}
-	hfuncs := htemp.FuncMap{
+	funcs := htemp.FuncMap{
 		"code":         codeFn,
 		"comment":      commentFn,
 		"equal":        reflect.DeepEqual,
 		"isInterface":  isInterfaceFn,
 		"relativePath": relativePathFn,
 		"staticPath":   func(p string) string { return cb.AppendQueryParam(p, "v") },
-		"humanize":     func(t time.Time) string { return humanize.Time(t) },
+		"humanize":     humanize.Time,
 	}
-	for _, set := range htmlSets {
-		m.ParseHTML(set[0], hfuncs, joinTemplateDir(dir, set)...)
+	for _, set := range sets {
+		err := m.ParseHTML(set[0], funcs, joinTemplateDir(dir, set)...)
+		if err != nil {
+			return err
+		}
 	}
+	err := m.ParseText("opensearch.xml", nil, filepath.Join(dir, "opensearch.xml"))
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-	m.ParseText("opensearch.xml", nil, filepath.Join(dir, "opensearch.xml"))
-
-	return m, nil
+func parseGeminiTemplates(m TemplateMap, dir string) error {
+	sets := [][]string{
+		{"index.gmi"},
+		{"about.gmi"},
+		{"search.gmi"},
+		{"doc.gmi"},
+		{"versions.gmi"},
+		{"imports.gmi"},
+		{"importers.gmi"},
+		{"std.gmi"},
+	}
+	funcs := ttemp.FuncMap{
+		"comment": func(s string) string {
+			var b strings.Builder
+			doc.ToGemini(&b, s)
+			return b.String()
+		},
+		"relativePath": relativePathFn,
+		"humanize":     humanize.Time,
+	}
+	for _, set := range sets {
+		err := m.ParseText(set[0], funcs, joinTemplateDir(dir, set)...)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

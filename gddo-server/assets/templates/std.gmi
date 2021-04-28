@@ -1,0 +1,7 @@
+# Standard Library - godocs.io
+{{range .Packages}}
+=> /{{.ImportPath}} {{.ImportPath}}
+{{- if .Synopsis}}
+{{.Synopsis}}{{end}}{{end}}
+
+=> https://golang.org/pkg/ View the official documentation at golang.org

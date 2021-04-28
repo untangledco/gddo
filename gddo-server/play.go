@@ -57,7 +57,7 @@ func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
 
 var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
-func (s *server) playURL(pdoc *doc.Package, id string) (string, error) {
+func (s *Server) playURL(pdoc *doc.Package, id string) (string, error) {
 	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
 		if e := findExample(pdoc, m[1], m[2], m[3]); e != nil && e.Play != "" {
 			req, err := http.NewRequest("POST", "https://play.golang.org/share", strings.NewReader(e.Play))

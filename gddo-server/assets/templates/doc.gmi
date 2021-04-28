@@ -1,0 +1,98 @@
+# {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}} - godocs.io
+{{if .Name}}
+```
+import "{{.ImportPath}}"
+```
+{{end}}
+
+{{- if .Doc}}
+{{.Doc|comment}}{{end}}
+
+{{- if .Truncated}}The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.{{end}}
+
+{{- if .Consts}}
+## Constants
+{{range .Consts}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}{{end}}
+
+{{- if .Vars}}
+## Variables
+{{range .Vars}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}{{end}}
+
+{{- if .Funcs}}
+## Functions
+{{range .Funcs}}
+### func {{.Name}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}{{end}}
+
+{{- if .Types}}
+## Types
+{{range $t := .Types}}
+### type {{.Name}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}
+{{- range .Consts}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}
+{{- range .Vars}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}
+{{- range .Funcs}}
+### func {{.Name}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}
+{{- range .Methods}}
+### func ({{.Recv}}) {{.Name}}
+```
+{{.Decl.Text}}
+```
+{{.Doc|comment}}{{end}}{{end}}{{end}}
+
+{{- with .Notes}}{{with .BUG}}
+## Bugs
+{{range .}}
+* {{.Body}}{{end}}{{end}}
+{{end}}
+
+{{- if .SubPackages}}
+## Directories
+{{range .SubPackages}}
+=> /{{.ImportPath}} {{relativePath .ImportPath .ModulePath}}
+{{- if .Synopsis}}
+{{.Synopsis}}{{end}}{{end}}
+{{end}}
+
+{{- if .Name}}
+## Details
+
+* Version {{.Version}}
+* Published {{.CommitTime.Format "Jan 2, 2006"}}
+{{- if .Imports}}
+=> ?imports Imports {{.Imports|len}} packages{{end}}
+{{- if .ImportCount}}
+=> ?importers Imported by {{.ImportCount}} packages{{end}}
+* GOOS={{.GOOS}}
+* GOARCH={{.GOARCH}}
+* Last checked {{humanize .Updated}}
+=> ?refresh Refresh now
+{{end}}
+=> / Back to home
+=> /-/search Search

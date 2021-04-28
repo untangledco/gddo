@@ -10,7 +10,7 @@ import (
 
 const jsonMIMEType = "application/json; charset=utf-8"
 
-func (s *server) serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
+func (s *Server) serveAPISearch(resp http.ResponseWriter, req *http.Request) error {
 	q := strings.TrimSpace(req.Form.Get("q"))
 
 	var pkgs []database.Package
@@ -37,7 +37,7 @@ func (s *server) serveAPISearch(resp http.ResponseWriter, req *http.Request) err
 	return json.NewEncoder(resp).Encode(&data)
 }
 
-func (s *server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
+func (s *Server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
 	importPath := strings.TrimPrefix(req.URL.Path, "/importers/")
 	pkgs, err := s.db.Importers(req.Context(), importPath)
 	if err != nil {

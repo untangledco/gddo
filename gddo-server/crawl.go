@@ -11,6 +11,7 @@ import (
 	"errors"
 	"go/build"
 	"log"
+	"sort"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
@@ -19,12 +20,20 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/module"
+	"golang.org/x/mod/semver"
 )
 
 var ErrBlocked = errors.New("blocked")
 
+// byVersion sorts versions from latest to oldest.
+type byVersion []string
+
+func (v byVersion) Len() int           { return len(v) }
+func (v byVersion) Less(i, j int) bool { return semver.Compare(v[i], v[j]) > 0 }
+func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
+
 // crawl fetches package documentation and updates the database.
-func (s *server) crawl(ctx context.Context, modulePath string) (database.Module, error) {
+func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module, error) {
 	start := time.Now().UTC()
 
 	if blocked, err := s.db.IsBlocked(ctx, modulePath); err != nil {
@@ -71,7 +80,7 @@ func (s *server) crawl(ctx context.Context, modulePath string) (database.Module,
 		if err != nil {
 			return database.Module{}, err
 		}
-		mod.Versions = versions
+		sort.Sort(byVersion(versions))
 
 		// Update the module
 		mod = database.Module{

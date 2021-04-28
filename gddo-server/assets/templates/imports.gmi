@@ -1,0 +1,9 @@
+# Packages that are imported by {{.PageName}}
+{{if .Imports}}{{range .Imports}}
+=> /{{.ImportPath}} {{.ImportPath}}
+{{- if .Synopsis}}
+{{.Synopsis}}{{end}}{{end}}
+{{else}}
+No packages found.
+{{end}}
+=> /{{.ImportPath}} Back to documentation

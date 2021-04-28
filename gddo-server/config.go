@@ -11,6 +11,8 @@ import (
 type Config struct {
 	AssetsDir      string
 	BindHTTP       string
+	BindGemini     string
+	CertsDir       string
 	Database       string
 	GoProxy        string
 	DefaultGOOS    string
@@ -28,7 +30,9 @@ func (c *Config) FlagSet() *flag.FlagSet {
 
 	flags := flag.NewFlagSet("default", flag.ExitOnError)
 	flags.StringVar(&c.AssetsDir, "assets", assetsDir, "Assets directory")
-	flags.StringVar(&c.BindHTTP, "http", ":8080", "Listen for HTTP connections on this address")
+	flags.StringVar(&c.BindHTTP, "http", "", "Listen for HTTP connections on this address")
+	flags.StringVar(&c.BindGemini, "gemini", "", "Listen for Gemini connections on this address")
+	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")
 	flags.StringVar(&c.Database, "db", "postgres://localhost", "PostgreSQL database URL")
 	flags.StringVar(&c.GoProxy, "goproxy", "https://proxy.golang.org", "Go module proxy")
 	flags.StringVar(&c.DefaultGOOS, "goos", "linux", "Default GOOS to use for documentation")

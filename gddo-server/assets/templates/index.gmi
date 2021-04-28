@@ -1,0 +1,6 @@
+# godocs.io
+
+=> /-/about About
+=> /-/search Search for Go packages
+
+godocs.io is an independent fork of the now-defunct godoc.org, and hosts documentation for Go packages. Read the About page for information about adding packages to godocs.io and more.

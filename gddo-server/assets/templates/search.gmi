@@ -1,0 +1,12 @@
+# {{printf "%q" .Query}} - godocs.io
+
+=> / Home
+=> /-/search Search
+{{if .Results}}{{range .Results}}
+=> /{{.ImportPath}} {{.ImportPath}}
+* {{.ImportCount}} imports
+{{if .Synopsis}}{{.Synopsis}}
+{{end}}{{end}}
+{{else}}
+No packages found.
+{{end}}

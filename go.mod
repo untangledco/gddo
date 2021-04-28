@@ -3,6 +3,7 @@ module git.sr.ht/~sircmpwn/gddo
 go 1.13
 
 require (
+	git.sr.ht/~adnano/go-gemini v0.2.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
