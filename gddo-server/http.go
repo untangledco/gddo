@@ -328,6 +328,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		http.Redirect(resp, req, "/"+q, http.StatusFound)
 		return nil
 	}
+	msgs := errorMessages(err)
 
 	pkgs, err := s.db.Search(req.Context(), q)
 	if err != nil {
@@ -335,9 +336,10 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	return s.templates.ExecuteHTML(resp, "results.html", http.StatusOK, struct {
-		Query   string
-		Results []database.Package
-	}{q, pkgs})
+		Query    string
+		Results  []database.Package
+		Messages []flashMessage
+	}{q, pkgs, msgs})
 }
 
 func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
@@ -387,20 +389,32 @@ func (rc requestCleaner) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
+	if msgs := errorMessages(err); msgs != nil {
+		s.templates.ExecuteHTML(resp, "notfound.html", status,
+			struct{ Messages []flashMessage }{msgs})
+		return
+	}
+	resp.Header().Set("Content-Type", textMIMEType)
+	resp.WriteHeader(http.StatusInternalServerError)
+	io.WriteString(resp, errorText(err))
+}
+
+func errorMessages(err error) []flashMessage {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		s.templates.ExecuteHTML(resp, "notfound.html", status,
-			struct{ Messages []flashMessage }{
-				append(getFlashMessages(resp, req), flashMessage{ID: "timeout"}),
-			})
-	case status == http.StatusNotFound:
-		s.templates.ExecuteHTML(resp, "notfound.html", status,
-			struct{ Messages []flashMessage }{getFlashMessages(resp, req)})
-	default:
-		resp.Header().Set("Content-Type", textMIMEType)
-		resp.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(resp, errorText(err))
+		return []flashMessage{{ID: "timeout"}}
+	case errors.Is(err, ErrMismatch):
+		return []flashMessage{{
+			ID:   "error",
+			Args: []string{"Error fetching module: The provided import path doesn't match the module path present in the go.mod file."},
+		}}
+	case errors.Is(err, ErrNoPackages):
+		return []flashMessage{{
+			ID:   "error",
+			Args: []string{"Error fetching module: The requested module doesn't contain any packages."},
+		}}
 	}
+	return nil
 }
 
 type errorHandler struct {

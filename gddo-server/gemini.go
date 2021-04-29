@@ -59,6 +59,9 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 		w.WriteHeader(gemini.StatusRedirect, "/"+q)
 		return nil
 	}
+	if handleGeminiError(w, err) {
+		return nil
+	}
 
 	pkgs, err := s.db.Search(ctx, q)
 	if err != nil {
@@ -207,15 +210,26 @@ func geminiErrorHandler(fn func(ctx context.Context, w gemini.ResponseWriter, r 
 		if err == nil {
 			return
 		}
-		switch {
-		case errors.Is(err, context.DeadlineExceeded):
-			w.WriteHeader(gemini.StatusTemporaryFailure, "This package is being fetched in the background. Feel free to refresh while we're working on it.")
-		case errors.Is(err, proxy.ErrNotFound) ||
-			errors.Is(err, proxy.ErrInvalidArgument) ||
-			errors.Is(err, ErrBlocked):
-			w.WriteHeader(gemini.StatusNotFound, "Not found")
-		default:
+		if !handleGeminiError(w, err) {
 			w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error")
 		}
 	}
+}
+
+func handleGeminiError(w gemini.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		w.WriteHeader(gemini.StatusTemporaryFailure, "This package is being fetched in the background. Feel free to refresh while we're working on it.")
+	case errors.Is(err, proxy.ErrNotFound) ||
+		errors.Is(err, proxy.ErrInvalidArgument) ||
+		errors.Is(err, ErrBlocked):
+		w.WriteHeader(gemini.StatusNotFound, "Not found")
+	case errors.Is(err, ErrMismatch):
+		w.WriteHeader(gemini.StatusNotFound, "The provided import path doesn't match the module path present in the go.mod file.")
+	case errors.Is(err, ErrNoPackages):
+		w.WriteHeader(gemini.StatusNotFound, "The requested module doesn't contain any packages.")
+	default:
+		return false
+	}
+	return true
 }
