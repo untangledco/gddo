@@ -163,6 +163,7 @@ func parsePackages(zip *zip.Reader, modulePath, version string) ([]*Package, err
 		pkgs = append(pkgs, pkg)
 	}
 	sort.Sort(byPath(pkgs))
+
 	return pkgs, nil
 }
 

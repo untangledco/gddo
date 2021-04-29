@@ -23,7 +23,11 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-var ErrBlocked = errors.New("blocked")
+var (
+	ErrBlocked    = errors.New("blocked import path")
+	ErrMismatch   = errors.New("import paths don't match")
+	ErrNoPackages = errors.New("no packages found")
+)
 
 // byVersion sorts versions from latest to oldest.
 type byVersion []string
@@ -68,31 +72,6 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 			return database.Module{}, err
 		}
 		return mod, nil
-	} else {
-		// Retrieve the list of versions
-		var versions []string
-		var err error
-		if modulePath == stdlib.ModulePath {
-			versions, err = stdlib.Versions()
-		} else {
-			versions, err = s.proxyClient.ListVersions(ctx, modulePath)
-		}
-		if err != nil {
-			return database.Module{}, err
-		}
-		sort.Sort(byVersion(versions))
-
-		// Update the module
-		mod = database.Module{
-			ModulePath: modulePath,
-			SeriesPath: seriesPath,
-			Version:    info.Version,
-			Versions:   versions,
-			Updated:    start,
-		}
-		if err := s.db.PutModule(ctx, mod); err != nil {
-			return database.Module{}, err
-		}
 	}
 
 	// Add packages to the database
@@ -100,6 +79,39 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	if err != nil {
 		return database.Module{}, err
 	}
+	if src.Path != modulePath {
+		// The import paths don't match
+		return database.Module{}, ErrMismatch
+	}
+	if len(src.Packages) == 0 {
+		// The module has no packages
+		return database.Module{}, ErrNoPackages
+	}
+
+	// Retrieve the list of versions
+	var versions []string
+	if modulePath == stdlib.ModulePath {
+		versions, err = stdlib.Versions()
+	} else {
+		versions, err = s.proxyClient.ListVersions(ctx, modulePath)
+	}
+	if err != nil {
+		return database.Module{}, err
+	}
+	sort.Sort(byVersion(versions))
+
+	// Update the module
+	mod = database.Module{
+		ModulePath: modulePath,
+		SeriesPath: seriesPath,
+		Version:    info.Version,
+		Versions:   versions,
+		Updated:    start,
+	}
+	if err := s.db.PutModule(ctx, mod); err != nil {
+		return database.Module{}, err
+	}
+
 	for _, pkg := range src.Packages {
 		// TODO: Allow configuring the default GOOS,
 		// and optionally let the user specify their own
