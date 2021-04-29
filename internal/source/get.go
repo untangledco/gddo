@@ -119,6 +119,9 @@ func parsePackages(zip *zip.Reader, modulePath, version string) ([]*Package, err
 			}
 			var importPath string
 			if modulePath == stdlib.ModulePath {
+				if stop {
+					break
+				}
 				importPath = dir
 			} else {
 				importPath = path.Join(modulePath, dir)
