@@ -48,16 +48,18 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 
 	// Get latest version
 	var latest string
-	var err error
 	if modulePath == stdlib.ModulePath {
+		var err error
 		latest, err = stdlib.ZipInfo(proxy.LatestVersion)
+		if err != nil {
+			return database.Module{}, err
+		}
 	} else {
-		var info *proxy.VersionInfo
-		info, err = s.proxyClient.GetInfo(ctx, modulePath, proxy.LatestVersion)
+		info, err := s.proxyClient.GetInfo(ctx, modulePath, proxy.LatestVersion)
+		if err != nil {
+			return database.Module{}, err
+		}
 		latest = info.Version
-	}
-	if err != nil {
-		return database.Module{}, err
 	}
 
 	seriesPath, _, _ := module.SplitPathVersion(modulePath)
