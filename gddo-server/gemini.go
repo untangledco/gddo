@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -19,14 +21,16 @@ func (s *Server) GeminiHandler() (gemini.Handler, error) {
 	if err := parseGeminiTemplates(s.templates, templatesDir); err != nil {
 		return nil, err
 	}
+	robotsTxt := filepath.Join(s.cfg.AssetsDir, "gemini-robots.txt")
 
 	mux := &gemini.Mux{}
-	mux.HandleFunc("/-/about", geminiErrorHandler(s.serveGeminiAbout))
-	mux.HandleFunc("/-/search", geminiErrorHandler(s.serveGeminiSearch))
+	mux.Handle("/-/about", geminiErrorHandler(s.serveGeminiAbout))
+	mux.Handle("/-/search", geminiErrorHandler(s.serveGeminiSearch))
 	mux.Handle("/-/", gemini.NotFoundHandler())
 	mux.Handle("/-", gemini.NotFoundHandler()) // XXX: Shouldn't have to do this
 	mux.Handle("/std", geminiErrorHandler(s.serveGeminiStdlib))
-	mux.HandleFunc("/", geminiErrorHandler(s.serveGeminiHome))
+	mux.Handle("/robots.txt", geminiFileHandler(robotsTxt, "text/plain"))
+	mux.Handle("/", geminiErrorHandler(s.serveGeminiHome))
 	return mux, nil
 }
 
@@ -202,6 +206,19 @@ func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter,
 	return s.templates.Execute(w, "std.gmi", struct {
 		Packages []database.Package
 	}{pkgs})
+}
+
+func geminiFileHandler(path, mediatype string) gemini.HandlerFunc {
+	return func(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) {
+		w.SetMediaType(mediatype)
+		f, err := os.Open(path)
+		if err != nil {
+			w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error.")
+			return
+		}
+		defer f.Close()
+		io.Copy(w, f)
+	}
 }
 
 func geminiErrorHandler(fn func(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error) gemini.HandlerFunc {
