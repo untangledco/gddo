@@ -165,11 +165,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}{tctx, imports})
 
 	case isView(req.URL, "tools"):
-		proto := "http"
-		if req.Host == "godocs.io" {
-			proto = "https"
-		}
-		uri := fmt.Sprintf("%s://%s/%s", proto, req.Host, importPath)
+		uri := fmt.Sprintf("%s/%s", getRootURL(req), importPath)
 		return s.templates.ExecuteHTML(resp, "tools.html", http.StatusOK, &struct {
 			Context
 			URI string
@@ -347,7 +343,6 @@ func (s *Server) serveBot(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func getRootURL(req *http.Request) string {
-	// TODO: Maybe this should be specified in configuration?
 	if req.TLS != nil {
 		return fmt.Sprintf("https://%s", strings.TrimSuffix(req.Host, ":443"))
 	}
