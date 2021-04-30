@@ -117,10 +117,6 @@ func (s *Server) GetDoc(ctx context.Context, importPath string) (*database.Modul
 
 	select {
 	case r := <-ch:
-		if r.err != nil && !errors.Is(r.err, proxy.ErrNotFound) &&
-			!errors.Is(r.err, proxy.ErrInvalidArgument) {
-			log.Printf("Error getting doc for %q: %v", importPath, r.err)
-		}
 		return r.mod, r.pkg, r.doc, r.err
 	case <-ctx.Done():
 		log.Printf("Serving %q as not found after timeout getting doc", importPath)

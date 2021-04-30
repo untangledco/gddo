@@ -32,10 +32,6 @@ type StaticServer struct {
 	// headers.
 	MaxAge time.Duration
 
-	// Error specifies the function used to generate error responses. If Error
-	// is nil, then http.Error is used to generate error responses.
-	Error Error
-
 	mu    sync.Mutex
 	etags map[string]string
 }

@@ -7,6 +7,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -75,13 +76,10 @@ func (s *Server) playURL(pdoc *doc.Package, id string) (string, error) {
 				return "", err
 			}
 			if resp.StatusCode > 399 {
-				return "", &httpError{
-					status: resp.StatusCode,
-					err:    fmt.Errorf("Error from play.golang.org: %s", p),
-				}
+				return "", fmt.Errorf("Error from play.golang.org: %s", p)
 			}
 			return fmt.Sprintf("http://play.golang.org/p/%s", p), nil
 		}
 	}
-	return "", &httpError{status: http.StatusNotFound}
+	return "", errors.New("example not found")
 }

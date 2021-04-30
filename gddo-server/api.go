@@ -52,19 +52,3 @@ func (s *Server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) 
 	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
-
-func serveAPIHome(resp http.ResponseWriter, req *http.Request) error {
-	return &httpError{status: http.StatusNotFound}
-}
-
-func handleAPIError(resp http.ResponseWriter, req *http.Request, status int, err error) {
-	var data struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	data.Error.Message = http.StatusText(status)
-	resp.Header().Set("Content-Type", jsonMIMEType)
-	resp.WriteHeader(status)
-	json.NewEncoder(resp).Encode(&data)
-}

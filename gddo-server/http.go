@@ -27,25 +27,6 @@ const (
 	htmlMIMEType = "text/html; charset=utf-8"
 )
 
-type httpError struct {
-	status int   // HTTP status code.
-	err    error // Optional reason for the HTTP error.
-}
-
-func (err *httpError) Error() string {
-	if err.err != nil {
-		return fmt.Sprintf("status %d, reason %s", err.status, err.err.Error())
-	}
-	return fmt.Sprintf("Status %d", err.status)
-}
-
-func errorText(err error) string {
-	if errors.Is(err, context.DeadlineExceeded) {
-		return "Timeout getting package files from the version control system."
-	}
-	return "Internal server error."
-}
-
 func (s *Server) HTTPHandler() (http.Handler, error) {
 	staticServer := httputil.StaticServer{
 		Dir:    s.cfg.AssetsDir,
@@ -61,10 +42,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 
 	handler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {
 		return requestCleaner{
-			h: errorHandler{
-				fn:    f,
-				errFn: s.handleError,
-			},
+			h: s.errorHandler(f),
 		}
 	}
 	mux.Handle("/-/about", handler(s.serveAbout))
@@ -180,7 +158,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		select {
 		case s.importGraphSem <- struct{}{}:
 		default:
-			return &httpError{status: http.StatusTooManyRequests}
+			return errors.New("too many requests")
 		}
 		defer func() { <-s.importGraphSem }()
 
@@ -262,7 +240,17 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 		err = ctx.Err()
 	}
 	if err != nil {
-		setFlashMessages(resp, []flashMessage{{ID: "refresh", Args: []string{errorText(err)}}})
+		// TODO: Merge this with other error handling?
+		var msg string
+		if errors.Is(err, context.DeadlineExceeded) {
+			msg = "Timeout encountered while fetching module source code."
+		} else {
+			msg = "Internal server error."
+		}
+		setFlashMessages(resp, []flashMessage{{
+			ID:   "refresh",
+			Args: []string{msg},
+		}})
 	}
 	http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 	return nil
@@ -341,18 +329,6 @@ func (s *Server) serveOpenSearch(resp http.ResponseWriter, req *http.Request) er
 	return s.templates.ExecuteHTTP(resp, "opensearch.xml", http.StatusOK, root)
 }
 
-func logError(req *http.Request, err error, rv interface{}) {
-	if err != nil {
-		var buf bytes.Buffer
-		fmt.Fprintf(&buf, "Error serving %s: %v\n", req.URL, err)
-		if rv != nil {
-			fmt.Fprintln(&buf, rv)
-			buf.Write(debug.Stack())
-		}
-		log.Print(buf.String())
-	}
-}
-
 type requestCleaner struct {
 	h http.Handler
 }
@@ -363,17 +339,6 @@ func (rc requestCleaner) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	req2.Body = http.MaxBytesReader(w, req.Body, 2048)
 	req2.ParseForm()
 	rc.h.ServeHTTP(w, req2)
-}
-
-func (s *Server) handleError(resp http.ResponseWriter, req *http.Request, status int, err error) {
-	if msgs := errorMessages(err); msgs != nil {
-		s.templates.ExecuteHTML(resp, "notfound.html", status,
-			struct{ Messages []flashMessage }{msgs})
-		return
-	}
-	resp.Header().Set("Content-Type", textMIMEType)
-	resp.WriteHeader(http.StatusInternalServerError)
-	io.WriteString(resp, errorText(err))
 }
 
 func errorMessages(err error) []flashMessage {
@@ -394,37 +359,51 @@ func errorMessages(err error) []flashMessage {
 	return nil
 }
 
-type errorHandler struct {
-	fn    func(resp http.ResponseWriter, req *http.Request) error
-	errFn httputil.Error
+func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
+	return func(resp http.ResponseWriter, req *http.Request) {
+		defer func() {
+			if rv := recover(); rv != nil {
+				err := errors.New("handler panic")
+				logError(req, err, rv)
+				resp.Header().Set("Content-Type", textMIMEType)
+				resp.WriteHeader(http.StatusInternalServerError)
+				io.WriteString(resp, "Internal server error.")
+			}
+		}()
+
+		rb := new(httputil.ResponseBuffer)
+		err := fn(rb, req)
+		if err == nil {
+			rb.WriteTo(resp)
+			return
+		}
+
+		if errors.Is(err, proxy.ErrNotFound) ||
+			errors.Is(err, proxy.ErrInvalidArgument) ||
+			errors.Is(err, context.DeadlineExceeded) ||
+			errors.Is(err, ErrBlocked) ||
+			errors.Is(err, ErrMismatch) ||
+			errors.Is(err, ErrNoPackages) {
+
+			msgs := errorMessages(err)
+			s.templates.Execute(resp, "notfound.html",
+				struct{ Messages []flashMessage }{msgs})
+			return
+		}
+
+		resp.Header().Set("Content-Type", textMIMEType)
+		resp.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(resp, "Internal server error.")
+		logError(req, err, nil)
+	}
 }
 
-func (eh errorHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	defer func() {
-		if rv := recover(); rv != nil {
-			err := errors.New("handler panic")
-			logError(req, err, rv)
-			eh.errFn(resp, req, http.StatusInternalServerError, err)
-		}
-	}()
-
-	rb := new(httputil.ResponseBuffer)
-	err := eh.fn(rb, req)
-	if err == nil {
-		rb.WriteTo(resp)
-	} else if e, ok := err.(*httpError); ok {
-		if e.status >= 500 {
-			logError(req, err, nil)
-		}
-		eh.errFn(resp, req, e.status, e.err)
-	} else if errors.Is(err, proxy.ErrNotFound) ||
-		errors.Is(err, proxy.ErrInvalidArgument) ||
-		errors.Is(err, ErrBlocked) {
-		eh.errFn(resp, req, http.StatusNotFound, nil)
-	} else if errors.Is(err, context.DeadlineExceeded) {
-		eh.errFn(resp, req, http.StatusNotFound, err)
-	} else {
-		logError(req, err, nil)
-		eh.errFn(resp, req, http.StatusInternalServerError, err)
+func logError(req *http.Request, err error, rv interface{}) {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "Error serving %s: %v\n", req.URL, err)
+	if rv != nil {
+		fmt.Fprintln(&buf, rv)
+		buf.Write(debug.Stack())
 	}
+	log.Print(buf.String())
 }
