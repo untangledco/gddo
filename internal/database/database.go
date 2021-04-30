@@ -132,7 +132,8 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 			WHERE p.searchtext @@ websearch_to_tsquery('english', $1)
 				AND m.module_path = p.module_path AND p.version = m.latest_version
 				AND i.import_path = p.import_path
-			ORDER BY score DESC, import_path ASC
+			ORDER BY ts_rank(p.searchtext, to_tsquery('english', $1)) DESC,
+				p.score ASC
 			LIMIT 20;
 			`, q)
 		if err != nil {
