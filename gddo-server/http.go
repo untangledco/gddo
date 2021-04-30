@@ -243,7 +243,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 	defer cancel()
 
 	importPath := req.Form.Get("path")
-	pkg, ok, err := s.db.GetPackage(ctx, importPath, "latest")
+	pkg, ok, err := s.db.GetPackage(ctx, importPath, proxy.LatestVersion)
 	if err != nil {
 		return err
 	}

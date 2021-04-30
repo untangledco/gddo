@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 )
 
 const jsonMIMEType = "application/json; charset=utf-8"
@@ -15,7 +16,7 @@ func (s *Server) serveAPISearch(resp http.ResponseWriter, req *http.Request) err
 
 	var pkgs []database.Package
 
-	pkg, ok, err := s.db.GetPackage(req.Context(), q, "latest")
+	pkg, ok, err := s.db.GetPackage(req.Context(), q, proxy.LatestVersion)
 	if err == nil && ok {
 		pkgs = []database.Package{pkg}
 	}

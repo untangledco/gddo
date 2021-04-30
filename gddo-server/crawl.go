@@ -47,13 +47,14 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	}
 
 	// Get latest version
+	var latest string
 	var err error
-	var info *proxy.VersionInfo
 	if modulePath == stdlib.ModulePath {
-		info = &proxy.VersionInfo{}
-		info.Version, err = stdlib.ZipInfo("latest")
+		latest, err = stdlib.ZipInfo(proxy.LatestVersion)
 	} else {
-		info, err = s.proxyClient.GetInfo(ctx, modulePath, "latest")
+		var info *proxy.VersionInfo
+		info, err = s.proxyClient.GetInfo(ctx, modulePath, proxy.LatestVersion)
+		latest = info.Version
 	}
 	if err != nil {
 		return database.Module{}, err
@@ -65,7 +66,7 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	if err != nil {
 		return database.Module{}, err
 	}
-	if ok && mod.Version == info.Version {
+	if ok && mod.Version == latest {
 		// Update last crawl time
 		mod.Updated = start
 		if err := s.db.PutModule(ctx, mod); err != nil {
@@ -75,7 +76,7 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	}
 
 	// Add packages to the database
-	src, err := source.Get(ctx, s.proxyClient, modulePath, info.Version)
+	src, err := source.Get(ctx, s.proxyClient, modulePath, latest)
 	if err != nil {
 		return database.Module{}, err
 	}
@@ -104,7 +105,7 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	mod = database.Module{
 		ModulePath: modulePath,
 		SeriesPath: seriesPath,
-		Version:    info.Version,
+		Version:    src.Version,
 		Versions:   versions,
 		Updated:    start,
 	}
@@ -126,7 +127,7 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 		if len(pkg.Files) == 0 {
 			pdoc.ImportPath = pkg.Path
 		}
-		if err := s.db.PutPackage(ctx, modulePath, seriesPath, info.Version, info.Time, pdoc); err != nil {
+		if err := s.db.PutPackage(ctx, modulePath, seriesPath, src.Version, src.Time, pdoc); err != nil {
 			log.Println(err)
 			continue
 		}

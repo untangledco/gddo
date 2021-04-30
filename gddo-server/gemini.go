@@ -160,7 +160,7 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 	defer cancel()
 
 	importPath := strings.TrimPrefix(r.URL.Path, "/")
-	pkg, ok, err := s.db.GetPackage(ctx, importPath, "latest")
+	pkg, ok, err := s.db.GetPackage(ctx, importPath, proxy.LatestVersion)
 	if err != nil {
 		return err
 	}
