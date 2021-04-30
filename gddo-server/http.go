@@ -51,7 +51,6 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 		Dir:    s.cfg.AssetsDir,
 		MaxAge: time.Hour,
 	}
-	s.statusPNG = staticServer.FileHandler("status.png")
 	s.statusSVG = staticServer.FileHandler("status.svg")
 
 	mux := http.NewServeMux()
@@ -109,11 +108,6 @@ func (s *Server) httpEtag(importPath, version string, flashMessages []flashMessa
 func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error {
 	if isView(req.URL, "status.svg") {
 		s.statusSVG.ServeHTTP(resp, req)
-		return nil
-	}
-
-	if isView(req.URL, "status.png") {
-		s.statusPNG.ServeHTTP(resp, req)
 		return nil
 	}
 

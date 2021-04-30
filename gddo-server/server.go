@@ -22,9 +22,7 @@ type Server struct {
 	httpClient  *http.Client
 	proxyClient *proxy.Client
 	templates   TemplateMap
-
-	statusPNG http.Handler
-	statusSVG http.Handler
+	statusSVG   http.Handler
 
 	// A semaphore to limit concurrent ?import-graph requests.
 	importGraphSem chan struct{}
