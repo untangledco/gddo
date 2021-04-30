@@ -1,5 +1,5 @@
 # {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}} - godocs.io
-{{if .Name}}
+{{if and .Name (not .IsCommand)}}
 ```
 import "{{.ImportPath}}"
 ```
@@ -8,6 +8,7 @@ import "{{.ImportPath}}"
 {{- if .Doc}}
 {{.Doc|comment}}{{end}}
 
+{{- if not .IsCommand}}
 {{- if .Truncated}}The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.{{end}}
 
 {{- if .Consts}}
@@ -71,6 +72,7 @@ import "{{.ImportPath}}"
 {{range .}}
 * {{.Body}}{{end}}{{end}}
 {{end}}
+{{- end}}
 
 {{- if .SubPackages}}
 ## Directories

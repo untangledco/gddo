@@ -1,0 +1,26 @@
+{{define "Head"}}<title>{{.Query}} - godocs.io</title><meta name="robots" content="NOINDEX">{{end}}
+
+{{define "Body"}}
+  {{template "FlashMessages" .Messages}}
+  <div class="well">
+    {{template "SearchBox" .Query}}
+  </div>
+  {{if .Results}}
+    <table class="table table-condensed">
+      <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+      <tbody>{{range .Results}}
+        <tr>
+          <td>
+            <a href="/{{.ImportPath}}">{{.ImportPath}}</a>
+            <ul class="list-inline">
+              <li class="additional-info">{{.ImportCount}} imports</li>
+            </ul>
+          </td>
+          <td class="synopsis">{{.Synopsis}}</td>
+        </tr>
+      {{end}}</tbody>
+    </table>
+  {{else}}
+    <p>No packages found.
+  {{end}}
+{{end}}

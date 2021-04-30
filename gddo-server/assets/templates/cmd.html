@@ -1,9 +1,0 @@
-{{define "Head"}}{{template "PkgCmdHeader" $}}{{end}}
-
-{{define "Body"}}
-  {{template "ProjectNav" $}}
-  <h2>Command {{$.PageName}}</h2>
-  {{$.Doc|comment}}
-  {{template "PkgFiles" $}}
-  {{template "PkgCmdFooter" $}}
-{{end}}

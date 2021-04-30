@@ -206,8 +206,7 @@ func (pdoc *Package) Breadcrumbs(templateName string) htemp.HTML {
 		if i != 0 {
 			buf.WriteString(`<span class="text-muted">/</span>`)
 		}
-		link := j < len(pdoc.ImportPath) ||
-			(templateName != "dir.html" && templateName != "cmd.html" && templateName != "pkg.html")
+		link := j < len(pdoc.ImportPath) || templateName != "doc.html"
 		if link {
 			buf.WriteString(`<a href="`)
 			buf.WriteString(formatPathFrag(pdoc.ImportPath[:j], ""))
@@ -445,16 +444,14 @@ func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) er
 	sets := [][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"bot.html", "common.html", "layout.html"},
-		{"cmd.html", "common.html", "layout.html"},
-		{"dir.html", "common.html", "layout.html"},
-		{"home.html", "common.html", "layout.html"},
+		{"doc.html", "common.html", "layout.html"},
+		{"index.html", "common.html", "layout.html"},
 		{"importers.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
-		{"pkg.html", "common.html", "layout.html"},
-		{"results.html", "common.html", "layout.html"},
-		{"tools.html", "common.html", "layout.html"},
+		{"search.html", "common.html", "layout.html"},
 		{"std.html", "common.html", "layout.html"},
+		{"tools.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
 	}
 	funcs := htemp.FuncMap{

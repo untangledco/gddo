@@ -220,14 +220,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			status = http.StatusNotModified
 		}
 
-		template := "dir.html"
-		switch {
-		case pdoc.IsCommand:
-			template = "cmd.html"
-		case pdoc.Name != "":
-			template = "pkg.html"
-		}
-
 		importCount, err := s.db.ImportCount(req.Context(), importPath)
 		if err != nil {
 			return err
@@ -241,7 +233,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		tctx.Package.SubPackages = subpkgs
 
 		resp.Header().Set("Etag", etag)
-		return s.templates.ExecuteHTML(resp, template, status, &tctx)
+		return s.templates.ExecuteHTML(resp, "doc.html", status, &tctx)
 	}
 	return nil
 }
@@ -306,7 +298,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
-		return s.templates.ExecuteHTML(resp, "home.html", http.StatusOK, nil)
+		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
 	}
 
 	_, _, _, err := s.GetDoc(req.Context(), q)
@@ -321,7 +313,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	return s.templates.ExecuteHTML(resp, "results.html", http.StatusOK, struct {
+	return s.templates.ExecuteHTML(resp, "search.html", http.StatusOK, struct {
 		Query    string
 		Results  []database.Package
 		Messages []flashMessage
