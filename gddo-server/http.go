@@ -50,18 +50,14 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	staticServer := httputil.StaticServer{
 		Dir:    s.cfg.AssetsDir,
 		MaxAge: time.Hour,
-		MIMETypes: map[string]string{
-			".css": "text/css; charset=utf-8",
-			".js":  "text/javascript; charset=utf-8",
-		},
 	}
 	s.statusPNG = staticServer.FileHandler("status.png")
 	s.statusSVG = staticServer.FileHandler("status.svg")
 
 	mux := http.NewServeMux()
-	mux.Handle("/-/site.js", staticServer.FilesHandler("site.js"))
-	mux.Handle("/-/site.css", staticServer.FilesHandler("site.css"))
-	mux.Handle("/-/bootstrap.min.css", staticServer.FilesHandler("bootstrap.min.css"))
+	mux.Handle("/-/site.js", staticServer.FileHandler("site.js"))
+	mux.Handle("/-/site.css", staticServer.FileHandler("site.css"))
+	mux.Handle("/-/bootstrap.min.css", staticServer.FileHandler("bootstrap.min.css"))
 	mux.Handle("/-/", http.NotFoundHandler())
 
 	handler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {

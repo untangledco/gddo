@@ -165,11 +165,3 @@ func testStaticServer(t *testing.T, f func(*httputil.StaticServer) http.Handler)
 func TestFileHandler(t *testing.T) {
 	testStaticServer(t, func(ss *httputil.StaticServer) http.Handler { return ss.FileHandler("static_test.go") })
 }
-
-func TestDirectoryHandler(t *testing.T) {
-	testStaticServer(t, func(ss *httputil.StaticServer) http.Handler { return ss.DirectoryHandler("/dir", ".") })
-}
-
-func TestFilesHandler(t *testing.T) {
-	testStaticServer(t, func(ss *httputil.StaticServer) http.Handler { return ss.FilesHandler("static_test.go") })
-}

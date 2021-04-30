@@ -7,22 +7,20 @@
 package httputil
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"errors"
 	"fmt"
-	"git.sr.ht/~sircmpwn/gddo/internal/httputil/header"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
+
+	"git.sr.ht/~sircmpwn/gddo/internal/httputil/header"
 )
 
 // StaticServer serves static files.
@@ -37,9 +35,6 @@ type StaticServer struct {
 	// Error specifies the function used to generate error responses. If Error
 	// is nil, then http.Error is used to generate error responses.
 	Error Error
-
-	// MIMETypes is a map from file extensions to MIME types.
-	MIMETypes map[string]string
 
 	mu    sync.Mutex
 	etags map[string]string
@@ -60,9 +55,6 @@ func (ss *StaticServer) resolve(fname string) string {
 func (ss *StaticServer) mimeType(fname string) string {
 	ext := path.Ext(fname)
 	var mimeType string
-	if ss.MIMETypes != nil {
-		mimeType = ss.MIMETypes[ext]
-	}
 	if mimeType == "" {
 		mimeType = mime.TypeByExtension(ext)
 	}
@@ -100,65 +92,6 @@ func (ss *StaticServer) FileHandler(fileName string) http.Handler {
 		ss:   ss,
 		id:   func(_ string) string { return id },
 		open: func(_ string) (io.ReadCloser, int64, string, error) { return ss.openFile(fileName) },
-	}
-}
-
-// DirectoryHandler returns a handler that serves files from a directory tree.
-// The directory is specified by a slash separated path relative to the static
-// server's Dir field.
-func (ss *StaticServer) DirectoryHandler(prefix, dirName string) http.Handler {
-	if !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
-	idBase := dirName
-	dirName = ss.resolve(dirName)
-	return &staticHandler{
-		ss: ss,
-		id: func(p string) string {
-			if !strings.HasPrefix(p, prefix) {
-				return "."
-			}
-			return path.Join(idBase, p[len(prefix):])
-		},
-		open: func(p string) (io.ReadCloser, int64, string, error) {
-			if !strings.HasPrefix(p, prefix) {
-				return nil, 0, "", errors.New("request url does not match directory prefix")
-			}
-			p = p[len(prefix):]
-			return ss.openFile(filepath.Join(dirName, filepath.FromSlash(p)))
-		},
-	}
-}
-
-// FilesHandler returns a handler that serves the concatentation of the
-// specified files. The files are specified by slash separated paths relative
-// to the static server's Dir field.
-func (ss *StaticServer) FilesHandler(fileNames ...string) http.Handler {
-
-	// todo: cache concatenated files on disk and serve from there.
-
-	mimeType := ss.mimeType(fileNames[0])
-	var buf []byte
-	var openErr error
-
-	for _, fileName := range fileNames {
-		p, err := ioutil.ReadFile(ss.resolve(fileName))
-		if err != nil {
-			openErr = err
-			buf = nil
-			break
-		}
-		buf = append(buf, p...)
-	}
-
-	id := strings.Join(fileNames, " ")
-
-	return &staticHandler{
-		ss: ss,
-		id: func(_ string) string { return id },
-		open: func(p string) (io.ReadCloser, int64, string, error) {
-			return ioutil.NopCloser(bytes.NewReader(buf)), int64(len(buf)), mimeType, openErr
-		},
 	}
 }
 
