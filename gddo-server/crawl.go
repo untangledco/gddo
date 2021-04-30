@@ -135,7 +135,9 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	// Fetch meta
 	meta, err := source.FetchMeta(ctx, s.httpClient, modulePath)
 	if err != nil {
-		log.Printf("Error fetching source meta for %s: %s", modulePath, err)
+		if !errors.Is(err, source.ErrMetaNotFound) {
+			log.Printf("Error fetching source meta for %s: %s", modulePath, err)
+		}
 	} else {
 		if err := s.db.PutMeta(ctx, *meta); err != nil {
 			return database.Module{}, err

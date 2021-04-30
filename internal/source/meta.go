@@ -13,6 +13,8 @@ import (
 	"golang.org/x/net/context/ctxhttp"
 )
 
+var ErrMetaNotFound = errors.New("no go-source meta tag found")
+
 // Meta represents the values in a go-source meta tag.
 type Meta struct {
 	ProjectRoot string
@@ -108,7 +110,7 @@ func FetchMeta(ctx context.Context, client *http.Client, importPath string) (*Me
 	defer resp.Body.Close()
 	meta := parseMeta(resp.Body)
 	if meta == nil {
-		return nil, errors.New("no go-source meta tag found")
+		return nil, ErrMetaNotFound
 	}
 	return meta, nil
 }
