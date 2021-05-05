@@ -57,35 +57,35 @@
 
     {{if .Consts}}
       <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
-      {{range .Consts}}<div class="decl" data-kind="c">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      {{range .Consts}}<div class="decl" data-kind="constant">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
     {{end}}
 
     {{if .Vars}}
       <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
-      {{range .Vars}}<div class="decl" data-kind="v">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      {{range .Vars}}<div class="decl" data-kind="variable">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
     {{end}}
 
     {{range .Funcs}}
-      <h3 id="{{.Name}}" data-kind="f">func {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+      <h3 id="{{.Name}}" data-kind="function">func {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
       <div class="funcdecl decl">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
       {{template "Examples" .|$.ObjExamples}}
     {{end}}
 
     {{range $t := .Types}}
-      <h3 id="{{.Name}}" data-kind="t">type {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="decl" data-kind="{{if isInterface $t}}m{{else}}d{{end}}">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl $t}}</div>{{.Doc|comment}}
-      {{range .Consts}}<div class="decl" data-kind="c">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
-      {{range .Vars}}<div class="decl" data-kind="v">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      <h3 id="{{.Name}}" data-kind="type">type {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+      <div class="decl" data-kind="{{if isInterface $t}}method{{else}}field{{end}}">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl $t}}</div>{{.Doc|comment}}
+      {{range .Consts}}<div class="decl" data-kind="constant">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      {{range .Vars}}<div class="decl" data-kind="variable">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
       {{template "Examples" .|$.ObjExamples}}
 
       {{range .Funcs}}
-        <h4 id="{{.Name}}" data-kind="f">func {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+        <h4 id="{{.Name}}" data-kind="function">func {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
         <div class="funcdecl decl">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
 
       {{range .Methods}}
-        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="m">func ({{.Recv}}) {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
         <div class="funcdecl decl">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
