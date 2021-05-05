@@ -43,14 +43,14 @@
 </div>
 
 <div id="x-shortcuts" tabindex="-1" class="modal">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <button type="button" class="close" aria-hidden="true">&times;</button>
-          <h4 class="modal-title">Keyboard shortcuts</h4>
-        </div>
-        <div class="modal-body">
-          <table>{{$mutePkg := not (equal "pkg.html" templateName)}}
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" aria-hidden="true">&times;</button>
+        <h4 class="modal-title">Keyboard shortcuts</h4>
+      </div>
+      <div class="modal-body">
+        <table>{{$mutePkg := not (equal "pkg.html" templateName)}}
           <tr><td align="right"><b>?</b></td><td> : This menu</td></tr>
           <tr><td align="right"><b>/</b></td><td> : Search site</td></tr>
           <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>f</b></td><td> : Jump to identifier</td></tr>
@@ -59,10 +59,7 @@
           <tr><td align="right"><b>G</b></td><td> : Go to end of page</td></tr>
           <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>i</b></td><td> : Go to index</td></tr>
           <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>e</b></td><td> : Go to examples</td></tr>
-          </table>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn">Close</button>
+        </table>
       </div>
     </div>
   </div>

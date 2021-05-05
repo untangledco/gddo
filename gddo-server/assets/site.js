@@ -1,7 +1,6 @@
 // modal
 function Modal(el) {
 	this.el = el
-	el.querySelector(".close").onclick = () => this.hide()
 	el.onclick = () => this.hide()
 	el.onkeydown = (e) => {
 		if (e.key == "Escape") {
