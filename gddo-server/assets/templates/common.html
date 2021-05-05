@@ -12,15 +12,17 @@
 {{define "ProjectNav"}}{{template "FlashMessages" .Messages}}<div class="clearfix" id="x-projnav">
   {{if eq .ModulePath "std"}}<a href="/std">Go:</a>{{else if .Meta}}<a rel="noopener nofollow" href="{{.Meta.ProjectURL}}"><strong>{{.Meta.ProjectName}}:</strong></a>{{end}}
   {{.Breadcrumbs templateName}}
-  {{if and .Name (eq templateName "doc.html")}}
+  {{if and .Name (eq templateName "doc.html") (or (not .IsCommand) .SubPackages)}}
   <span class="pull-right">
     {{if not .IsCommand}}
       <a href="#pkg-index">Index</a>
       {{if .AllExamples}}<span class="text-muted">|</span> <a href="#pkg-examples">Examples</a>{{end}}
-      <span class="text-muted">|</span>
+      <span class="text-muted">|</span> <a href="#pkg-files">Files</a>
     {{end}}
-    <a href="#pkg-files">Files</a>
-    {{if .SubPackages}}<span class="text-muted">|</span> <a href="#pkg-subdirectories">Directories</a>{{end}}
+    {{if .SubPackages}}
+      {{if not .IsCommand}}<span class="text-muted">|</span>{{end}}
+      <a href="#pkg-subdirectories">Directories</a>
+    {{end}}
   </span>
   {{end}}
 </div>{{end}}
