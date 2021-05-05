@@ -242,7 +242,9 @@ function onhashchange() {
 	// open selected example
 	var hash = window.location.hash
 	if (hash.startsWith("#example-")) {
-		document.querySelector(hash).parentElement.setAttribute("open", "")
+		var example = document.querySelector(hash)
+		example.parentElement.setAttribute("open", "")
+		example.scrollIntoView()
 	}
 }
 window.addEventListener("hashchange", onhashchange)
