@@ -96,7 +96,7 @@ func (b *builder) examples(examples []*doc.Example) []*Example {
 		}
 
 		docs = append(docs, &Example{
-			Name:   e.Name,
+			Name:   strings.Title(e.Suffix),
 			Doc:    e.Doc,
 			Code:   code,
 			Output: output,
