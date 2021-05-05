@@ -50,7 +50,7 @@
         <h4 class="modal-title">Keyboard shortcuts</h4>
       </div>
       <div class="modal-body">
-        <table>{{$mutePkg := not (equal "pkg.html" templateName)}}
+        <table>{{$mutePkg := or (ne "doc.html" templateName) (not .Name) .IsCommand}}
           <tr><td align="right"><b>?</b></td><td> : This menu</td></tr>
           <tr><td align="right"><b>/</b></td><td> : Search site</td></tr>
           <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>f</b></td><td> : Jump to identifier</td></tr>

@@ -120,6 +120,7 @@
     <a href="?tools">Tools</a> for package owners.
   </div>
 
+{{if and .Name (not .IsCommand)}}
   <div id="x-jump" tabindex="-1" class="modal">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -135,6 +136,7 @@
       </div>
     </div>
   </div>
+{{end}}
 {{end}}
 
 {{define "Examples"}}
