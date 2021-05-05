@@ -176,6 +176,10 @@ func (pdoc *Package) AllExamples() []*texample {
 	return pdoc.allExamples
 }
 
+func (pdoc *Package) PackageExamples() []*texample {
+	return pdoc.ObjExamples(pdoc)
+}
+
 func (pdoc *Package) ObjExamples(obj interface{}) []*texample {
 	var examples []*texample
 	for _, e := range pdoc.allExamples {
