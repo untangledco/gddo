@@ -432,7 +432,8 @@ func (db *Database) Importers(ctx context.Context, importPath string) ([]Package
 			FROM packages p, importers i
 			WHERE i.import_path = $1 AND
 				p.import_path = i.importer_path AND
-				p.version = i.importer_version;
+				p.version = i.importer_version
+			ORDER BY p.import_path;
 			`, importPath)
 		if err != nil {
 			return err
@@ -506,7 +507,8 @@ func (db *Database) ModulePackages(ctx context.Context, modulePath, version stri
 			SELECT
 				import_path, series_path, commit_time, name, synopsis
 			FROM packages
-			WHERE module_path = $1 AND version = $2;
+			WHERE module_path = $1 AND version = $2
+			ORDER BY import_path;
 			`, modulePath, version)
 		if err != nil {
 			return err
@@ -538,7 +540,8 @@ func (db *Database) SubPackages(ctx context.Context, modulePath, version, import
 			SELECT
 				import_path, series_path, commit_time, name, synopsis
 			FROM packages
-			WHERE module_path = $1 AND version = $2 AND import_path LIKE $3 || '_%';
+			WHERE module_path = $1 AND version = $2 AND import_path LIKE $3 || '_%'
+			ORDER BY import_path;
 			`, modulePath, version, importPath)
 		if err != nil {
 			return err
