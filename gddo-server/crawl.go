@@ -27,6 +27,7 @@ var (
 	ErrBlocked    = errors.New("blocked import path")
 	ErrMismatch   = errors.New("import paths don't match")
 	ErrNoPackages = errors.New("no packages found")
+	ErrPseudo     = errors.New("pseudo version not allowed")
 )
 
 // byVersion sorts versions from latest to oldest.

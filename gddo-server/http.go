@@ -20,6 +20,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
+	versionpkg "git.sr.ht/~sircmpwn/gddo/internal/version"
 )
 
 const (
@@ -95,6 +96,10 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	if at != -1 {
 		version = importPath[at+1:]
 		importPath = importPath[:at]
+	}
+
+	if versionpkg.IsPseudo(version) {
+		return ErrPseudo
 	}
 
 	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath, version)
@@ -365,6 +370,11 @@ func errorMessages(err error) []flashMessage {
 			ID:   "error",
 			Args: []string{"Error fetching module: The requested module doesn't contain any packages."},
 		}}
+	case errors.Is(err, ErrPseudo):
+		return []flashMessage{{
+			ID:   "error",
+			Args: []string{"Error fetching module: Pseudo-versions are not allowed."},
+		}}
 	}
 	return nil
 }
@@ -393,7 +403,8 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			errors.Is(err, context.DeadlineExceeded) ||
 			errors.Is(err, ErrBlocked) ||
 			errors.Is(err, ErrMismatch) ||
-			errors.Is(err, ErrNoPackages) {
+			errors.Is(err, ErrNoPackages) ||
+			errors.Is(err, ErrPseudo) {
 
 			msgs := errorMessages(err)
 			s.templates.Execute(resp, "notfound.html",
