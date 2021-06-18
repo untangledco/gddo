@@ -1,0 +1,17 @@
+{{define "Head"}}<title>{{.PageName}} versions - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+
+{{define "ROOT"}}
+  <table class="table table-condensed">
+  <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+  <tbody>{{range .}}<tr><td><a rel="noopener nofollow" href="/{{.ImportPath}}">{{.ImportPath}}</a></td><td>{{.Synopsis}}</td></tr>
+  {{end}}</tbody>
+  </table>
+{{end}}
+
+{{define "Body"}}
+  {{template "ProjectNav" $}}
+  <h3>Versions of {{.PageName}}</h3>
+  <ul>{{range .Package.Versions}}
+    <li><a href="/{{$.Package.ImportPath}}@{{.}}">{{.}}</a></li>{{end}}
+  </ul>
+{{end}}

@@ -58,7 +58,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 	}
 	q = strings.TrimSpace(q)
 
-	_, _, _, err = s.GetDoc(ctx, q)
+	_, _, _, err = s.GetDoc(ctx, q, "latest")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
 		w.WriteHeader(gemini.StatusRedirect, "/"+q)
 		return nil
@@ -87,7 +87,14 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 	}
 
 	importPath := strings.TrimPrefix(r.URL.Path, "/")
-	mod, pkg, pdoc, err := s.GetDoc(ctx, importPath)
+	version := "latest"
+	at := strings.Index(importPath, "@")
+	if at != -1 {
+		version = importPath[at+1:]
+		importPath = importPath[:at]
+	}
+
+	mod, pkg, pdoc, err := s.GetDoc(ctx, importPath, version)
 	if err != nil {
 		return err
 	}
@@ -104,7 +111,7 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 	tctx := Package{
 		Package:    *pdoc,
 		ModulePath: mod.ModulePath,
-		Version:    mod.Version,
+		Version:    pkg.Version,
 		Versions:   mod.Versions,
 		CommitTime: pkg.CommitTime,
 		Updated:    mod.Updated,
@@ -171,7 +178,7 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 
 	ch := make(chan error, 1)
 	go func() {
-		_, err := s.crawl(ctx, pkg.ModulePath)
+		_, err := s.crawl(ctx, pkg.ModulePath, "latest")
 		ch <- err
 	}()
 	select {
@@ -191,7 +198,7 @@ func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter,
 	if err != nil {
 		return err
 	} else if !ok {
-		_, err = s.crawl(ctx, stdlib.ModulePath)
+		_, err = s.crawl(ctx, stdlib.ModulePath, "latest")
 		if err != nil {
 			return err
 		}

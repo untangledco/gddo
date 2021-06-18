@@ -66,7 +66,7 @@ func NewServer(cfg *Config) (*Server, error) {
 
 // GetDoc gets the package documentation from the database or from the module
 // proxy as needed.
-func (s *Server) GetDoc(ctx context.Context, importPath string) (*database.Module, *database.Package, *doc.Package, error) {
+func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*database.Module, *database.Package, *doc.Package, error) {
 	type result struct {
 		mod *database.Module
 		pkg *database.Package
@@ -77,7 +77,7 @@ func (s *Server) GetDoc(ctx context.Context, importPath string) (*database.Modul
 	ch := make(chan result, 1)
 	go func() {
 		ctx := context.Background()
-		pkg, ok, err := s.db.GetPackage(ctx, importPath, "latest")
+		pkg, ok, err := s.db.GetPackage(ctx, importPath, version)
 		if err != nil {
 			ch <- result{nil, nil, nil, err}
 			return
@@ -85,12 +85,12 @@ func (s *Server) GetDoc(ctx context.Context, importPath string) (*database.Modul
 		var mod database.Module
 		if !ok {
 			var err error
-			mod, err = s.crawl(ctx, importPath)
+			mod, err = s.crawl(ctx, importPath, version)
 			if err != nil {
 				ch <- result{nil, nil, nil, err}
 				return
 			}
-			pkg, ok, err = s.db.GetPackage(ctx, importPath, "latest")
+			pkg, ok, err = s.db.GetPackage(ctx, importPath, version)
 			if err != nil {
 				ch <- result{nil, nil, nil, err}
 				return

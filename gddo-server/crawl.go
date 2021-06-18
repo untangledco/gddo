@@ -37,7 +37,7 @@ func (v byVersion) Less(i, j int) bool { return semver.Compare(v[i], v[j]) > 0 }
 func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 
 // crawl fetches package documentation and updates the database.
-func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module, error) {
+func (s *Server) crawl(ctx context.Context, modulePath, version string) (database.Module, error) {
 	start := time.Now().UTC()
 
 	if blocked, err := s.db.IsBlocked(ctx, modulePath); err != nil {
@@ -68,7 +68,7 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	if err != nil {
 		return database.Module{}, err
 	}
-	if ok && mod.Version == latest {
+	if ok && version == "latest" && mod.Version == latest {
 		// Update last crawl time
 		mod.Updated = start
 		if err := s.db.PutModule(ctx, mod); err != nil {
@@ -77,8 +77,12 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 		return mod, nil
 	}
 
+	if version == "latest" {
+		version = latest
+	}
+
 	// Add packages to the database
-	src, err := source.Get(ctx, s.proxyClient, modulePath, latest)
+	src, err := source.Get(ctx, s.proxyClient, modulePath, version)
 	if err != nil {
 		return database.Module{}, err
 	}
@@ -107,7 +111,7 @@ func (s *Server) crawl(ctx context.Context, modulePath string) (database.Module,
 	mod = database.Module{
 		ModulePath: modulePath,
 		SeriesPath: seriesPath,
-		Version:    src.Version,
+		Version:    latest,
 		Versions:   versions,
 		Updated:    start,
 	}

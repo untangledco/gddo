@@ -85,7 +85,7 @@ import "{{.ImportPath}}"
 {{- if .Name}}
 ## Details
 
-* Version {{.Version}}
+=> ?versions Version {{.Version}}
 * Published {{.CommitTime.Format "Jan 2, 2006"}}
 {{- if .Imports}}
 => ?imports Imports {{.Imports|len}} packages{{end}}

@@ -90,7 +90,14 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	importPath := strings.TrimPrefix(req.URL.Path, "/")
-	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath)
+	version := "latest"
+	at := strings.Index(importPath, "@")
+	if at != -1 {
+		version = importPath[at+1:]
+		importPath = importPath[:at]
+	}
+
+	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath, version)
 	if err != nil {
 		return err
 	}
@@ -112,7 +119,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	tpkg := Package{
 		Package:    *pdoc,
 		ModulePath: mod.ModulePath,
-		Version:    mod.Version,
+		Version:    pkg.Version,
 		Versions:   mod.Versions,
 		CommitTime: pkg.CommitTime,
 		Updated:    mod.Updated,
@@ -126,6 +133,9 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	switch {
+	case isView(req.URL, "versions"):
+		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &tctx)
+
 	case isView(req.URL, "imports"):
 		imports, err := s.db.Packages(req.Context(), pdoc.Imports)
 		if err != nil {
@@ -231,7 +241,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 
 	ch := make(chan error, 1)
 	go func() {
-		_, err := s.crawl(ctx, pkg.ModulePath)
+		_, err := s.crawl(ctx, pkg.ModulePath, "latest")
 		ch <- err
 	}()
 	select {
@@ -261,7 +271,7 @@ func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error 
 	if err != nil {
 		return err
 	} else if !ok {
-		_, err = s.crawl(req.Context(), stdlib.ModulePath)
+		_, err = s.crawl(req.Context(), stdlib.ModulePath, "latest")
 		if err != nil {
 			return err
 		}
@@ -289,7 +299,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
 	}
 
-	_, _, _, err := s.GetDoc(req.Context(), q)
+	_, _, _, err := s.GetDoc(req.Context(), q, "latest")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
 		http.Redirect(resp, req, "/"+q, http.StatusFound)
 		return nil
