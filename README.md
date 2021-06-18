@@ -18,6 +18,7 @@ First install the dependencies:
 
 - Go 1.13 or above
 - PostgreSQL 13
+- Graphviz (required for import graphs)
 
 Initialize the PostgreSQL database:
 
