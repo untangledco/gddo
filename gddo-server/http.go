@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,11 +66,29 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 }
 
 // httpEtag returns the package entity tag used in HTTP transactions.
-func (s *Server) httpEtag(importPath, version string, flashMessages []flashMessage) string {
+func (s *Server) httpEtag(
+	pkg *database.Package,
+	subpkgs []database.Package,
+	importerCount int,
+	flashMessages []flashMessage,
+) string {
 	b := make([]byte, 0, 128)
-	b = append(b, importPath...)
+	b = append(b, pkg.ImportPath...)
 	b = append(b, 0)
-	b = append(b, version...)
+	b = append(b, pkg.Version...)
+
+	if importerCount >= 8 {
+		importerCount = 8
+	}
+
+	b = strconv.AppendInt(b, int64(importerCount), 16)
+	for _, subpkg := range subpkgs {
+		b = append(b, 0)
+		b = append(b, subpkg.ImportPath...)
+		b = append(b, 0)
+		b = append(b, subpkg.Synopsis...)
+	}
+
 	for _, m := range flashMessages {
 		b = append(b, 0)
 		b = append(b, m.ID...)
@@ -207,12 +226,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return nil
 
 	default:
-		etag := s.httpEtag(pkg.ImportPath, pkg.Version, flashMessages)
-		status := http.StatusOK
-		if req.Header.Get("If-None-Match") == etag {
-			status = http.StatusNotModified
-		}
-
 		importCount, err := s.db.ImportCount(req.Context(), importPath)
 		if err != nil {
 			return err
@@ -224,6 +237,12 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return err
 		}
 		tctx.Package.SubPackages = subpkgs
+
+		etag := s.httpEtag(pkg, subpkgs, importCount, flashMessages)
+		status := http.StatusOK
+		if req.Header.Get("If-None-Match") == etag {
+			status = http.StatusNotModified
+		}
 
 		resp.Header().Set("Etag", etag)
 		return s.templates.ExecuteHTML(resp, "doc.html", status, &tctx)
