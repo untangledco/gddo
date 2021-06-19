@@ -14,7 +14,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
-	versionpkg "git.sr.ht/~sircmpwn/gddo/internal/version"
 )
 
 func (s *Server) GeminiHandler() (gemini.Handler, error) {
@@ -87,16 +86,9 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		return s.serveGeminiRefresh(ctx, w, r)
 	}
 
-	importPath := strings.TrimPrefix(r.URL.Path, "/")
-	version := "latest"
-	at := strings.Index(importPath, "@")
-	if at != -1 {
-		version = importPath[at+1:]
-		importPath = importPath[:at]
-	}
-
-	if versionpkg.IsPseudo(version) {
-		return ErrPseudo
+	importPath, version, err := s.parseRequestPath(ctx, r.URL.Path)
+	if err != nil {
+		return err
 	}
 
 	mod, pkg, pdoc, err := s.GetDoc(ctx, importPath, version)
@@ -251,8 +243,8 @@ func geminiErrorHandler(fn func(ctx context.Context, w gemini.ResponseWriter, r 
 			w.WriteHeader(gemini.StatusNotFound, "The provided import path doesn't match the module path present in the go.mod file.")
 		case errors.Is(err, ErrNoPackages):
 			w.WriteHeader(gemini.StatusNotFound, "The requested module doesn't contain any packages.")
-		case errors.Is(err, ErrPseudo):
-			w.WriteHeader(gemini.StatusNotFound, "Pseudo-versions are not allowed.")
+		case errors.Is(err, ErrBadVersion):
+			w.WriteHeader(gemini.StatusNotFound, "Invalid version.")
 		default:
 			w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error")
 		}

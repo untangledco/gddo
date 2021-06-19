@@ -13,6 +13,8 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/version"
+	"golang.org/x/mod/semver"
 )
 
 // The Go documentation server.
@@ -122,6 +124,28 @@ func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*datab
 		log.Printf("Serving %q as not found after timeout getting doc", importPath)
 		return nil, nil, nil, ctx.Err()
 	}
+}
+
+// Parses the provided request path, returning the package import path and version.
+func (s *Server) parseRequestPath(ctx context.Context, path string) (string, string, error) {
+	// Trim leading forward slash
+	path = strings.TrimPrefix(path, "/")
+
+	// Use version if present
+	at := strings.Index(path, "@")
+	if at != -1 {
+		v := path[at+1:]
+		importPath := path[:at]
+
+		if !semver.IsValid(v) || version.IsPseudo(v) {
+			return "", "", ErrBadVersion
+		}
+
+		return importPath, v, nil
+	}
+
+	// Use latest version
+	return path, proxy.LatestVersion, nil
 }
 
 func isView(u *url.URL, key string) bool {
