@@ -84,10 +84,8 @@ func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*datab
 			ch <- result{nil, nil, nil, err}
 			return
 		}
-		var mod database.Module
 		if !ok {
-			var err error
-			mod, err = s.crawl(ctx, importPath, version)
+			err := s.fetch(ctx, importPath, version)
 			if err != nil {
 				ch <- result{nil, nil, nil, err}
 				return
@@ -97,13 +95,11 @@ func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*datab
 				ch <- result{nil, nil, nil, err}
 				return
 			}
-		} else {
-			var err error
-			mod, _, err = s.db.GetModule(ctx, pkg.ModulePath)
-			if err != nil {
-				ch <- result{nil, nil, nil, err}
-				return
-			}
+		}
+		mod, _, err := s.db.GetModule(ctx, pkg.ModulePath)
+		if err != nil {
+			ch <- result{nil, nil, nil, err}
+			return
 		}
 		// TODO: Allow the user to configure the GOOS and GOARCH
 		pdoc, ok, err := s.db.GetDoc(ctx, importPath, pkg.Version, "linux", "amd64")

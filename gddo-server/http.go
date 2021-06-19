@@ -257,8 +257,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 
 	ch := make(chan error, 1)
 	go func() {
-		_, err := s.crawl(ctx, pkg.ModulePath, "latest")
-		ch <- err
+		ch <- s.fetch(ctx, pkg.ModulePath, proxy.LatestVersion)
 	}()
 	select {
 	case err = <-ch:
@@ -287,7 +286,7 @@ func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error 
 	if err != nil {
 		return err
 	} else if !ok {
-		_, err = s.crawl(req.Context(), stdlib.ModulePath, "latest")
+		err = s.fetch(req.Context(), stdlib.ModulePath, proxy.LatestVersion)
 		if err != nil {
 			return err
 		}
