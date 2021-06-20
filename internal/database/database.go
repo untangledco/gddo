@@ -675,3 +675,28 @@ func (db *Database) PutMeta(ctx context.Context, meta source.Meta) error {
 		return nil
 	})
 }
+
+// Oldest returns the module path of the oldest module in the database
+// (i.e., the module with the smallest updated timestamp).
+func (db *Database) Oldest(ctx context.Context) (string, error) {
+	var modulePath string
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx,
+			`SELECT module_path FROM modules ORDER BY updated LIMIT 1;`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		if rows.Next() {
+			if err := rows.Scan(&modulePath); err != nil {
+				return err
+			}
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return "", err
+	}
+	return modulePath, nil
+}

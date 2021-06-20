@@ -32,7 +32,13 @@ func main() {
 	if err != nil {
 		log.Fatal("error creating server:", err)
 	}
-	// TODO: Crawl old modules in the background.
+
+	// Update modules in the background
+	go func() {
+		for range time.Tick(s.cfg.CrawlInterval) {
+			s.fetchOldest(ctx)
+		}
+	}()
 
 	var wg sync.WaitGroup
 	defer wg.Wait()

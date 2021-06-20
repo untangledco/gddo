@@ -174,3 +174,21 @@ func (s *Server) updateMeta(ctx context.Context, modulePath string) error {
 	}
 	return nil
 }
+
+// fetchOldest updates the oldest module in the database if necessary.
+func (s *Server) fetchOldest(ctx context.Context) {
+	modulePath, err := s.db.Oldest(ctx)
+	if err != nil {
+		log.Printf("Error retrieving oldest module: %v", err)
+		return
+	}
+	if modulePath == "" {
+		// No modules in the database yet
+		return
+	}
+	log.Println("FETCH", modulePath)
+	if err := s.fetch(ctx, modulePath, proxy.LatestVersion); err != nil {
+		log.Printf("Error fetching %s: %v", modulePath, err)
+		return
+	}
+}
