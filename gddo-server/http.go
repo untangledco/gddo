@@ -76,11 +76,8 @@ func (s *Server) httpEtag(
 	b = append(b, 0)
 	b = append(b, pkg.Version...)
 
-	if importerCount >= 8 {
-		importerCount = 8
-	}
-
 	b = strconv.AppendInt(b, int64(importerCount), 16)
+
 	for _, subpkg := range subpkgs {
 		b = append(b, 0)
 		b = append(b, subpkg.ImportPath...)
