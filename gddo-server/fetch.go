@@ -93,6 +93,9 @@ func (s *Server) fetch(ctx context.Context, modulePath, version string) error {
 		if err := s.db.PutModule(ctx, mod); err != nil {
 			return err
 		}
+
+		// Use latest version
+		version = latest
 	}
 
 	// Retrieve module source code.
