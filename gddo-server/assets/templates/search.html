@@ -12,9 +12,7 @@
         <tr>
           <td>
             <a href="/{{.ImportPath}}">{{.ImportPath}}</a>
-            <ul class="list-inline">
-              <li class="additional-info">{{.ImportCount}} imports</li>
-            </ul>
+            {{if .ImportCount}}<span class="additional-info">{{.ImportCount}} import{{if ne .ImportCount 1}}s{{end}}</span>{{end}}
           </td>
           <td class="synopsis">{{.Synopsis}}</td>
         </tr>
