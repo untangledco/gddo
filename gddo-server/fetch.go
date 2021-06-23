@@ -135,7 +135,7 @@ func (s *Server) fetch(ctx context.Context, modulePath, version string) error {
 
 	// Update meta
 	if err := s.updateMeta(ctx, modulePath); err != nil {
-		log.Printf("Error fetching source meta for %s: %s", err)
+		log.Printf("Error fetching source meta for %s: %v", modulePath, err)
 	}
 
 	return nil
