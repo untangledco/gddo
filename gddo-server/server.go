@@ -13,7 +13,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"git.sr.ht/~sircmpwn/gddo/internal/version"
 	"golang.org/x/mod/semver"
 )
 
@@ -133,7 +132,7 @@ func (s *Server) parseRequestPath(ctx context.Context, path string) (string, str
 		v := path[at+1:]
 		importPath := path[:at]
 
-		if !semver.IsValid(v) || version.IsPseudo(v) {
+		if !semver.IsValid(v) {
 			return "", "", ErrBadVersion
 		}
 
