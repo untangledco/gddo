@@ -27,7 +27,6 @@ func (s *Server) GeminiHandler() (gemini.Handler, error) {
 	mux.Handle("/-/about", geminiErrorHandler(s.serveGeminiAbout))
 	mux.Handle("/-/search", geminiErrorHandler(s.serveGeminiSearch))
 	mux.Handle("/-/", gemini.NotFoundHandler())
-	mux.Handle("/-", gemini.NotFoundHandler()) // XXX: Shouldn't have to do this
 	mux.Handle("/std", geminiErrorHandler(s.serveGeminiStdlib))
 	mux.Handle("/robots.txt", geminiFileHandler(robotsTxt, "text/plain"))
 	mux.Handle("/", geminiErrorHandler(s.serveGeminiHome))
