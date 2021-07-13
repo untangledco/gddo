@@ -172,15 +172,7 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 		return nil
 	}
 
-	ch := make(chan error, 1)
-	go func() {
-		ch <- s.fetch(ctx, pkg.ModulePath, proxy.LatestVersion)
-	}()
-	select {
-	case err = <-ch:
-	case <-ctx.Done():
-		err = ctx.Err()
-	}
+	err = s.fetch(ctx, pkg.ModulePath, proxy.LatestVersion)
 	if err != nil {
 		return err
 	}

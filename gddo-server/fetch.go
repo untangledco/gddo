@@ -40,6 +40,23 @@ func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, modulePath, version string) error {
+	log.Println("FETCH", modulePath)
+
+	ch := make(chan error, 1)
+	go func() {
+		// Fetch in the background
+		ch <- s.doFetch(context.Background(), modulePath, version)
+	}()
+
+	select {
+	case err := <-ch:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *Server) doFetch(ctx context.Context, modulePath, version string) error {
 	if versionpkg.IsPseudo(version) {
 		// Disallow explicitly requesting a pseudo-version.
 		// Pseudo-versions can only be requested via the 'latest' version.
@@ -196,7 +213,6 @@ func (s *Server) fetchOldest(ctx context.Context) {
 		// No modules in the database yet
 		return
 	}
-	log.Println("FETCH", modulePath)
 	if err := s.fetch(ctx, modulePath, proxy.LatestVersion); err != nil {
 		log.Printf("Error fetching %s: %v", modulePath, err)
 		return
