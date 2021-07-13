@@ -198,6 +198,7 @@ func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter,
 	if err != nil {
 		return err
 	}
+	pkgs = filterStdlibPackages(pkgs)
 	return s.templates.Execute(w, "std.gmi", struct {
 		Packages []database.Package
 	}{pkgs})

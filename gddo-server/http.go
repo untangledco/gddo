@@ -288,6 +288,7 @@ func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error 
 	if err != nil {
 		return err
 	}
+	pkgs = filterStdlibPackages(pkgs)
 	return s.templates.ExecuteHTML(resp, "std.html", http.StatusOK, struct {
 		Packages []database.Package
 	}{pkgs})
