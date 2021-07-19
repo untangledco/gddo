@@ -56,13 +56,6 @@ CREATE TABLE documentation (
 		REFERENCES packages (import_path, version) ON DELETE CASCADE
 );
 
--- Stores package import counts
-CREATE TABLE import_counts (
-	import_path text NOT NULL,
-	import_count integer NOT NULL,
-	PRIMARY KEY (import_path)
-);
-
 -- Stores package imports
 CREATE TABLE imports (
 	import_path text NOT NULL,
@@ -80,7 +73,9 @@ CREATE TABLE importers (
 	import_path text NOT NULL,
 	importer_path text NOT NULL,
 	importer_version text NOT NULL,
-	PRIMARY KEY (import_path, importer_path, importer_version)
+	PRIMARY KEY (import_path, importer_path, importer_version),
+	FOREIGN KEY (importer_path, importer_version)
+		REFERENCES packages (import_path, version) ON DELETE CASCADE
 );
 
 -- Used to speed up retrieving a package's importers.
@@ -102,5 +97,13 @@ CREATE TABLE gosource (
 	line_fmt text NOT NULL,
 	PRIMARY KEY (project_root)
 );
+
+-- Returns the number of unique importing packages for the given import path
+CREATE FUNCTION import_count(import_path text)
+RETURNS int
+LANGUAGE SQL
+AS $$
+SELECT COUNT(DISTINCT importer_path) FROM importers WHERE import_path = $1;
+$$;
 
 COMMIT;
