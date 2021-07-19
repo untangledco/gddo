@@ -304,9 +304,10 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
 	}
 
-	_, _, _, err := s.GetDoc(req.Context(), q, "latest")
+	importPath := parseImportPath(q)
+	_, _, _, err := s.GetDoc(req.Context(), importPath, "latest")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
-		http.Redirect(resp, req, "/"+q, http.StatusFound)
+		http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 		return nil
 	}
 	msgs := errorMessages(err)

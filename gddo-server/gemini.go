@@ -57,9 +57,10 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 	}
 	q = strings.TrimSpace(q)
 
-	_, _, _, err = s.GetDoc(ctx, q, "latest")
+	importPath := parseImportPath(q)
+	_, _, _, err = s.GetDoc(ctx, importPath, "latest")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
-		w.WriteHeader(gemini.StatusRedirect, "/"+q)
+		w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 		return nil
 	}
 	if errors.Is(err, ErrMismatch) || errors.Is(err, ErrNoPackages) {

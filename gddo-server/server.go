@@ -170,3 +170,11 @@ func filterStdlibPackages(pkgs []database.Package) []database.Package {
 	pkgs = pkgs[:i]
 	return pkgs
 }
+
+func parseImportPath(q string) string {
+	// Remove leading https://
+	q = strings.TrimPrefix(q, "https://")
+	// Remove trailing slashes
+	q = strings.TrimRight(q, "/")
+	return q
+}
