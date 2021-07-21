@@ -68,7 +68,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 func (s *Server) httpEtag(
 	pkg *database.Package,
 	subpkgs []database.Package,
-	importerCount int,
+	importCount int64,
 	flashMessages []flashMessage,
 ) string {
 	b := make([]byte, 0, 128)
@@ -76,7 +76,7 @@ func (s *Server) httpEtag(
 	b = append(b, 0)
 	b = append(b, pkg.Version...)
 
-	b = strconv.AppendInt(b, int64(importerCount), 16)
+	b = strconv.AppendInt(b, importCount, 16)
 
 	for _, subpkg := range subpkgs {
 		b = append(b, 0)

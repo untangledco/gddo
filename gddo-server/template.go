@@ -87,7 +87,7 @@ type Package struct {
 	Updated     time.Time
 	SubPackages []database.Package
 	Meta        *source.Meta
-	ImportCount int
+	ImportCount int64
 	allExamples []*texample
 }
 
