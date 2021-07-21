@@ -127,11 +127,11 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
 			SELECT
-				p.import_path, p.module_path, p.series_path, p.version,
-				p.commit_time, p.name, p.synopsis, import_count(p.import_path)
-			FROM packages p, modules m
+				p.import_path, p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis, i.import_count
+			FROM packages p, modules m, import_counts i
 			WHERE p.searchtext @@ websearch_to_tsquery('english', $1)
 				AND m.module_path = p.module_path AND p.version = m.latest_version
+				AND i.import_path = p.import_path
 			ORDER BY ts_rank(p.searchtext, websearch_to_tsquery('english', $1)) DESC,
 				p.score DESC
 			LIMIT 20;
@@ -290,7 +290,31 @@ func (db *Database) PutPackage(ctx context.Context, modulePath, seriesPath, vers
 			return err
 		}
 
+		// Initialize import count
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO import_counts (
+				import_path, import_count
+			) VALUES ($1, 0) ON CONFLICT DO NOTHING;
+		`, pkg.ImportPath)
+		if err != nil {
+			return err
+		}
+
 		for _, importedPath := range pkg.Imports {
+			// Update import count
+			_, err := tx.ExecContext(ctx, `
+				INSERT INTO import_counts (
+					import_path, import_count
+				) VALUES (
+					$1, 1
+				)
+				ON CONFLICT (import_path) DO
+				UPDATE SET import_count = import_counts.import_count+1;
+				`, importedPath)
+			if err != nil {
+				return err
+			}
+
 			// Update imports
 			_, err = tx.ExecContext(ctx, `
 				INSERT INTO imports (
@@ -432,20 +456,22 @@ func (db *Database) Importers(ctx context.Context, importPath string) ([]Package
 	return packages, nil
 }
 
-// ImportCount returns the number of unique importing packages for the given import path.
 func (db *Database) ImportCount(ctx context.Context, importPath string) (int, error) {
 	var count int
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT import_count($1);`, importPath)
+		rows, err := tx.QueryContext(ctx, `
+			SELECT FROM packages p, importers i
+			WHERE i.import_path = $1 AND
+				p.import_path = i.importer_path AND
+				p.version = i.importer_version;
+			`, importPath)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 
-		if rows.Next() {
-			if err := rows.Scan(&count); err != nil {
-				return err
-			}
+		for rows.Next() {
+			count++
 		}
 		return rows.Err()
 	})
