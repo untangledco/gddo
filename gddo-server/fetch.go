@@ -19,7 +19,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
-	versionpkg "git.sr.ht/~sircmpwn/gddo/internal/version"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
@@ -57,12 +56,6 @@ func (s *Server) fetch(ctx context.Context, modulePath, version string) error {
 }
 
 func (s *Server) doFetch(ctx context.Context, modulePath, version string) error {
-	if versionpkg.IsPseudo(version) {
-		// Disallow explicitly requesting a pseudo-version.
-		// Pseudo-versions can only be requested via the 'latest' version.
-		return ErrBadVersion
-	}
-
 	start := time.Now().UTC()
 
 	// Check if the module is blocked
