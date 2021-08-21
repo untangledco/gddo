@@ -40,8 +40,6 @@ func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, modulePath, version string) error {
-	log.Println("FETCH", modulePath)
-
 	ch := make(chan error, 1)
 	go func() {
 		// Fetch in the background
@@ -207,6 +205,7 @@ func (s *Server) fetchOldest(ctx context.Context) {
 		// No modules in the database yet
 		return
 	}
+	log.Println("FETCH", modulePath)
 	if err := s.fetch(ctx, modulePath, proxy.LatestVersion); err != nil {
 		log.Printf("Error fetching %s: %v", modulePath, err)
 		return
