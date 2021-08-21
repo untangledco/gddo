@@ -13,6 +13,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -124,23 +125,25 @@ func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*datab
 // Parses the provided request path, returning the package import path and version.
 func (s *Server) parseRequestPath(ctx context.Context, path string) (string, string, error) {
 	// Trim leading forward slash
-	path = strings.TrimPrefix(path, "/")
+	importPath := strings.TrimPrefix(path, "/")
+	version := proxy.LatestVersion
 
 	// Use version if present
 	at := strings.Index(path, "@")
 	if at != -1 {
-		v := path[at+1:]
-		importPath := path[:at]
-
-		if !semver.IsValid(v) {
+		version = importPath[at+1:]
+		importPath = importPath[:at]
+		if !semver.IsValid(version) {
 			return "", "", ErrBadVersion
 		}
-
-		return importPath, v, nil
 	}
 
-	// Use latest version
-	return path, proxy.LatestVersion, nil
+	// Check import path
+	if err := module.CheckImportPath(importPath); err != nil {
+		return "", "", ErrInvalidPath
+	}
+
+	return importPath, version, nil
 }
 
 func isView(u *url.URL, key string) bool {
@@ -171,10 +174,13 @@ func filterStdlibPackages(pkgs []database.Package) []database.Package {
 	return pkgs
 }
 
-func parseImportPath(q string) string {
+func parseImportPath(q string) (string, error) {
 	// Remove leading https://
 	q = strings.TrimPrefix(q, "https://")
 	// Remove trailing slashes
 	q = strings.TrimRight(q, "/")
-	return q
+	if err := module.CheckImportPath(q); err != nil {
+		return "", ErrInvalidPath
+	}
+	return q, nil
 }

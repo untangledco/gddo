@@ -304,13 +304,16 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
 	}
 
-	importPath := parseImportPath(q)
-	_, _, _, err := s.GetDoc(req.Context(), importPath, "latest")
-	if err == nil || errors.Is(err, context.DeadlineExceeded) {
-		http.Redirect(resp, req, "/"+importPath, http.StatusFound)
-		return nil
+	var msgs []flashMessage
+	importPath, err := parseImportPath(q)
+	if err == nil {
+		_, _, _, err = s.GetDoc(req.Context(), importPath, "latest")
+		if err == nil || errors.Is(err, context.DeadlineExceeded) {
+			http.Redirect(resp, req, "/"+importPath, http.StatusFound)
+			return nil
+		}
+		msgs = errorMessages(err)
 	}
-	msgs := errorMessages(err)
 
 	pkgs, err := s.db.Search(req.Context(), q)
 	if err != nil {
@@ -371,6 +374,11 @@ func errorMessages(err error) []flashMessage {
 			ID:   "error",
 			Args: []string{"Error fetching module: The requested module doesn't contain any packages."},
 		}}
+	case errors.Is(err, ErrInvalidPath):
+		return []flashMessage{{
+			ID:   "error",
+			Args: []string{"Error fetching module: Invalid import path."},
+		}}
 	case errors.Is(err, ErrBadVersion):
 		return []flashMessage{{
 			ID:   "error",
@@ -405,7 +413,8 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			errors.Is(err, ErrBlocked) ||
 			errors.Is(err, ErrMismatch) ||
 			errors.Is(err, ErrNoPackages) ||
-			errors.Is(err, ErrBadVersion) {
+			errors.Is(err, ErrBadVersion) ||
+			errors.Is(err, ErrInvalidPath) {
 
 			msgs := errorMessages(err)
 			s.templates.Execute(resp, "notfound.html",

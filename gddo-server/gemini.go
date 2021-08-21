@@ -57,7 +57,10 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 	}
 	q = strings.TrimSpace(q)
 
-	importPath := parseImportPath(q)
+	importPath, err := parseImportPath(q)
+	if err != nil {
+		return err
+	}
 	_, _, _, err = s.GetDoc(ctx, importPath, "latest")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
 		w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
@@ -235,6 +238,8 @@ func geminiErrorHandler(fn func(ctx context.Context, w gemini.ResponseWriter, r 
 			w.WriteHeader(gemini.StatusNotFound, "The provided import path doesn't match the module path present in the go.mod file.")
 		case errors.Is(err, ErrNoPackages):
 			w.WriteHeader(gemini.StatusNotFound, "The requested module doesn't contain any packages.")
+		case errors.Is(err, ErrInvalidPath):
+			w.WriteHeader(gemini.StatusNotFound, "Invalid import path.")
 		case errors.Is(err, ErrBadVersion):
 			w.WriteHeader(gemini.StatusNotFound, "Invalid version.")
 		default:
