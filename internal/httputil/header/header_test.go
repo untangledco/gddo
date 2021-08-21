@@ -8,9 +8,8 @@ package header
 
 import (
 	"net/http"
+	"reflect"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 var getHeaderListTests = []struct {
@@ -31,7 +30,7 @@ var getHeaderListTests = []struct {
 func TestGetHeaderList(t *testing.T) {
 	for _, tt := range getHeaderListTests {
 		header := http.Header{"Foo": {tt.s}}
-		if l := ParseList(header, "foo"); !cmp.Equal(tt.l, l) {
+		if l := ParseList(header, "foo"); !reflect.DeepEqual(tt.l, l) {
 			t.Errorf("ParseList for %q = %q, want %q", tt.s, l, tt.l)
 		}
 	}
