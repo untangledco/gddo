@@ -43,9 +43,15 @@ func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 	ch := make(chan error, 1)
 	go func() {
+		ctx := context.Background()
+		// Special case for stdlib packages
+		if stdlib.Contains(importPath) {
+			ch <- s.doFetch(ctx, stdlib.ModulePath, version)
+			return
+		}
 		// Loop through potential module paths
 		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
-			err := s.doFetch(context.Background(), modulePath, version)
+			err := s.doFetch(ctx, modulePath, version)
 			if errors.Is(err, proxy.ErrNotFound) {
 				// Try parent path
 				continue
