@@ -270,24 +270,10 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error {
-	mod, ok, err := s.db.GetModule(req.Context(), stdlib.ModulePath)
-	if err != nil {
-		return err
-	} else if !ok {
-		err = s.fetch(req.Context(), stdlib.ModulePath, proxy.LatestVersion)
-		if err != nil {
-			return err
-		}
-		mod, _, err = s.db.GetModule(req.Context(), stdlib.ModulePath)
-		if err != nil {
-			return err
-		}
-	}
-	pkgs, err := s.db.ModulePackages(req.Context(), mod.ModulePath, mod.Version)
+	pkgs, err := s.db.Packages(req.Context(), filterStdlibPackages(stdlib.Packages()))
 	if err != nil {
 		return err
 	}
-	pkgs = filterStdlibPackages(pkgs)
 	return s.templates.ExecuteHTML(resp, "std.html", http.StatusOK, struct {
 		Packages []database.Package
 	}{pkgs})

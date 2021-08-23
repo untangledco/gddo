@@ -35,9 +35,6 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// ModulePath is the name of the module for the standard library.
-const ModulePath = "std"
-
 var (
 	// Regexp for matching go tags. The groups are:
 	// 1  the major.minor version
@@ -271,13 +268,13 @@ func Versions() ([]string, error) {
 }
 
 // Directory returns the directory of the standard library relative to the repo root.
-func Directory(version string) string {
+func Directory(modulePath, version string) string {
 	if semver.Compare(version, "v1.4.0-beta.1") >= 0 ||
 		version == "master" || strings.HasPrefix(version, "v0.0.0") {
-		return "src"
+		return path.Join("src", modulePath)
 	}
 	// For versions older than v1.4.0-beta.1, the stdlib is in src/pkg.
-	return "src/pkg"
+	return path.Join("src/pkg", modulePath)
 }
 
 // ZipInfo returns the proxy .info information for the module std.
@@ -303,7 +300,7 @@ func ZipInfo(requestedVersion string) (resolvedVersion string, err error) {
 //
 // Zip ignores go.mod files in the standard library, treating it as if it were a
 // single module named "std" at the given version.
-func Zip(resolvedVersion string) (_ *zip.Reader, resolvedVersion2 string, commitTime time.Time, err error) {
+func Zip(modulePath, resolvedVersion string) (_ *zip.Reader, resolvedVersion2 string, commitTime time.Time, err error) {
 	// This code taken, with modifications, from
 	// https://github.com/shurcooL/play/blob/master/256/moduleproxy/std/std.go.
 
@@ -333,14 +330,14 @@ func Zip(resolvedVersion string) (_ *zip.Reader, resolvedVersion2 string, commit
 	if err != nil {
 		return nil, "", time.Time{}, err
 	}
-	prefixPath := ModulePath + "@" + resolvedVersion
+	prefixPath := modulePath + "@" + resolvedVersion
 	// Add top-level files.
 	if err := addFiles(z, repo, root, prefixPath, false); err != nil {
 		return nil, "", time.Time{}, err
 	}
 	// Add files from the stdlib directory.
 	libdir := root
-	for _, d := range strings.Split(Directory(resolvedVersion), "/") {
+	for _, d := range strings.Split(Directory(modulePath, resolvedVersion), "/") {
 		libdir, err = subTree(repo, libdir, d)
 		if err != nil {
 			return nil, "", time.Time{}, err
@@ -492,8 +489,15 @@ func subTree(r *git.Repository, t *object.Tree, name string) (*object.Tree, erro
 
 // Contains reports whether the given import path is part of the Go standard library.
 func Contains(path string) bool {
-	_, ok := stdlibPackages[path]
+	_, ok := stdlibPackagesMap[path]
 	return ok
+}
+
+// Packages returns a list of packages in the standard library.
+//
+// TODO: Maintain filtered list of packages.
+func Packages() []string {
+	return stdlibPackages
 }
 
 // References used for Versions during testing.

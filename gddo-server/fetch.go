@@ -13,6 +13,7 @@ import (
 	"log"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
@@ -46,7 +47,9 @@ func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 		ctx := context.Background()
 		// Special case for stdlib packages
 		if stdlib.Contains(importPath) {
-			ch <- s.doFetch(ctx, stdlib.ModulePath, version)
+			// Get the root import path (e.g. archive/tar => archive)
+			importPath = strings.SplitN(importPath, "/", 2)[0]
+			ch <- s.doFetch(ctx, importPath, version)
 			return
 		}
 		// Loop through potential module paths

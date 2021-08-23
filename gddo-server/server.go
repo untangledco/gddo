@@ -155,10 +155,9 @@ func isView(u *url.URL, key string) bool {
 		(len(rq) == len(key) || rq[len(key)] == '=' || rq[len(key)] == '&')
 }
 
-func filterStdlibPackages(pkgs []database.Package) []database.Package {
+func filterStdlibPackages(pkgs []string) []string {
 	i := 0
-	for j := range pkgs {
-		importPath := pkgs[j].ImportPath
+	for j, importPath := range pkgs {
 		// Ignore commands
 		if importPath == "cmd" || strings.HasPrefix(importPath, "cmd/") {
 			continue

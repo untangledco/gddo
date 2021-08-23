@@ -20,8 +20,8 @@ type ProxySource struct {
 
 // Get retrieves the source code for a module from the module proxy.
 func (p *ProxySource) Get(ctx context.Context, modulePath, version string) (*Module, error) {
-	if modulePath == stdlib.ModulePath {
-		return getStdlib(version)
+	if stdlib.Contains(modulePath) {
+		return getStdlib(modulePath, version)
 	}
 
 	// Get version info
@@ -56,19 +56,19 @@ func (p *ProxySource) Get(ctx context.Context, modulePath, version string) (*Mod
 	}, nil
 }
 
-func getStdlib(version string) (*Module, error) {
+func getStdlib(modulePath, version string) (*Module, error) {
 	// Get zip
-	zip, version, time, err := stdlib.Zip(version)
+	zip, version, time, err := stdlib.Zip(modulePath, version)
 	if err != nil {
 		return nil, err
 	}
 	// Parse packages
-	pkgs, err := parsePackages(zip, stdlib.ModulePath, version)
+	pkgs, err := parsePackages(zip, modulePath, version)
 	if err != nil {
 		return nil, err
 	}
 	return &Module{
-		Path:     stdlib.ModulePath,
+		Path:     modulePath,
 		Version:  version,
 		Time:     time,
 		Packages: pkgs,
@@ -77,7 +77,7 @@ func getStdlib(version string) (*Module, error) {
 
 // LatestVersion retrieves the latest version of a module from the module proxy.
 func (p *ProxySource) LatestVersion(ctx context.Context, modulePath string) (string, error) {
-	if modulePath == stdlib.ModulePath {
+	if stdlib.Contains(modulePath) {
 		return stdlib.ZipInfo(proxy.LatestVersion)
 	}
 	info, err := p.Client.GetInfo(ctx, modulePath, proxy.LatestVersion)
@@ -89,7 +89,7 @@ func (p *ProxySource) LatestVersion(ctx context.Context, modulePath string) (str
 
 // Versions returns the list of versions of a module from the module proxy.
 func (p *ProxySource) Versions(ctx context.Context, modulePath string) ([]string, error) {
-	if modulePath == stdlib.ModulePath {
+	if stdlib.Contains(modulePath) {
 		return stdlib.Versions()
 	}
 	return p.Client.ListVersions(ctx, modulePath)
@@ -136,15 +136,7 @@ func parsePackages(zip *zip.Reader, modulePath, version string) ([]*Package, err
 			if ok {
 				break
 			}
-			var importPath string
-			if modulePath == stdlib.ModulePath {
-				if stop {
-					break
-				}
-				importPath = dir
-			} else {
-				importPath = path.Join(modulePath, dir)
-			}
+			importPath := path.Join(modulePath, dir)
 			pkgsMap[dir] = &Package{
 				Path: importPath,
 			}
@@ -157,12 +149,7 @@ func parsePackages(zip *zip.Reader, modulePath, version string) ([]*Package, err
 		// Add package if it does not exist
 		pkg, ok := pkgsMap[pkgPath]
 		if !ok {
-			var importPath string
-			if modulePath == stdlib.ModulePath {
-				importPath = pkgPath
-			} else {
-				importPath = path.Join(modulePath, pkgPath)
-			}
+			importPath := path.Join(modulePath, pkgPath)
 			pkg = &Package{
 				Path: importPath,
 			}

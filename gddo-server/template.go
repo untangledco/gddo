@@ -192,9 +192,7 @@ func (pdoc *Package) ObjExamples(obj interface{}) []*texample {
 
 func (pdoc *Package) Breadcrumbs(templateName string) htemp.HTML {
 	modulePath := pdoc.ModulePath
-	if modulePath == stdlib.ModulePath {
-		modulePath = ""
-	} else if !strings.HasPrefix(pdoc.ImportPath, pdoc.ModulePath) {
+	if !strings.HasPrefix(pdoc.ImportPath, pdoc.ModulePath) {
 		return ""
 	}
 	var buf bytes.Buffer

@@ -185,24 +185,10 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 }
 
 func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error {
-	mod, ok, err := s.db.GetModule(ctx, stdlib.ModulePath)
-	if err != nil {
-		return err
-	} else if !ok {
-		err = s.fetch(ctx, stdlib.ModulePath, proxy.LatestVersion)
-		if err != nil {
-			return err
-		}
-		mod, _, err = s.db.GetModule(ctx, stdlib.ModulePath)
-		if err != nil {
-			return err
-		}
-	}
-	pkgs, err := s.db.ModulePackages(ctx, mod.ModulePath, mod.Version)
+	pkgs, err := s.db.Packages(ctx, filterStdlibPackages(stdlib.Packages()))
 	if err != nil {
 		return err
 	}
-	pkgs = filterStdlibPackages(pkgs)
 	return s.templates.Execute(w, "std.gmi", struct {
 		Packages []database.Package
 	}{pkgs})

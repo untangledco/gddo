@@ -470,39 +470,6 @@ func (db *Database) Packages(ctx context.Context, importPaths []string) ([]Packa
 	return packages, nil
 }
 
-func (db *Database) ModulePackages(ctx context.Context, modulePath, version string) ([]Package, error) {
-	var packages []Package
-	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT
-				import_path, series_path, commit_time, name, synopsis
-			FROM packages
-			WHERE module_path = $1 AND version = $2
-			ORDER BY import_path;
-			`, modulePath, version)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var pkg Package
-			if err := rows.Scan(&pkg.ImportPath, &pkg.SeriesPath,
-				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
-				return err
-			}
-			pkg.ModulePath = modulePath
-			pkg.Version = version
-			packages = append(packages, pkg)
-		}
-		return rows.Err()
-	})
-	if err != nil {
-		return nil, err
-	}
-	return packages, nil
-}
-
 func (db *Database) SubPackages(ctx context.Context, modulePath, version, importPath string) ([]Package, error) {
 	var packages []Package
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {

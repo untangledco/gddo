@@ -10,7 +10,7 @@
 {{end}}
 
 {{define "ProjectNav"}}{{template "FlashMessages" .Messages}}<div class="clearfix" id="x-projnav">
-  {{if eq .ModulePath "std"}}<a href="/std">Go:</a>{{else if .Meta}}<a rel="noopener nofollow" href="{{.Meta.ProjectURL}}"><strong>{{.Meta.ProjectName}}:</strong></a>{{end}}
+  {{if .Meta}}<a rel="noopener nofollow" href="{{.Meta.ProjectURL}}"><strong>{{.Meta.ProjectName}}:</strong></a>{{end}}
   {{.Breadcrumbs templateName}}
   {{if and .Name (eq templateName "doc.html") (or (not .IsCommand) .SubPackages)}}
   <span class="pull-right">
