@@ -11,6 +11,7 @@ import (
 	"errors"
 	"go/build"
 	"log"
+	"path"
 	"sort"
 	"time"
 
@@ -39,11 +40,19 @@ func (v byVersion) Less(i, j int) bool { return semver.Compare(v[i], v[j]) > 0 }
 func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 
 // fetch fetches package documentation from the module proxy and updates the database.
-func (s *Server) fetch(ctx context.Context, modulePath, version string) error {
+func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 	ch := make(chan error, 1)
 	go func() {
-		// Fetch in the background
-		ch <- s.doFetch(context.Background(), modulePath, version)
+		// Loop through potential module paths
+		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
+			err := s.doFetch(context.Background(), modulePath, version)
+			if errors.Is(err, proxy.ErrNotFound) {
+				// Try parent path
+				continue
+			}
+			ch <- err
+			break
+		}
 	}()
 
 	select {
