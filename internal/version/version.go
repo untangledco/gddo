@@ -7,9 +7,8 @@ package version
 
 import (
 	"fmt"
-	"regexp"
-	"strings"
 
+	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -28,14 +27,6 @@ const (
 	TypePseudo
 )
 
-var pseudoVersionRE = regexp.MustCompile(`^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+incompatible)?$`)
-
-// IsPseudo reports whether a valid version v is a pseudo-version.
-// Modified from src/cmd/go/internal/modfetch.
-func IsPseudo(v string) bool {
-	return strings.Count(v, "-") >= 2 && pseudoVersionRE.MatchString(v)
-}
-
 // ParseType returns the Type of a given a version.
 func ParseType(version string) (Type, error) {
 	if !semver.IsValid(version) {
@@ -43,7 +34,7 @@ func ParseType(version string) (Type, error) {
 	}
 
 	switch {
-	case IsPseudo(version):
+	case module.IsPseudoVersion(version):
 		return TypePseudo, nil
 	case semver.Prerelease(version) != "":
 		return TypePrerelease, nil

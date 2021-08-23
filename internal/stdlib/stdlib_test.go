@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/version"
+	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -132,7 +132,7 @@ func TestZip(t *testing.T) {
 				t.Fatal(err)
 			}
 			if resolvedVersion == "master" {
-				if !version.IsPseudo(gotResolvedVersion) {
+				if !module.IsPseudoVersion(gotResolvedVersion) {
 					t.Errorf("resolved version: %s is not a pseudo-version", gotResolvedVersion)
 				}
 			} else if gotResolvedVersion != resolvedVersion {
