@@ -129,7 +129,7 @@ func (s *Server) parseRequestPath(ctx context.Context, path string) (string, str
 	version := proxy.LatestVersion
 
 	// Use version if present
-	at := strings.Index(path, "@")
+	at := strings.Index(importPath, "@")
 	if at != -1 {
 		version = importPath[at+1:]
 		importPath = importPath[:at]
