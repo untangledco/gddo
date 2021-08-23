@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/net/context/ctxhttp"
 )
 
@@ -86,9 +87,27 @@ func processLineTemplate(s string) string {
 	return s
 }
 
-// FetchMeta fetches the go-source meta tag for the provided import path.
-func FetchMeta(ctx context.Context, client *http.Client, importPath string) (*Meta, error) {
-	uri := importPath
+const (
+	stdlibDirFmt  = "https://github.com/golang/go/tree/master/src/%s{/dir}"
+	stdlibFileFmt = "https://github.com/golang/go/blob/master/src/%s{/dir}/{file}"
+	stdlibLineFmt = "https://github.com/golang/go/blob/master/src/%s{/dir}/{file}#L{line}"
+)
+
+// FetchMeta fetches the go-source meta tag for the provided module path.
+func FetchMeta(ctx context.Context, client *http.Client, modulePath string) (*Meta, error) {
+	// Special case for stdlib
+	if stdlib.Contains(modulePath) {
+		return &Meta{
+			ProjectRoot: modulePath,
+			ProjectName: "Go",
+			ProjectURL:  "/std",
+			DirFmt:      processDirTemplate(fmt.Sprintf(stdlibDirFmt, modulePath)),
+			FileFmt:     processFileTemplate(fmt.Sprintf(stdlibFileFmt, modulePath)),
+			LineFmt:     processLineTemplate(fmt.Sprintf(stdlibLineFmt, modulePath)),
+		}, nil
+	}
+
+	uri := modulePath
 	if !strings.Contains(uri, "/") {
 		// Add slash for root of domain.
 		uri += "/"
