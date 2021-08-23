@@ -236,7 +236,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		resp.Header().Set("Etag", etag)
 		return s.templates.ExecuteHTML(resp, "doc.html", status, &tctx)
 	}
-	return nil
 }
 
 func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
