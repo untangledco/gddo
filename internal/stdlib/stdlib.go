@@ -280,10 +280,6 @@ func Directory(version string) string {
 	return "src/pkg"
 }
 
-// EstimatedZipSize is the approximate size of
-// Zip("v1.15.2").
-const EstimatedZipSize = 16 * 1024 * 1024
-
 // ZipInfo returns the proxy .info information for the module std.
 func ZipInfo(requestedVersion string) (resolvedVersion string, err error) {
 	resolvedVersion, err = semanticVersion(requestedVersion)
