@@ -1,3 +1,5 @@
+//go:generate go run gen.go -output data.go
+
 // Copyright 2019 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -492,13 +494,10 @@ func subTree(r *git.Repository, t *object.Tree, name string) (*object.Tree, erro
 	return nil, os.ErrNotExist
 }
 
-// Contains reports whether the given import path could be part of the Go standard library,
-// by reporting whether the first component lacks a '.'.
+// Contains reports whether the given import path is part of the Go standard library.
 func Contains(path string) bool {
-	if i := strings.IndexByte(path, '/'); i != -1 {
-		path = path[:i]
-	}
-	return !strings.Contains(path, ".")
+	_, ok := stdlibPackages[path]
+	return ok
 }
 
 // References used for Versions during testing.
