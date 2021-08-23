@@ -113,10 +113,6 @@ func (db *Database) Delete(ctx context.Context, path string) error {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(`DELETE FROM packages WHERE module_path = $1;`, path)
-		if err != nil {
-			return err
-		}
 		return nil
 	})
 }
