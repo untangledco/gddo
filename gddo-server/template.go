@@ -99,6 +99,10 @@ type texample struct {
 	obj     interface{}
 }
 
+func (pdoc *Package) Dir() string {
+	return strings.TrimPrefix(pdoc.ImportPath, pdoc.Meta.ProjectRoot)
+}
+
 func (pdoc *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
 	if pos.Line == 0 || pdoc.Meta == nil {
 		if textOnlyOK {
@@ -106,7 +110,7 @@ func (pdoc *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp
 		}
 		return ""
 	}
-	dir := strings.TrimPrefix(pdoc.ImportPath, pdoc.Meta.ProjectRoot)
+	dir := pdoc.Dir()
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
 		htemp.HTMLEscapeString(pdoc.Meta.Line(dir, pdoc.Filenames[pos.File], int(pos.Line))),
 		htemp.HTMLEscapeString(text)))
