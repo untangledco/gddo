@@ -5,13 +5,11 @@
 package stdlib
 
 import (
-	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
 
 	"golang.org/x/mod/module"
-	"golang.org/x/mod/semver"
 )
 
 func TestTagForVersion(t *testing.T) {
@@ -100,67 +98,60 @@ func TestTagForVersion(t *testing.T) {
 	}
 }
 
+var TestVersion = "v0.0.0-20190904010203-89fb59e2e920"
+
 func TestZip(t *testing.T) {
 	UseTestData = true
 	defer func() { UseTestData = false }()
-	for _, resolvedVersion := range []string{"v1.14.6", "v1.12.5", "v1.3.2", TestVersion} {
-		t.Run(resolvedVersion, func(t *testing.T) {
-			zr, gotResolvedVersion, gotTime, err := Zip(resolvedVersion)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if resolvedVersion == "master" {
-				if !module.IsPseudoVersion(gotResolvedVersion) {
-					t.Errorf("resolved version: %s is not a pseudo-version", gotResolvedVersion)
-				}
-			} else if gotResolvedVersion != resolvedVersion {
-				t.Errorf("resolved version: got %s, want %s", gotResolvedVersion, resolvedVersion)
-			}
-			if !gotTime.Equal(TestCommitTime) {
-				t.Errorf("commit time: got %s, want %s", gotTime, TestCommitTime)
-			}
-			wantFiles := map[string]bool{
-				"LICENSE":               true,
-				"errors/errors.go":      true,
-				"errors/errors_test.go": true,
-			}
-			if semver.Compare(resolvedVersion, "v1.13.0") > 0 || resolvedVersion == TestVersion {
-				wantFiles["cmd/README.vendor"] = true
-			}
 
-			wantPrefix := "std@" + resolvedVersion + "/"
-			readmeVendorFile := wantPrefix + "README.vendor"
-			for _, f := range zr.File {
-				if f.Name == readmeVendorFile {
-					t.Fatalf("got %q; want file to be removed", readmeVendorFile)
+	for _, test := range []struct {
+		ModulePath string
+		Versions   []string
+		WantFiles  map[string]bool
+	}{
+		{
+			ModulePath: "errors",
+			Versions:   []string{"v1.14.6", "v1.12.5", "v1.3.2", TestVersion},
+			WantFiles: map[string]bool{
+				"errors.go":      true,
+				"errors_test.go": true,
+			},
+		},
+		{
+			ModulePath: "cmd",
+			Versions:   []string{"v1.14.6", TestVersion},
+		},
+	} {
+		for _, resolvedVersion := range test.Versions {
+			t.Run(resolvedVersion, func(t *testing.T) {
+				zr, gotResolvedVersion, gotTime, err := Zip(test.ModulePath, resolvedVersion)
+				if err != nil {
+					t.Fatal(err)
 				}
-				if !strings.HasPrefix(f.Name, wantPrefix) {
-					t.Errorf("filename %q missing prefix %q", f.Name, wantPrefix)
-					continue
+				if resolvedVersion == "master" {
+					if !module.IsPseudoVersion(gotResolvedVersion) {
+						t.Errorf("resolved version: %s is not a pseudo-version", gotResolvedVersion)
+					}
+				} else if gotResolvedVersion != resolvedVersion {
+					t.Errorf("resolved version: got %s, want %s", gotResolvedVersion, resolvedVersion)
 				}
-				delete(wantFiles, f.Name[len(wantPrefix):])
-			}
-			if len(wantFiles) > 0 {
-				t.Errorf("zip missing files: %v", reflect.ValueOf(wantFiles).MapKeys())
-			}
-			for _, f := range zr.File {
-				if f.Name == wantPrefix+"go.mod" {
-					r, err := f.Open()
-					if err != nil {
-						t.Fatal(err)
-					}
-					defer r.Close()
-					b, err := ioutil.ReadAll(r)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if got, want := string(b), "module std\n"; got != want {
-						t.Errorf("go.mod: got %q, want %q", got, want)
-					}
-					break
+				if !gotTime.Equal(TestCommitTime) {
+					t.Errorf("commit time: got %s, want %s", gotTime, TestCommitTime)
 				}
-			}
-		})
+
+				wantPrefix := test.ModulePath + "@" + resolvedVersion + "/"
+				for _, f := range zr.File {
+					if !strings.HasPrefix(f.Name, wantPrefix) {
+						t.Errorf("filename %q missing prefix %q", f.Name, wantPrefix)
+						continue
+					}
+					delete(test.WantFiles, f.Name[len(wantPrefix):])
+				}
+				if len(test.WantFiles) > 0 {
+					t.Errorf("zip missing files: %v", reflect.ValueOf(test.WantFiles).MapKeys())
+				}
+			})
+		}
 	}
 }
 
@@ -240,26 +231,30 @@ func TestVersionForTag(t *testing.T) {
 }
 
 func TestDirectory(t *testing.T) {
-	for _, tc := range []struct {
+	for _, test := range []struct {
+		module  string
 		version string
 		want    string
 	}{
 		{
+			module:  "archive",
 			version: "v1.3.0-beta2",
-			want:    "src/pkg",
+			want:    "src/pkg/archive",
 		},
 		{
+			module:  "bytes",
 			version: "v1.16.0-beta1",
-			want:    "src",
+			want:    "src/bytes",
 		},
 		{
+			module:  "io",
 			version: "master",
-			want:    "src",
+			want:    "src/io",
 		},
 	} {
-		got := Directory(tc.version)
-		if got != tc.want {
-			t.Errorf("Directory(%s) = %s, want %s", tc.version, got, tc.want)
+		got := Directory(test.module, test.version)
+		if got != test.want {
+			t.Errorf("Directory(%s) = %s, want %s", test.version, got, test.want)
 		}
 	}
 }

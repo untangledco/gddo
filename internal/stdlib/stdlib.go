@@ -150,7 +150,6 @@ var UseTestData = false
 // TestCommitTime is the time used for all commits when UseTestData is true.
 var (
 	TestCommitTime = time.Date(2019, 9, 4, 1, 2, 3, 0, time.UTC)
-	TestVersion    = "v0.0.0-20190904010203-89fb59e2e920"
 )
 
 // getGoRepo returns a repo object for the Go repo at version.
@@ -308,10 +307,6 @@ func Zip(modulePath, resolvedVersion string) (_ *zip.Reader, resolvedVersion2 st
 		return nil, "", time.Time{}, err
 	}
 	prefixPath := modulePath + "@" + resolvedVersion
-	// Add top-level files.
-	if err := addFiles(z, repo, root, prefixPath, false); err != nil {
-		return nil, "", time.Time{}, err
-	}
 	// Add files from the stdlib directory.
 	libdir := root
 	for _, d := range strings.Split(Directory(modulePath, resolvedVersion), "/") {
@@ -391,19 +386,6 @@ func addFiles(z *zip.Writer, r *git.Repository, t *object.Tree, dirpath string, 
 		}
 		if e.Name == "go.mod" {
 			// ignore; we'll synthesize our own
-			continue
-		}
-		if e.Name == "README.vendor" && !strings.Contains(dirpath, "/") {
-			// For versions newer than v1.4.0-beta.1, the stdlib is in src/pkg.
-			// This means that our construction of the zip files will return
-			// two READMEs at the root:
-			// https://golang.org/README.md and
-			// https://golang.org/src/README.vendor
-			//
-			// We do not want to display the README.md
-			// or any README.vendor.
-			// However, we do want to store the README in
-			// other directories.
 			continue
 		}
 		switch e.Mode {
