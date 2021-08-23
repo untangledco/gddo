@@ -82,7 +82,7 @@ func (s *Server) doFetch(ctx context.Context, modulePath, version string) error 
 	}
 
 	// Get latest version
-	latest, err := s.latestVersion(ctx, modulePath)
+	latest, err := s.source.LatestVersion(ctx, modulePath)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (s *Server) doFetch(ctx context.Context, modulePath, version string) error 
 		}
 
 		// Retrieve the list of versions
-		versions, err := s.moduleVersions(ctx, modulePath)
+		versions, err := s.source.Versions(ctx, modulePath)
 		if err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (s *Server) doFetch(ctx context.Context, modulePath, version string) error 
 	}
 
 	// Retrieve module source code.
-	src, err := source.Get(ctx, s.proxyClient, modulePath, version)
+	src, err := s.source.Get(ctx, modulePath, version)
 	if err != nil {
 		return err
 	}
@@ -170,27 +170,6 @@ func (s *Server) doFetch(ctx context.Context, modulePath, version string) error 
 	}
 
 	return nil
-}
-
-// latestVersion retrieves the latest version of a module from the module proxy.
-func (s *Server) latestVersion(ctx context.Context, modulePath string) (string, error) {
-	if modulePath == stdlib.ModulePath {
-		return stdlib.ZipInfo(proxy.LatestVersion)
-	}
-
-	info, err := s.proxyClient.GetInfo(ctx, modulePath, proxy.LatestVersion)
-	if err != nil {
-		return "", err
-	}
-	return info.Version, nil
-}
-
-// moduleVersions retrieves a module's list of versions from the module proxy.
-func (s *Server) moduleVersions(ctx context.Context, modulePath string) ([]string, error) {
-	if modulePath == stdlib.ModulePath {
-		return stdlib.Versions()
-	}
-	return s.proxyClient.ListVersions(ctx, modulePath)
 }
 
 // updateMeta updates the module's go-source meta tag information.

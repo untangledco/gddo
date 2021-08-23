@@ -4,6 +4,7 @@ package source
 
 import (
 	"bytes"
+	"context"
 	"go/build"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,13 @@ import (
 	"strings"
 	"time"
 )
+
+// Source represents a source of Go modules.
+type Source interface {
+	LatestVersion(ctx context.Context, modulePath string) (string, error)
+	Versions(ctx context.Context, modulePath string) ([]string, error)
+	Get(ctx context.Context, modulePath, version string) (*Module, error)
+}
 
 // Module represents a module.
 type Module struct {

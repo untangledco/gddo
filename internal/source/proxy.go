@@ -14,19 +14,23 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-// Get retrieves the source code for a module from a module proxy.
-func Get(ctx context.Context, client *proxy.Client, modulePath, version string) (*Module, error) {
+type ProxySource struct {
+	proxy.Client
+}
+
+// Get retrieves the source code for a module from the module proxy.
+func (p *ProxySource) Get(ctx context.Context, modulePath, version string) (*Module, error) {
 	if modulePath == stdlib.ModulePath {
 		return getStdlib(version)
 	}
 
 	// Get version info
-	info, err := client.GetInfo(ctx, modulePath, version)
+	info, err := p.Client.GetInfo(ctx, modulePath, version)
 	if err != nil {
 		return nil, err
 	}
 	// Get module file
-	mod, err := client.GetMod(ctx, modulePath, info.Version)
+	mod, err := p.Client.GetMod(ctx, modulePath, info.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +39,7 @@ func Get(ctx context.Context, client *proxy.Client, modulePath, version string) 
 		modulePath = path
 	}
 	// Get module zip
-	zip, err := client.GetZip(ctx, modulePath, info.Version)
+	zip, err := p.Client.GetZip(ctx, modulePath, info.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +75,24 @@ func getStdlib(version string) (*Module, error) {
 	}, nil
 }
 
-// isSourceFile reports whether a file with name n should be included in the source.
-func isSourceFile(n string) bool {
-	return strings.HasSuffix(n, ".go") && n[0] != '_' && n[0] != '.'
+// LatestVersion retrieves the latest version of a module from the module proxy.
+func (p *ProxySource) LatestVersion(ctx context.Context, modulePath string) (string, error) {
+	if modulePath == stdlib.ModulePath {
+		return stdlib.ZipInfo(proxy.LatestVersion)
+	}
+	info, err := p.Client.GetInfo(ctx, modulePath, proxy.LatestVersion)
+	if err != nil {
+		return "", err
+	}
+	return info.Version, nil
+}
+
+// Versions returns the list of versions of a module from the module proxy.
+func (p *ProxySource) Versions(ctx context.Context, modulePath string) ([]string, error) {
+	if modulePath == stdlib.ModulePath {
+		return stdlib.Versions()
+	}
+	return p.Client.ListVersions(ctx, modulePath)
 }
 
 // parsePackages parses packages from the provided zip reader.

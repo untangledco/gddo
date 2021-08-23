@@ -13,18 +13,19 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
+	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
 // The Go documentation server.
 type Server struct {
-	cfg         *Config
-	db          *database.Database
-	httpClient  *http.Client
-	proxyClient *proxy.Client
-	templates   TemplateMap
-	statusSVG   http.Handler
+	cfg        *Config
+	db         *database.Database
+	httpClient *http.Client
+	templates  TemplateMap
+	statusSVG  http.Handler
+	source     source.Source
 
 	// A semaphore to limit concurrent ?import-graph requests.
 	importGraphSem chan struct{}
@@ -46,9 +47,11 @@ func NewServer(cfg *Config) (*Server, error) {
 		Transport: t,
 		Timeout:   requestTimeout,
 	}
-	proxyClient := &proxy.Client{
-		URL:        cfg.GoProxy,
-		HTTPClient: *httpClient,
+	proxySource := &source.ProxySource{
+		Client: proxy.Client{
+			URL:        cfg.GoProxy,
+			HTTPClient: *httpClient,
+		},
 	}
 
 	db, err := database.New(cfg.Database)
@@ -60,7 +63,7 @@ func NewServer(cfg *Config) (*Server, error) {
 		cfg:            cfg,
 		db:             db,
 		httpClient:     httpClient,
-		proxyClient:    proxyClient,
+		source:         proxySource,
 		templates:      make(TemplateMap),
 		importGraphSem: make(chan struct{}, 10),
 	}, nil
