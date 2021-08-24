@@ -142,27 +142,6 @@ func isView(u *url.URL, key string) bool {
 		(len(rq) == len(key) || rq[len(key)] == '=' || rq[len(key)] == '&')
 }
 
-func filterStdlibPackages(pkgs []string) []string {
-	i := 0
-	for j, importPath := range pkgs {
-		// Ignore commands
-		if importPath == "cmd" || strings.HasPrefix(importPath, "cmd/") {
-			continue
-		}
-		// Ignore internal packages
-		if importPath == "internal" ||
-			strings.HasPrefix(importPath, "internal/") ||
-			strings.HasSuffix(importPath, "/internal") ||
-			strings.Contains(importPath, "/internal/") {
-			continue
-		}
-		pkgs[i] = pkgs[j]
-		i++
-	}
-	pkgs = pkgs[:i]
-	return pkgs
-}
-
 func parseImportPath(q string) (string, error) {
 	// Remove leading https://
 	q = strings.TrimPrefix(q, "https://")

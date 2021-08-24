@@ -44,6 +44,12 @@ func main() {
 
 	pkgs := []string{}
 	for pkg := range pkgsMap {
+		// Hide cmd and internal packages from the list
+		if strings.HasPrefix(pkg, "cmd/") ||
+			strings.HasPrefix(pkg, "internal/") ||
+			strings.Contains(pkg, "/internal/") {
+			continue
+		}
 		pkgs = append(pkgs, pkg)
 	}
 	sort.Strings(pkgs)

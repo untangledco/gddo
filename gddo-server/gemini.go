@@ -185,7 +185,7 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 }
 
 func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error {
-	pkgs, err := s.db.Packages(ctx, filterStdlibPackages(stdlib.Packages()))
+	pkgs, err := s.db.Packages(ctx, stdlib.Packages())
 	if err != nil {
 		return err
 	}

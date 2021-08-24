@@ -449,8 +449,6 @@ func Contains(path string) bool {
 }
 
 // Packages returns a list of packages in the standard library.
-//
-// TODO: Maintain filtered list of packages.
 func Packages() []string {
 	return stdlibPackages
 }

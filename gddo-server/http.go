@@ -272,7 +272,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.db.Packages(req.Context(), filterStdlibPackages(stdlib.Packages()))
+	pkgs, err := s.db.Packages(req.Context(), stdlib.Packages())
 	if err != nil {
 		return err
 	}
