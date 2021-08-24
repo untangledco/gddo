@@ -1,3 +1,19 @@
+{{define "Examples"}}
+{{- range . }}
+
+Example{{with .Example.Name}} ({{.}}){{end}}
+{{with .Example.Doc}}
+{{.|comment}}{{end}}
+Code:
+```
+{{.Example.Code.Text}}
+```
+{{with .Example.Output}}
+Output:
+```
+{{.}}```
+{{end}}{{end}}{{end -}}
+
 # {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}} - godocs.io
 {{if and .Name (not .IsCommand)}}
 ```
@@ -7,6 +23,7 @@ import "{{.ImportPath}}"
 
 {{- if .Doc}}
 {{.Doc|comment}}{{end}}
+{{- template "Examples" .PackageExamples}}
 
 {{- if not .IsCommand}}
 {{- if .Truncated}}The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.{{end}}
@@ -34,7 +51,9 @@ import "{{.ImportPath}}"
 ```
 {{.Decl.Text}}
 ```
-{{.Doc|comment}}{{end}}{{end}}
+{{.Doc|comment}}
+{{- template "Examples" .|$.ObjExamples}}
+{{- end}}{{end}}
 
 {{- if .Types}}
 ## Types
@@ -44,6 +63,7 @@ import "{{.ImportPath}}"
 {{.Decl.Text}}
 ```
 {{.Doc|comment}}
+{{- template "Examples" .|$.ObjExamples}}
 {{- range .Consts}}
 ```
 {{.Decl.Text}}
@@ -53,19 +73,25 @@ import "{{.ImportPath}}"
 ```
 {{.Decl.Text}}
 ```
-{{.Doc|comment}}{{end}}
+{{.Doc|comment}}
+{{- template "Examples" .|$.ObjExamples}}
+{{- end}}
 {{- range .Funcs}}
 ### func {{.Name}}
 ```
 {{.Decl.Text}}
 ```
-{{.Doc|comment}}{{end}}
+{{.Doc|comment}}
+{{- template "Examples" .|$.ObjExamples}}
+{{- end}}
 {{- range .Methods}}
 ### func ({{.Recv}}) {{.Name}}
 ```
 {{.Decl.Text}}
 ```
-{{.Doc|comment}}{{end}}{{end}}{{end}}
+{{.Doc|comment}}
+{{- template "Examples" .|$.ObjExamples}}
+{{- end}}{{end}}{{end}}
 
 {{- with .Notes}}{{with .BUG}}
 ## Bugs

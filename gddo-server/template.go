@@ -181,6 +181,9 @@ func (pdoc *Package) AllExamples() []*texample {
 }
 
 func (pdoc *Package) PackageExamples() []*texample {
+	if pdoc.allExamples == nil {
+		pdoc.AllExamples()
+	}
 	return pdoc.ObjExamples(pdoc)
 }
 
