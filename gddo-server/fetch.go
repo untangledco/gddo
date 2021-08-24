@@ -62,6 +62,7 @@ func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 			ch <- err
 			break
 		}
+		ch <- proxy.ErrNotFound
 	}()
 
 	select {
