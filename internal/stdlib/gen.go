@@ -33,7 +33,7 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, pkg := range strings.Fields(string(o)) {
-		if strings.HasPrefix(pkg, "vendor/") {
+		if strings.HasPrefix(pkg, "vendor/") || strings.Contains(pkg, "/vendor/") {
 			continue
 		}
 		// Add the package and all of its parent directories
