@@ -38,7 +38,7 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.DefaultGOOS, "goos", "linux", "Default GOOS to use for documentation")
 	flags.StringVar(&c.DefaultArch, "arch", "amd64", "Default architecture to use for documentation")
 	flags.StringVar(&c.UserAgent, "user-agent", "GoDocBot", "User agent to use for HTTP requests")
-	flags.DurationVar(&c.GetTimeout, "get-timeout", 8*time.Second, "Timeout for HTTP GET requests")
+	flags.DurationVar(&c.GetTimeout, "get-timeout", 20*time.Second, "Timeout for HTTP GET requests")
 	flags.DurationVar(&c.DialTimeout, "dial-timeout", 5*time.Second, "Timeout for dialing HTTP connections")
 	flags.DurationVar(&c.RequestTimeout, "request-timeout", 20*time.Second, "Timeout for roundtripping an HTTP request")
 	flags.DurationVar(&c.CrawlInterval, "crawl-interval", 0, "Time to sleep between package crawls. Zero disables crawling.")
