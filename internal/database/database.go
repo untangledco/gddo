@@ -472,6 +472,8 @@ func (db *Database) Packages(ctx context.Context, importPaths []string) ([]Packa
 }
 
 func (db *Database) SubPackages(ctx context.Context, modulePath, version, importPath string) ([]Package, error) {
+	internal := strings.HasSuffix(importPath, "/internal") ||
+		strings.Contains(importPath, "/internal/")
 	var packages []Package
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, `
@@ -479,8 +481,9 @@ func (db *Database) SubPackages(ctx context.Context, modulePath, version, import
 				import_path, series_path, commit_time, name, synopsis
 			FROM packages
 			WHERE module_path = $1 AND version = $2 AND import_path LIKE $3 || '_%'
+			AND ($4 OR import_path NOT LIKE '%/internal/%')
 			ORDER BY import_path;
-			`, modulePath, version, importPath)
+			`, modulePath, version, importPath, internal)
 		if err != nil {
 			return err
 		}
