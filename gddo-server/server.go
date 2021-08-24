@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -11,7 +10,6 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
-	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"golang.org/x/mod/module"
@@ -69,48 +67,19 @@ func NewServer(cfg *Config) (*Server, error) {
 	}, nil
 }
 
-// GetDoc gets the package documentation from the database or from the module
-// proxy as needed.
-func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*database.Module, *database.Package, *doc.Package, error) {
+// getPackage gets the package from the database. If the package is not in the
+// database, it is fetched from the module proxy.
+func (s *Server) getPackage(ctx context.Context, importPath, version string) (database.Package, error) {
 	type result struct {
-		mod *database.Module
-		pkg *database.Package
-		doc *doc.Package
+		pkg database.Package
 		err error
 	}
 
 	ch := make(chan result, 1)
 	go func() {
 		ctx := context.Background()
-		pkg, ok, err := s.db.GetPackage(ctx, importPath, version)
-		if err != nil {
-			ch <- result{nil, nil, nil, err}
-			return
-		}
-		if !ok {
-			err := s.fetch(ctx, importPath, version)
-			if err != nil {
-				ch <- result{nil, nil, nil, err}
-				return
-			}
-			pkg, ok, err = s.db.GetPackage(ctx, importPath, version)
-			if err != nil {
-				ch <- result{nil, nil, nil, err}
-				return
-			}
-		}
-		mod, _, err := s.db.GetModule(ctx, pkg.ModulePath)
-		if err != nil {
-			ch <- result{nil, nil, nil, err}
-			return
-		}
-		// TODO: Allow the user to configure the GOOS and GOARCH
-		pdoc, ok, err := s.db.GetDoc(ctx, importPath, pkg.Version, "linux", "amd64")
-		if err == nil && !ok {
-			err = errors.New("failed to fetch documentation")
-		}
-		ch <- result{&mod, &pkg, pdoc, err}
-		return
+		pkg, err := s._getPackage(ctx, importPath, version)
+		ch <- result{pkg, err}
 	}()
 
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.GetTimeout)
@@ -118,11 +87,29 @@ func (s *Server) GetDoc(ctx context.Context, importPath, version string) (*datab
 
 	select {
 	case r := <-ch:
-		return r.mod, r.pkg, r.doc, r.err
+		return r.pkg, r.err
 	case <-ctx.Done():
 		log.Printf("Serving %q as not found after timeout getting doc", importPath)
-		return nil, nil, nil, ctx.Err()
+		return database.Package{}, ctx.Err()
 	}
+}
+
+func (s *Server) _getPackage(ctx context.Context, importPath, version string) (database.Package, error) {
+	pkg, ok, err := s.db.GetPackage(ctx, importPath, version)
+	if err != nil {
+		return database.Package{}, err
+	}
+	if !ok {
+		err := s.fetch(ctx, importPath, version)
+		if err != nil {
+			return database.Package{}, err
+		}
+		pkg, _, err = s.db.GetPackage(ctx, importPath, version)
+		if err != nil {
+			return database.Package{}, err
+		}
+	}
+	return pkg, nil
 }
 
 // Parses the provided request path, returning the package import path and version.

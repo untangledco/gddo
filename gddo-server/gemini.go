@@ -61,7 +61,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 	if err != nil {
 		return err
 	}
-	_, _, _, err = s.GetDoc(ctx, importPath, "latest")
+	_, err = s.getPackage(ctx, importPath, "latest")
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
 		w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 		return nil
@@ -94,7 +94,16 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		return err
 	}
 
-	mod, pkg, pdoc, err := s.GetDoc(ctx, importPath, version)
+	pkg, err := s.getPackage(ctx, importPath, version)
+	if err != nil {
+		return err
+	}
+	mod, _, err := s.db.GetModule(ctx, pkg.ModulePath)
+	if err != nil {
+		return err
+	}
+	// TODO: Configurable GOOS and GOARCH
+	pdoc, err := s.db.GetDoc(ctx, pkg.ImportPath, pkg.Version, "linux", "amd64")
 	if err != nil {
 		return err
 	}

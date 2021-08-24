@@ -66,7 +66,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 
 // httpEtag returns the package entity tag used in HTTP transactions.
 func (s *Server) httpEtag(
-	pkg *database.Package,
+	pkg database.Package,
 	subpkgs []database.Package,
 	importCount int64,
 	flashMessages []flashMessage,
@@ -105,18 +105,28 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return nil
 	}
 
-	importPath, version, err := s.parseRequestPath(req.Context(), req.URL.Path)
+	ctx := req.Context()
+	importPath, version, err := s.parseRequestPath(ctx, req.URL.Path)
 	if err != nil {
 		return err
 	}
 
-	mod, pkg, pdoc, err := s.GetDoc(req.Context(), importPath, version)
+	pkg, err := s.getPackage(ctx, importPath, version)
+	if err != nil {
+		return err
+	}
+	mod, _, err := s.db.GetModule(ctx, pkg.ModulePath)
+	if err != nil {
+		return err
+	}
+	// TODO: Configurable GOOS and GOARCH
+	pdoc, err := s.db.GetDoc(ctx, pkg.ImportPath, pkg.Version, "linux", "amd64")
 	if err != nil {
 		return err
 	}
 
 	var meta *source.Meta
-	_meta, ok, err := s.db.GetMeta(req.Context(), mod.SeriesPath)
+	_meta, ok, err := s.db.GetMeta(ctx, mod.SeriesPath)
 	if err != nil {
 		return err
 	} else if ok {
@@ -150,7 +160,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &tctx)
 
 	case isView(req.URL, "imports"):
-		imports, err := s.db.Packages(req.Context(), pdoc.Imports)
+		imports, err := s.db.Packages(ctx, pdoc.Imports)
 		if err != nil {
 			return err
 		}
@@ -167,7 +177,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}{tctx, uri})
 
 	case isView(req.URL, "importers"):
-		importers, err := s.db.Importers(req.Context(), importPath)
+		importers, err := s.db.Importers(ctx, importPath)
 		if err != nil {
 			return err
 		}
@@ -192,7 +202,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		case "2":
 			hide = database.HideStandardAll
 		}
-		pkgs, edges, err := s.db.ImportGraph(req.Context(), pdoc, hide)
+		pkgs, edges, err := s.db.ImportGraph(ctx, pdoc, hide)
 		if err != nil {
 			return err
 		}
@@ -215,13 +225,13 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return nil
 
 	default:
-		importCount, err := s.db.ImportCount(req.Context(), importPath)
+		importCount, err := s.db.ImportCount(ctx, importPath)
 		if err != nil {
 			return err
 		}
 		tctx.Package.ImportCount = importCount
 
-		subpkgs, err := s.db.SubPackages(req.Context(), pkg.ModulePath, pkg.Version, importPath)
+		subpkgs, err := s.db.SubPackages(ctx, pkg.ModulePath, pkg.Version, importPath)
 		if err != nil {
 			return err
 		}
@@ -284,7 +294,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	var msgs []flashMessage
 	importPath, err := parseImportPath(q)
 	if err == nil {
-		_, _, _, err = s.GetDoc(req.Context(), importPath, "latest")
+		_, err = s.getPackage(req.Context(), importPath, "latest")
 		if err == nil || errors.Is(err, context.DeadlineExceeded) {
 			http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 			return nil

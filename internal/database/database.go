@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
+	"errors"
 	"path"
 	"strings"
 	"time"
@@ -208,7 +209,7 @@ func (db *Database) GetPackage(ctx context.Context, importPath, version string) 
 	return
 }
 
-func (db *Database) GetDoc(ctx context.Context, importPath, version, goos, goarch string) (pdoc *doc.Package, ok bool, err error) {
+func (db *Database) GetDoc(ctx context.Context, importPath, version, goos, goarch string) (pdoc *doc.Package, err error) {
 	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx,
 			`SELECT documentation FROM documentation
@@ -219,16 +220,16 @@ func (db *Database) GetDoc(ctx context.Context, importPath, version, goos, goarc
 		}
 		defer rows.Close()
 
-		if rows.Next() {
-			var p []byte
-			if err := rows.Scan(&p); err != nil {
-				return err
-			}
-			pdoc = new(doc.Package)
-			if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&pdoc); err != nil {
-				return err
-			}
-			ok = true
+		if !rows.Next() {
+			return errors.New("failed to get documentation")
+		}
+		var p []byte
+		if err := rows.Scan(&p); err != nil {
+			return err
+		}
+		pdoc = new(doc.Package)
+		if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&pdoc); err != nil {
+			return err
 		}
 		return rows.Err()
 	})
