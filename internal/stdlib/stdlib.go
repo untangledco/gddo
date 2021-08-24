@@ -5,9 +5,6 @@
 // license that can be found in the LICENSE file.
 
 // Package stdlib supports special handling of the Go standard library.
-// Regardless of the how the standard library has been split into modules for
-// development and testing, the discovery site treats it as a single module
-// named "std".
 package stdlib
 
 import (
@@ -286,7 +283,7 @@ func ZipInfo(requestedVersion string) (resolvedVersion string, err error) {
 	return resolvedVersion, nil
 }
 
-// Zip creates a module zip representing the entire Go standard library at the
+// Zip creates a module zip representing the given standard library module at the
 // given version (which must have been resolved with ZipInfo) and returns a
 // reader to it. It also returns the time of the commit for that version. The
 // zip file is in module form, with each path prefixed by ModuleName + "@" +
@@ -297,9 +294,6 @@ func ZipInfo(requestedVersion string) (resolvedVersion string, err error) {
 //
 // Zip reads the standard library at the Go repository tag corresponding to to
 // the given semantic version.
-//
-// Zip ignores go.mod files in the standard library, treating it as if it were a
-// single module named "std" at the given version.
 func Zip(modulePath, resolvedVersion string) (_ *zip.Reader, resolvedVersion2 string, commitTime time.Time, err error) {
 	// This code taken, with modifications, from
 	// https://github.com/shurcooL/play/blob/master/256/moduleproxy/std/std.go.
