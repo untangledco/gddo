@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"git.sr.ht/~sircmpwn/gddo/internal/version"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -379,11 +379,7 @@ func semanticVersion(requestedVersion string) (string, error) {
 			if !strings.HasPrefix(v, "v") {
 				continue
 			}
-			versionType, err := version.ParseType(v)
-			if err != nil {
-				return "", err
-			}
-			if versionType != version.TypeRelease {
+			if module.IsPseudoVersion(v) || semver.Prerelease(v) != "" {
 				// We expect there to always be at least 1 release version.
 				continue
 			}
