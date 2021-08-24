@@ -243,15 +243,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 	defer cancel()
 
 	importPath := req.Form.Get("path")
-	pkg, ok, err := s.db.GetPackage(ctx, importPath, proxy.LatestVersion)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return nil
-	}
-
-	err = s.fetch(ctx, pkg.ModulePath, proxy.LatestVersion)
+	err := s.fetch(ctx, importPath, proxy.LatestVersion)
 	if err != nil {
 		// TODO: Merge this with other error handling?
 		var msg string

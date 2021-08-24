@@ -49,12 +49,12 @@ func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 		if stdlib.Contains(importPath) {
 			// Get the root import path (e.g. archive/tar => archive)
 			importPath = strings.SplitN(importPath, "/", 2)[0]
-			ch <- s.doFetch(ctx, importPath, version)
+			ch <- s.fetchModule(ctx, importPath, version)
 			return
 		}
 		// Loop through potential module paths
 		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
-			err := s.doFetch(ctx, modulePath, version)
+			err := s.fetchModule(ctx, modulePath, version)
 			if errors.Is(err, proxy.ErrNotFound) {
 				// Try parent path
 				continue
@@ -72,7 +72,7 @@ func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 	}
 }
 
-func (s *Server) doFetch(ctx context.Context, modulePath, version string) error {
+func (s *Server) fetchModule(ctx context.Context, modulePath, version string) error {
 	start := time.Now().UTC()
 
 	// Check if the module is blocked
@@ -84,52 +84,35 @@ func (s *Server) doFetch(ctx context.Context, modulePath, version string) error 
 		return ErrBlocked
 	}
 
-	// Get latest version
-	latest, err := s.source.LatestVersion(ctx, modulePath)
+	seriesPath, _, _ := module.SplitPathVersion(modulePath)
+
+	latest := version == proxy.LatestVersion
+	if latest {
+		latestVersion, err := s.source.LatestVersion(ctx, modulePath)
+		if err != nil {
+			return err
+		}
+		version = latestVersion
+	}
+
+	mod, ok, err := s.db.GetModule(ctx, modulePath)
 	if err != nil {
 		return err
 	}
-
-	seriesPath, _, _ := module.SplitPathVersion(modulePath)
-
-	// Only update module information if the latest version was requested.
-	if version == proxy.LatestVersion {
-		// Retrieve the module from the database
-		mod, ok, err := s.db.GetModule(ctx, modulePath)
-		if err != nil {
+	if !ok {
+		// Add the module to the database
+		if err := s.putModule(ctx, modulePath, seriesPath, version, start); err != nil {
 			return err
 		}
-
-		if ok && mod.Version == latest {
-			// Module is up-to-date. Update last crawl time only.
-			mod.Updated = start
-			if err := s.db.PutModule(ctx, mod); err != nil {
-				return err
-			}
+	} else if latest {
+		if mod.Version == version {
+			// Module is already up to date
 			return nil
 		}
-
-		// Retrieve the list of versions
-		versions, err := s.source.Versions(ctx, modulePath)
-		if err != nil {
+		// Update module
+		if err := s.putModule(ctx, modulePath, seriesPath, version, start); err != nil {
 			return err
 		}
-		sort.Sort(byVersion(versions))
-
-		// Update the module
-		mod = database.Module{
-			ModulePath: modulePath,
-			SeriesPath: seriesPath,
-			Version:    latest,
-			Versions:   versions,
-			Updated:    start,
-		}
-		if err := s.db.PutModule(ctx, mod); err != nil {
-			return err
-		}
-
-		// Use latest version
-		version = latest
 	}
 
 	// Retrieve module source code.
@@ -169,9 +152,30 @@ func (s *Server) doFetch(ctx context.Context, modulePath, version string) error 
 
 	// Update meta
 	if err := s.updateMeta(ctx, modulePath); err != nil {
-		log.Printf("Error fetching source meta for %s: %v", modulePath, err)
+		log.Printf("Error fetching go-source meta for %s: %v", modulePath, err)
 	}
 
+	return nil
+}
+
+// putModule puts a module in the database.
+func (s *Server) putModule(ctx context.Context, modulePath, seriesPath, version string, updated time.Time) error {
+	versions, err := s.source.Versions(ctx, modulePath)
+	if err != nil {
+		return err
+	}
+	sort.Sort(byVersion(versions))
+
+	mod := database.Module{
+		ModulePath: modulePath,
+		SeriesPath: seriesPath,
+		Version:    version,
+		Versions:   versions,
+		Updated:    updated,
+	}
+	if err := s.db.PutModule(ctx, mod); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -191,8 +195,8 @@ func (s *Server) updateMeta(ctx context.Context, modulePath string) error {
 	return nil
 }
 
-// fetchOldest updates the oldest module in the database if necessary.
-func (s *Server) fetchOldest(ctx context.Context) {
+// refreshOldest refreshes the oldest module in the database.
+func (s *Server) refreshOldest(ctx context.Context) {
 	modulePath, err := s.db.Oldest(ctx)
 	if err != nil {
 		log.Printf("Error retrieving oldest module: %v", err)
@@ -202,9 +206,9 @@ func (s *Server) fetchOldest(ctx context.Context) {
 		// No modules in the database yet
 		return
 	}
-	log.Println("FETCH", modulePath)
-	if err := s.fetch(ctx, modulePath, proxy.LatestVersion); err != nil {
-		log.Printf("Error fetching %s: %v", modulePath, err)
+	log.Println("REFRESH", modulePath)
+	if err := s.fetchModule(ctx, modulePath, proxy.LatestVersion); err != nil {
+		log.Printf("Error refreshing %s: %v", modulePath, err)
 		return
 	}
 }

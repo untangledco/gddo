@@ -33,10 +33,10 @@ func main() {
 		log.Fatal("error creating server:", err)
 	}
 
-	// Update modules in the background
+	// Refresh modules in the background
 	go func() {
 		for range time.Tick(s.cfg.CrawlInterval) {
-			s.fetchOldest(ctx)
+			s.refreshOldest(ctx)
 		}
 	}()
 
