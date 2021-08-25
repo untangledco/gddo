@@ -68,19 +68,6 @@ CREATE TABLE imports (
 
 CREATE INDEX imports_idx ON imports (import_path, version);
 
--- Stores package importers
-CREATE TABLE importers (
-	import_path text NOT NULL,
-	importer_path text NOT NULL,
-	importer_version text NOT NULL,
-	PRIMARY KEY (import_path, importer_path, importer_version),
-	FOREIGN KEY (importer_path, importer_version)
-		REFERENCES packages (import_path, version) ON DELETE CASCADE
-);
-
--- Used to speed up retrieving a package's importers.
-CREATE INDEX importers_idx ON importers (import_path);
-
 -- Stores blocked import paths
 CREATE TABLE blocklist (
 	import_path text NOT NULL,
@@ -97,17 +84,5 @@ CREATE TABLE gosource (
 	line_fmt text NOT NULL,
 	PRIMARY KEY (project_root)
 );
-
--- Returns the number of unique importing packages for the given import path
-CREATE FUNCTION import_count(import_path text)
-RETURNS bigint
-LANGUAGE SQL
-AS $$
-SELECT COUNT(DISTINCT importer_path)
-FROM importers i, packages p, modules m
-WHERE i.import_path = $1
-AND p.import_path = i.importer_path AND p.version = i.importer_version
-AND m.module_path = p.module_path AND i.importer_version = m.latest_version;
-$$;
 
 COMMIT;

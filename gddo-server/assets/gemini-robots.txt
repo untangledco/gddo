@@ -1,4 +1,3 @@
 User-agent: *
 Disallow: /*?imports*
-Disallow: /*?importers*
 Disallow: /*?refresh*

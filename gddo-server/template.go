@@ -87,7 +87,6 @@ type Package struct {
 	Updated     time.Time
 	SubPackages []database.Package
 	Meta        *source.Meta
-	ImportCount int64
 	allExamples []*texample
 }
 
@@ -457,7 +456,6 @@ func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) er
 		{"index.html", "common.html", "layout.html"},
 		{"versions.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
-		{"importers.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"search.html", "common.html", "layout.html"},
 		{"std.html", "common.html", "layout.html"},
@@ -494,7 +492,6 @@ func parseGeminiTemplates(m TemplateMap, dir string) error {
 		{"doc.gmi"},
 		{"versions.gmi"},
 		{"imports.gmi"},
-		{"importers.gmi"},
 		{"std.gmi"},
 	}
 	funcs := ttemp.FuncMap{

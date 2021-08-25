@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"time"
 
@@ -68,15 +67,12 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 func (s *Server) httpEtag(
 	pkg database.Package,
 	subpkgs []database.Package,
-	importCount int64,
 	flashMessages []flashMessage,
 ) string {
 	b := make([]byte, 0, 128)
 	b = append(b, pkg.ImportPath...)
 	b = append(b, 0)
 	b = append(b, pkg.Version...)
-
-	b = strconv.AppendInt(b, importCount, 16)
 
 	for _, subpkg := range subpkgs {
 		b = append(b, 0)
@@ -176,16 +172,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			URI string
 		}{tctx, uri})
 
-	case isView(req.URL, "importers"):
-		importers, err := s.db.Importers(ctx, importPath)
-		if err != nil {
-			return err
-		}
-		return s.templates.ExecuteHTML(resp, "importers.html", http.StatusOK, &struct {
-			Context
-			Importers []database.Package
-		}{tctx, importers})
-
 	case isView(req.URL, "import-graph"):
 		// Throttle ?import-graph requests.
 		select {
@@ -225,19 +211,13 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return nil
 
 	default:
-		importCount, err := s.db.ImportCount(ctx, importPath)
-		if err != nil {
-			return err
-		}
-		tctx.Package.ImportCount = importCount
-
 		subpkgs, err := s.db.SubPackages(ctx, pkg.ModulePath, pkg.Version, importPath)
 		if err != nil {
 			return err
 		}
 		tctx.Package.SubPackages = subpkgs
 
-		etag := s.httpEtag(pkg, subpkgs, importCount, flashMessages)
+		etag := s.httpEtag(pkg, subpkgs, flashMessages)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified

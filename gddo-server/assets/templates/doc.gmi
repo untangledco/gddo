@@ -115,8 +115,6 @@ import "{{.ImportPath}}"
 * Published {{.CommitTime.Format "Jan 2, 2006"}}
 {{- if .Imports}}
 => ?imports Imports {{.Imports|len}} packages{{end}}
-{{- if .ImportCount}}
-=> ?importers Imported by {{.ImportCount}} packages{{end}}
 * GOOS={{.GOOS}}
 * GOARCH={{.GOARCH}}
 * Last checked {{humanize .Updated}}

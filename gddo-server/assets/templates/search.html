@@ -10,10 +10,7 @@
       <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
       <tbody>{{range .Results}}
         <tr>
-          <td>
-            <a href="/{{.ImportPath}}">{{.ImportPath}}</a>
-            {{if .ImportCount}}<span class="additional-info">{{.ImportCount}} import{{if ne .ImportCount 1}}s{{end}}</span>{{end}}
-          </td>
+          <td><a href="/{{.ImportPath}}">{{.ImportPath}}</a></td>
           <td class="synopsis">{{.Synopsis}}</td>
         </tr>
       {{end}}</tbody>

@@ -4,7 +4,6 @@
 => /-/search Search
 {{if .Results}}{{range .Results}}
 => /{{.ImportPath}} {{.ImportPath}}
-* {{.ImportCount}} imports
 {{if .Synopsis}}{{.Synopsis}}
 {{end}}{{end}}
 {{else}}

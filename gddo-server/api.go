@@ -37,18 +37,3 @@ func (s *Server) serveAPISearch(resp http.ResponseWriter, req *http.Request) err
 	resp.Header().Set("Content-Type", jsonMIMEType)
 	return json.NewEncoder(resp).Encode(&data)
 }
-
-func (s *Server) serveAPIImporters(resp http.ResponseWriter, req *http.Request) error {
-	importPath := strings.TrimPrefix(req.URL.Path, "/importers/")
-	pkgs, err := s.db.Importers(req.Context(), importPath)
-	if err != nil {
-		return err
-	}
-	data := struct {
-		Results []database.Package `json:"results"`
-	}{
-		pkgs,
-	}
-	resp.Header().Set("Content-Type", jsonMIMEType)
-	return json.NewEncoder(resp).Encode(&data)
-}

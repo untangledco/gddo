@@ -141,23 +141,7 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 			Imports []database.Package
 		}{tctx, imports})
 
-	case isView(r.URL, "importers"):
-		importers, err := s.db.Importers(ctx, importPath)
-		if err != nil {
-			return err
-		}
-		s.templates.Execute(w, "importers.gmi", &struct {
-			Package
-			Importers []database.Package
-		}{tctx, importers})
-
 	default:
-		importCount, err := s.db.ImportCount(ctx, importPath)
-		if err != nil {
-			return err
-		}
-		tctx.ImportCount = importCount
-
 		subpkgs, err := s.db.SubPackages(ctx, pkg.ModulePath, pkg.Version, importPath)
 		if err != nil {
 			return err

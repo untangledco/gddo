@@ -30,14 +30,13 @@ type Module struct {
 
 // Package represents a package.
 type Package struct {
-	ImportPath  string    `json:"import_path"`
-	ModulePath  string    `json:"module_path"`
-	SeriesPath  string    `json:"-"`
-	Version     string    `json:"version"`
-	CommitTime  time.Time `json:"commit_time"`
-	Name        string    `json:"name"`
-	Synopsis    string    `json:"synopsis"`
-	ImportCount int64     `json:"import_count"`
+	ImportPath string    `json:"import_path"`
+	ModulePath string    `json:"module_path"`
+	SeriesPath string    `json:"-"`
+	Version    string    `json:"version"`
+	CommitTime time.Time `json:"commit_time"`
+	Name       string    `json:"name"`
+	Synopsis   string    `json:"synopsis"`
 }
 
 // Database stores package documentation.
@@ -125,7 +124,7 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 		rows, err := tx.QueryContext(ctx, `
 			SELECT
 				p.import_path, p.module_path, p.series_path, p.version,
-				p.commit_time, p.name, p.synopsis, import_count(p.import_path)
+				p.commit_time, p.name, p.synopsis
 			FROM packages p, modules m
 			WHERE p.searchtext @@ websearch_to_tsquery('english', $1)
 				AND m.module_path = p.module_path AND p.version = m.latest_version
@@ -141,8 +140,7 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 		for rows.Next() {
 			var pkg Package
 			if err := rows.Scan(&pkg.ImportPath, &pkg.ModulePath, &pkg.SeriesPath,
-				&pkg.Version, &pkg.CommitTime, &pkg.Name, &pkg.Synopsis,
-				&pkg.ImportCount); err != nil {
+				&pkg.Version, &pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
 				return err
 			}
 			packages = append(packages, pkg)
@@ -299,15 +297,6 @@ func (db *Database) PutPackage(ctx context.Context, modulePath, seriesPath, vers
 			if err != nil {
 				return err
 			}
-
-			// Update importers
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO importers (import_path, importer_path, importer_version)
-				VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
-				`, importedPath, pkg.ImportPath, version)
-			if err != nil {
-				return err
-			}
 		}
 
 		return nil
@@ -413,63 +402,6 @@ func (db *Database) Imports(ctx context.Context, importPath, version string) ([]
 		return nil, err
 	}
 	return imports, nil
-}
-
-func (db *Database) Importers(ctx context.Context, importPath string) ([]Package, error) {
-	var packages []Package
-	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT
-				p.import_path, p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis
-			FROM packages p, importers i, modules m
-			WHERE i.import_path = $1
-			AND p.import_path = i.importer_path AND p.version = i.importer_version
-			AND m.module_path = p.module_path AND i.importer_version = m.latest_version
-			ORDER BY p.import_path;
-			`, importPath)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var pkg Package
-			if err := rows.Scan(&pkg.ImportPath, &pkg.ModulePath, &pkg.SeriesPath,
-				&pkg.Version, &pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
-				return err
-			}
-			packages = append(packages, pkg)
-		}
-		return rows.Err()
-	})
-	if err != nil {
-		return nil, err
-	}
-	return packages, nil
-}
-
-// ImportCount returns the number of unique importing packages for the given import path.
-func (db *Database) ImportCount(ctx context.Context, importPath string) (int64, error) {
-	var importCount int64
-	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT import_count($1);`, importPath)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-
-		if rows.Next() {
-			if err := rows.Scan(&importCount); err != nil {
-				return err
-			}
-		}
-		return rows.Err()
-	})
-	if err != nil {
-		return 0, err
-	}
-	return importCount, nil
-
 }
 
 func (db *Database) Packages(ctx context.Context, importPaths []string) ([]Package, error) {

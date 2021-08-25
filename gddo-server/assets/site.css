@@ -170,13 +170,6 @@ summary:hover .permalink {
     opacity: 0.87;
 }
 
-.additional-info {
-    display: block;
-    opacity: 0.54;
-    text-transform: uppercase;
-    font-size: 0.75em;
-}
-
 .click-select {
     user-select: all;
 }
