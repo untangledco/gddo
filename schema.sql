@@ -103,7 +103,11 @@ CREATE FUNCTION import_count(import_path text)
 RETURNS bigint
 LANGUAGE SQL
 AS $$
-SELECT COUNT(DISTINCT importer_path) FROM importers WHERE import_path = $1;
+SELECT COUNT(DISTINCT importer_path)
+FROM importers i, packages p, modules m
+WHERE i.import_path = $1
+AND p.import_path = i.importer_path AND p.version = i.importer_version
+AND m.module_path = p.module_path AND i.importer_version = m.latest_version;
 $$;
 
 COMMIT;

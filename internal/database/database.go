@@ -402,10 +402,10 @@ func (db *Database) Importers(ctx context.Context, importPath string) ([]Package
 		rows, err := tx.QueryContext(ctx, `
 			SELECT
 				p.import_path, p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis
-			FROM packages p, importers i
-			WHERE i.import_path = $1 AND
-				p.import_path = i.importer_path AND
-				p.version = i.importer_version
+			FROM packages p, importers i, modules m
+			WHERE i.import_path = $1
+			AND p.import_path = i.importer_path AND p.version = i.importer_version
+			AND m.module_path = p.module_path AND i.importer_version = m.latest_version
 			ORDER BY p.import_path;
 			`, importPath)
 		if err != nil {
