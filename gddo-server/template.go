@@ -100,7 +100,7 @@ type texample struct {
 }
 
 func (pdoc *Package) Dir() string {
-	return strings.TrimPrefix(pdoc.ImportPath, pdoc.Meta.ProjectRoot)
+	return strings.TrimPrefix(pdoc.ImportPath, pdoc.ModulePath)
 }
 
 func (pdoc *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
