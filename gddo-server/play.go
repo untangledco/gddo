@@ -78,7 +78,7 @@ func (s *Server) playURL(pdoc *doc.Package, id string) (string, error) {
 			if resp.StatusCode > 399 {
 				return "", fmt.Errorf("Error from play.golang.org: %s", p)
 			}
-			return fmt.Sprintf("http://play.golang.org/p/%s", p), nil
+			return fmt.Sprintf("https://play.golang.org/p/%s", p), nil
 		}
 	}
 	return "", errors.New("example not found")
