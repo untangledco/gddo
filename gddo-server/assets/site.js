@@ -10,6 +10,7 @@ function Modal(el) {
 	el.querySelector(".modal-dialog").onclick = function(e) {
 		e.stopPropagation()
 	}
+	el.querySelector(".close").onclick = () => this.hide()
 }
 
 Modal.prototype.show = function() {
