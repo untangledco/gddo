@@ -314,6 +314,25 @@ func (db *Database) PutPackage(ctx context.Context, modulePath, seriesPath, vers
 	})
 }
 
+// HasPackage reports whether the given package is present in the database.
+func (db *Database) HasPackage(ctx context.Context, importPath, version string) (ok bool, err error) {
+	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx,
+			`SELECT EXISTS(SELECT FROM packages WHERE import_path = $1 AND version = $2);`,
+			importPath, version)
+		if err != nil {
+			return err
+		}
+		if rows.Next() {
+			if err := rows.Scan(&ok); err != nil {
+				return err
+			}
+		}
+		return rows.Err()
+	})
+	return
+}
+
 // Block puts a domain, repo or package into the block set, removes all the
 // packages under it from the database and prevents future crawling from it.
 func (db *Database) Block(ctx context.Context, importPath string) error {

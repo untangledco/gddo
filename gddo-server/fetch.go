@@ -42,6 +42,15 @@ func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
 
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, importPath, version string) error {
+	// Check if the module is blocked
+	blocked, err := s.db.IsBlocked(ctx, importPath)
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return ErrBlocked
+	}
+
 	ch := make(chan error, 1)
 	go func() {
 		ctx := context.Background()
@@ -74,46 +83,32 @@ func (s *Server) fetch(ctx context.Context, importPath, version string) error {
 }
 
 func (s *Server) fetchModule(ctx context.Context, modulePath, version string) error {
-	start := time.Now().UTC()
-
-	// Check if the module is blocked
-	blocked, err := s.db.IsBlocked(ctx, modulePath)
+	latestVersion, err := s.source.LatestVersion(ctx, modulePath)
 	if err != nil {
 		return err
 	}
-	if blocked {
-		return ErrBlocked
+	latest := version == proxy.LatestVersion
+	if latest {
+		version = latestVersion
 	}
 
 	seriesPath, _, _ := module.SplitPathVersion(modulePath)
 
-	latest := version == proxy.LatestVersion
-	if latest {
-		latestVersion, err := s.source.LatestVersion(ctx, modulePath)
-		if err != nil {
-			return err
-		}
-		version = latestVersion
-	}
-
-	mod, ok, err := s.db.GetModule(ctx, modulePath)
+	_, ok, err := s.db.GetModule(ctx, modulePath)
 	if err != nil {
 		return err
 	}
-	if !ok {
-		// Add the module to the database
-		if err := s.putModule(ctx, modulePath, seriesPath, version, start); err != nil {
-			return err
-		}
-	} else if latest {
-		if mod.Version == version {
-			// Module is already up to date
-			return nil
-		}
-		// Update module
-		if err := s.putModule(ctx, modulePath, seriesPath, version, start); err != nil {
-			return err
-		}
+	// If the module is not present in the database, add it.
+	// If the latest version was requested, update the module.
+	if !ok || latest {
+		s.putModule(ctx, modulePath, seriesPath, latestVersion, time.Now().UTC())
+	}
+
+	// If the module documentation is already in the database, return.
+	if ok, err := s.db.HasPackage(ctx, modulePath, version); err != nil {
+		return err
+	} else if ok {
+		return nil
 	}
 
 	// Retrieve module source code.
