@@ -9,7 +9,7 @@
   </form>
 {{end}}
 
-{{define "ProjectNav"}}{{template "FlashMessages" .Messages}}<div class="clearfix" id="x-projnav">
+{{define "ProjectNav"}}{{template "FlashMessage" .Message}}<div class="clearfix" id="x-projnav">
   {{if .Meta}}<a rel="noopener nofollow" href="{{.Meta.ProjectURL}}"><strong>{{.Meta.ProjectName}}:</strong></a>{{end}}
   {{.Breadcrumbs templateName}}
   {{if and .Name (eq templateName "doc.html") (or (not .IsCommand) .SubPackages)}}
@@ -35,9 +35,4 @@
   </table>
 {{end}}
 
-{{define "FlashMessages"}}{{range .}}
-  {{if eq .ID "refresh"}}{{if eq (len .Args) 1}}<div class="alert alert-danger">Error refreshing package: {{index .Args 0}}</div>{{end}}
-  {{else if eq .ID "timeout"}}<div class="alert alert-info">This package is being fetched in the background. Feel free to refresh while we're working on it.</div>
-  {{else if eq .ID "error"}}{{if eq (len .Args) 1}}<div class="alert alert-danger">{{index .Args 0}}</div>{{end}}
-  {{end}}
-{{end}}{{end}}
+{{define "FlashMessage"}}{{if .}}<div class="alert alert-warning">{{.}}</div>{{end}}{{end}}

@@ -1,7 +1,7 @@
 {{define "Head"}}<title>{{.Query}} - godocs.io</title><meta name="robots" content="NOINDEX">{{end}}
 
 {{define "Body"}}
-  {{template "FlashMessages" .Messages}}
+  {{template "FlashMessage" .Message}}
   <div class="well">
     {{template "SearchBox" .Query}}
   </div>

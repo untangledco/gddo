@@ -67,7 +67,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 func (s *Server) httpEtag(
 	pkg database.Package,
 	subpkgs []database.Package,
-	flashMessages []flashMessage,
+	msg string,
 ) string {
 	b := make([]byte, 0, 128)
 	b = append(b, pkg.ImportPath...)
@@ -81,14 +81,9 @@ func (s *Server) httpEtag(
 		b = append(b, subpkg.Synopsis...)
 	}
 
-	for _, m := range flashMessages {
-		b = append(b, 0)
-		b = append(b, m.ID...)
-		for _, a := range m.Args {
-			b = append(b, 1)
-			b = append(b, a...)
-		}
-	}
+	b = append(b, 0)
+	b = append(b, msg...)
+
 	h := md5.New()
 	h.Write(b)
 	b = h.Sum(b[:0])
@@ -132,7 +127,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	// The template context.
 	type Context struct {
 		Package
-		Messages []flashMessage
+		Message string
 	}
 
 	tpkg := Package{
@@ -144,11 +139,10 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		Updated:    mod.Updated,
 		Meta:       meta,
 	}
-	flashMessages := getFlashMessages(resp, req)
 
 	tctx := Context{
-		Package:  tpkg,
-		Messages: flashMessages,
+		Package: tpkg,
+		Message: getFlashMessage(resp, req),
 	}
 
 	switch {
@@ -217,7 +211,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 		tctx.Package.SubPackages = subpkgs
 
-		etag := s.httpEtag(pkg, subpkgs, flashMessages)
+		etag := s.httpEtag(pkg, subpkgs, tctx.Message)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified
@@ -242,10 +236,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 		} else {
 			msg = "Internal server error."
 		}
-		setFlashMessages(resp, []flashMessage{{
-			ID:   "refresh",
-			Args: []string{msg},
-		}})
+		setFlashMessage(resp, fmt.Sprintf("Error refreshing package: %s", msg))
 	}
 	http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 	return nil
@@ -271,7 +262,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
 	}
 
-	var msgs []flashMessage
+	var msg string
 	importPath, err := parseImportPath(q)
 	if err == nil {
 		_, err = s.getPackage(req.Context(), importPath, "latest")
@@ -279,7 +270,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 			http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 			return nil
 		}
-		msgs = errorMessages(err)
+		msg = errorMessage(err)
 	}
 
 	pkgs, err := s.db.Search(req.Context(), q)
@@ -288,10 +279,10 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	return s.templates.ExecuteHTML(resp, "search.html", http.StatusOK, struct {
-		Query    string
-		Results  []database.Package
-		Messages []flashMessage
-	}{q, pkgs, msgs})
+		Query   string
+		Results []database.Package
+		Message string
+	}{q, pkgs, msg})
 }
 
 func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
@@ -327,32 +318,20 @@ func (rc requestCleaner) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	rc.h.ServeHTTP(w, req2)
 }
 
-func errorMessages(err error) []flashMessage {
+func errorMessage(err error) string {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		return []flashMessage{{ID: "timeout"}}
+		return "This package is being fetched in the background. Feel free to refresh while we're working on it."
 	case errors.Is(err, ErrMismatch):
-		return []flashMessage{{
-			ID:   "error",
-			Args: []string{"Error fetching module: The provided import path doesn't match the module path present in the go.mod file."},
-		}}
+		return "Error fetching module: The provided import path doesn't match the module path present in the go.mod file."
 	case errors.Is(err, ErrNoPackages):
-		return []flashMessage{{
-			ID:   "error",
-			Args: []string{"Error fetching module: The requested module doesn't contain any packages."},
-		}}
+		return "Error fetching module: The requested module doesn't contain any packages."
 	case errors.Is(err, ErrInvalidPath):
-		return []flashMessage{{
-			ID:   "error",
-			Args: []string{"Error fetching module: Invalid import path."},
-		}}
+		return "Error fetching module: Invalid import path."
 	case errors.Is(err, ErrBadVersion):
-		return []flashMessage{{
-			ID:   "error",
-			Args: []string{"Error fetching module: Invalid version."},
-		}}
+		return "Error fetching module: Invalid version."
 	}
-	return nil
+	return ""
 }
 
 func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
@@ -383,9 +362,9 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			errors.Is(err, ErrBadVersion) ||
 			errors.Is(err, ErrInvalidPath) {
 
-			msgs := errorMessages(err)
+			msg := errorMessage(err)
 			s.templates.Execute(resp, "notfound.html",
-				struct{ Messages []flashMessage }{msgs})
+				struct{ Message string }{msg})
 			return
 		}
 

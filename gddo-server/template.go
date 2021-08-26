@@ -33,47 +33,26 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
-type flashMessage struct {
-	ID   string
-	Args []string
-}
-
-// getFlashMessages retrieves flash messages from the request and clears the flash cookie if needed.
-func getFlashMessages(resp http.ResponseWriter, req *http.Request) []flashMessage {
+// getFlashMessage retrieves a flash message from the request and clears the flash cookie if needed.
+func getFlashMessage(resp http.ResponseWriter, req *http.Request) string {
 	c, err := req.Cookie("flash")
 	if err == http.ErrNoCookie {
-		return nil
+		return ""
 	}
 	http.SetCookie(resp, &http.Cookie{Name: "flash", Path: "/", MaxAge: -1, Expires: time.Now().Add(-100 * 24 * time.Hour)})
 	if err != nil {
-		return nil
+		return ""
 	}
 	p, err := base64.URLEncoding.DecodeString(c.Value)
 	if err != nil {
-		return nil
+		return ""
 	}
-	var messages []flashMessage
-	for _, s := range strings.Split(string(p), "\000") {
-		idArgs := strings.Split(s, "\001")
-		messages = append(messages, flashMessage{ID: idArgs[0], Args: idArgs[1:]})
-	}
-	return messages
+	return string(p)
 }
 
-// setFlashMessages sets a cookie with the given flash messages.
-func setFlashMessages(resp http.ResponseWriter, messages []flashMessage) {
-	var buf []byte
-	for i, message := range messages {
-		if i > 0 {
-			buf = append(buf, '\000')
-		}
-		buf = append(buf, message.ID...)
-		for _, arg := range message.Args {
-			buf = append(buf, '\001')
-			buf = append(buf, arg...)
-		}
-	}
-	value := base64.URLEncoding.EncodeToString(buf)
+// setFlashMessage sets a cookie with the given flash message.
+func setFlashMessage(resp http.ResponseWriter, message string) {
+	value := base64.URLEncoding.EncodeToString([]byte(message))
 	http.SetCookie(resp, &http.Cookie{Name: "flash", Value: value, Path: "/"})
 }
 
