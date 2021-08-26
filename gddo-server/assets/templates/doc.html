@@ -19,7 +19,9 @@
   {{template "Examples" .PackageExamples}}
 
   {{if not .IsCommand}}
-    <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
+    {{if .Name}}
+      <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
+    {{end}}
 
     {{if .Truncated}}
       <div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
