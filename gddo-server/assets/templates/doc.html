@@ -101,7 +101,7 @@
   {{if $.SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
       <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-      <tbody>{{range $.SubPackages}}<tr><td><a href="/{{.ImportPath}}">{{relativePath .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
+      <tbody>{{range $.SubPackages}}<tr><td><a href="/{{.ImportPath}}{{if ne .Version $.LatestVersion}}@{{.Version}}{{end}}">{{relativePath .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
     </table>
   {{end}}
 

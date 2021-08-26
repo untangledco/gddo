@@ -103,7 +103,7 @@ import "{{.ImportPath}}"
 {{- if .SubPackages}}
 ## Directories
 {{range .SubPackages}}
-=> /{{.ImportPath}} {{relativePath .ImportPath .ModulePath}}
+=> /{{.ImportPath}}{{if ne .Version $.LatestVersion}}@{{.Version}}{{end}} {{relativePath .ImportPath .ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
