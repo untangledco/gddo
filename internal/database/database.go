@@ -19,15 +19,6 @@ import (
 	"github.com/lib/pq"
 )
 
-// Module represents a module.
-type Module struct {
-	ModulePath string    // module path
-	SeriesPath string    // series path
-	Version    string    // latest version
-	Versions   []string  // all versions
-	Updated    time.Time // last update time
-}
-
 // Package represents a package.
 type Package struct {
 	ImportPath string    `json:"import_path"`
@@ -37,6 +28,8 @@ type Package struct {
 	CommitTime time.Time `json:"commit_time"`
 	Name       string    `json:"name"`
 	Synopsis   string    `json:"synopsis"`
+	Versions   []string  `json:"versions"`
+	Updated    time.Time `json:"-"`
 }
 
 // Database stores package documentation.
@@ -82,34 +75,33 @@ func (db *Database) withTx(ctx context.Context, opts *sql.TxOptions,
 	return err
 }
 
-// GetModule returns information about the module with the given path.
-func (db *Database) GetModule(ctx context.Context, modulePath string) (mod Module, ok bool, err error) {
-	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(
-			`SELECT series_path, latest_version, versions, updated FROM modules WHERE module_path = $1;`,
+// HasModule reports whether the given module is present in the database.
+func (db *Database) HasModule(ctx context.Context, modulePath string) (bool, error) {
+	exists := false
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.Query(`SELECT EXISTS (SELECT FROM modules WHERE module_path = $1);`,
 			modulePath)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
-
 		if rows.Next() {
-			if err := rows.Scan(&mod.SeriesPath, &mod.Version,
-				(*pq.StringArray)(&mod.Versions), &mod.Updated); err != nil {
+			if err := rows.Scan(&exists); err != nil {
 				return err
 			}
-			mod.ModulePath = modulePath
-			ok = true
 		}
 		return rows.Err()
 	})
-	return
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
-// Delete deletes the module with the given path.
-func (db *Database) Delete(ctx context.Context, path string) error {
+// Delete deletes the module with the given module path.
+func (db *Database) Delete(ctx context.Context, modulePath string) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.Exec(`DELETE FROM modules WHERE module_path = $1;`, path)
+		_, err := tx.Exec(`DELETE FROM modules WHERE module_path = $1;`, modulePath)
 		if err != nil {
 			return err
 		}
@@ -117,21 +109,23 @@ func (db *Database) Delete(ctx context.Context, path string) error {
 	})
 }
 
+const searchQuery = `
+SELECT
+	p.import_path, p.module_path, p.series_path, p.version,
+	p.commit_time, p.name, p.synopsis
+FROM packages p, modules m
+WHERE p.searchtext @@ websearch_to_tsquery('english', $1)
+	AND m.module_path = p.module_path AND p.version = m.latest_version
+ORDER BY ts_rank(p.searchtext, websearch_to_tsquery('english', $1)) DESC,
+	p.score DESC
+LIMIT 20;
+`
+
 // Search performs a search with the provided query string.
-func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
+func (db *Database) Search(ctx context.Context, query string) ([]Package, error) {
 	var packages []Package
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT
-				p.import_path, p.module_path, p.series_path, p.version,
-				p.commit_time, p.name, p.synopsis
-			FROM packages p, modules m
-			WHERE p.searchtext @@ websearch_to_tsquery('english', $1)
-				AND m.module_path = p.module_path AND p.version = m.latest_version
-			ORDER BY ts_rank(p.searchtext, websearch_to_tsquery('english', $1)) DESC,
-				p.score DESC
-			LIMIT 20;
-			`, q)
+		rows, err := tx.QueryContext(ctx, searchQuery, query)
 		if err != nil {
 			return err
 		}
@@ -150,16 +144,20 @@ func (db *Database) Search(ctx context.Context, q string) ([]Package, error) {
 	return packages, err
 }
 
+const insertModule = `
+INSERT INTO modules (
+	module_path, series_path, latest_version, versions, updated
+) VALUES ( $1, $2, $3, $4, NOW() )
+ON CONFLICT (module_path) DO
+UPDATE SET series_path = $2, latest_version = $3, versions = $4, updated = NOW();
+`
+
 // PutModule updates the module in the database.
-func (db *Database) PutModule(ctx context.Context, mod Module) error {
+func (db *Database) PutModule(ctx context.Context, modulePath, seriesPath, latestVersion string,
+	versions []string) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO modules (
-				module_path, series_path, latest_version, versions, updated
-			) VALUES ( $1, $2, $3, $4, $5 )
-			ON CONFLICT (module_path) DO
-			UPDATE SET series_path = $2, latest_version = $3, versions = $4, updated = $5;
-			`, mod.ModulePath, mod.SeriesPath, mod.Version, pq.StringArray(mod.Versions), mod.Updated)
+		_, err := tx.ExecContext(ctx, insertModule,
+			modulePath, seriesPath, latestVersion, pq.StringArray(versions))
 		if err != nil {
 			return err
 		}
@@ -167,27 +165,33 @@ func (db *Database) PutModule(ctx context.Context, mod Module) error {
 	})
 }
 
-const selectPackage = `
+const packageQuery = `
 SELECT
-	module_path, series_path, version, commit_time, name, synopsis
-FROM packages WHERE import_path = $1 AND version = $2;
+	p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis,
+	m.versions, m.updated
+FROM packages p, modules m
+WHERE p.import_path = $1 AND p.version = $2 AND m.module_path = p.module_path;
 `
 
-const selectLatestPackage = `
+const packageLatestQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis
+	p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis,
+	m.versions, m.updated
 FROM packages p, modules m
 WHERE p.import_path = $1 AND m.module_path = p.module_path AND p.version = m.latest_version;
 `
 
-func (db *Database) GetPackage(ctx context.Context, importPath, version string) (pkg Package, ok bool, err error) {
-	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
+// GetPackage returns information about the given package.
+func (db *Database) GetPackage(ctx context.Context, importPath, version string) (Package, bool, error) {
+	var pkg Package
+	ok := false
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		var rows *sql.Rows
 		var err error
 		if version == "latest" {
-			rows, err = tx.QueryContext(ctx, selectLatestPackage, importPath)
+			rows, err = tx.QueryContext(ctx, packageLatestQuery, importPath)
 		} else {
-			rows, err = tx.QueryContext(ctx, selectPackage, importPath, version)
+			rows, err = tx.QueryContext(ctx, packageQuery, importPath, version)
 		}
 		if err != nil {
 			return err
@@ -196,7 +200,7 @@ func (db *Database) GetPackage(ctx context.Context, importPath, version string) 
 
 		if rows.Next() {
 			if err := rows.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
-				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
+				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis, (*pq.StringArray)(&pkg.Versions), &pkg.Updated); err != nil {
 				return err
 			}
 			pkg.ImportPath = importPath
@@ -204,14 +208,22 @@ func (db *Database) GetPackage(ctx context.Context, importPath, version string) 
 		}
 		return rows.Err()
 	})
-	return
+	if err != nil {
+		return Package{}, false, err
+	}
+	return pkg, ok, nil
 }
 
-func (db *Database) GetDoc(ctx context.Context, importPath, version, goos, goarch string) (pdoc *doc.Package, err error) {
-	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx,
-			`SELECT documentation FROM documentation
-			WHERE import_path = $1 AND version = $2 AND goos = $3 AND goarch = $4;`,
+const documentationQuery = `
+SELECT documentation FROM documentation
+WHERE import_path = $1 AND version = $2 AND goos = $3 AND goarch = $4;
+`
+
+// GetDoc retrieves the documentation for the given package.
+func (db *Database) GetDoc(ctx context.Context, importPath, version, goos, goarch string) (*doc.Package, error) {
+	var pdoc *doc.Package
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, documentationQuery,
 			importPath, version, goos, goarch)
 		if err != nil {
 			return err
@@ -231,8 +243,35 @@ func (db *Database) GetDoc(ctx context.Context, importPath, version, goos, goarc
 		}
 		return rows.Err()
 	})
-	return
+	if err != nil {
+		return nil, err
+	}
+	return pdoc, nil
 }
+
+const insertPackage = `
+INSERT INTO packages (
+	import_path, module_path, series_path, version, commit_time, name, synopsis, score
+) VALUES (
+	$1, $2, $3, $4, $5, $6, $7, $8
+);
+`
+
+const insertDocumentation = `
+INSERT INTO documentation (
+	import_path, version, goos, goarch, documentation
+) VALUES (
+	$1, $2, $3, $4, $5
+);
+`
+
+const insertImport = `
+INSERT INTO imports (
+	import_path, version, imported_path
+) VALUES (
+	$1, $2, $3
+);
+`
 
 // PutPackage puts the package documentation in the database.
 func (db *Database) PutPackage(ctx context.Context, modulePath, seriesPath, version string,
@@ -262,38 +301,22 @@ func (db *Database) PutPackage(ctx context.Context, modulePath, seriesPath, vers
 	score := searchScore(pkg)
 
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO packages (
-				import_path, module_path, series_path, version, commit_time, name, synopsis, score
-			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8
-			) ON CONFLICT DO NOTHING;
-			`, pkg.ImportPath, modulePath, seriesPath, version, commitTime, pkg.Name, pkg.Synopsis, score)
+		_, err := tx.ExecContext(ctx, insertPackage,
+			pkg.ImportPath, modulePath, seriesPath, version, commitTime,
+			pkg.Name, pkg.Synopsis, score)
 		if err != nil {
 			return err
 		}
 
-		// Store documentation
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO documentation (
-				import_path, version, goos, goarch, documentation
-			) VALUES (
-				$1, $2, $3, $4, $5
-			) ON CONFLICT DO NOTHING;
-			`, pkg.ImportPath, version, pkg.GOOS, pkg.GOARCH, buf.Bytes())
+		_, err = tx.ExecContext(ctx, insertDocumentation,
+			pkg.ImportPath, version, pkg.GOOS, pkg.GOARCH, buf.Bytes())
 		if err != nil {
 			return err
 		}
 
 		for _, importedPath := range pkg.Imports {
-			// Update imports
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO imports (
-					import_path, version, imported_path
-				) VALUES (
-					$1, $2, $3
-				);
-				`, pkg.ImportPath, version, importedPath)
+			_, err = tx.ExecContext(ctx, insertImport,
+				pkg.ImportPath, version, importedPath)
 			if err != nil {
 				return err
 			}
@@ -304,22 +327,26 @@ func (db *Database) PutPackage(ctx context.Context, modulePath, seriesPath, vers
 }
 
 // HasPackage reports whether the given package is present in the database.
-func (db *Database) HasPackage(ctx context.Context, importPath, version string) (ok bool, err error) {
-	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
+func (db *Database) HasPackage(ctx context.Context, importPath, version string) (bool, error) {
+	exists := false
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx,
-			`SELECT EXISTS(SELECT FROM packages WHERE import_path = $1 AND version = $2);`,
+			`SELECT EXISTS (SELECT FROM packages WHERE import_path = $1 AND version = $2);`,
 			importPath, version)
 		if err != nil {
 			return err
 		}
 		if rows.Next() {
-			if err := rows.Scan(&ok); err != nil {
+			if err := rows.Scan(&exists); err != nil {
 				return err
 			}
 		}
 		return rows.Err()
 	})
-	return
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 // Block puts a domain, repo or package into the block set, removes all the
@@ -380,10 +407,9 @@ func (db *Database) IsBlocked(ctx context.Context, importPath string) (bool, err
 func (db *Database) Imports(ctx context.Context, importPath, version string) ([]string, error) {
 	var imports []string
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT imported_path FROM imports
-			WHERE import_path = $1 AND version = $2;
-			`, importPath, version)
+		rows, err := tx.QueryContext(ctx,
+			`SELECT imported_path FROM imports WHERE import_path = $1 AND version = $2;`,
+			importPath, version)
 		if err != nil {
 			return err
 		}
@@ -404,37 +430,67 @@ func (db *Database) Imports(ctx context.Context, importPath, version string) ([]
 	return imports, nil
 }
 
+const synopsisQuery = `
+SELECT p.synopsis
+FROM packages p, modules m
+WHERE p.import_path = $1 AND m.module_path = p.module_path AND p.version = m.latest_version;
+`
+
+func (db *Database) synopsis(ctx context.Context, importPath string) (string, error) {
+	var synopsis string
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, synopsisQuery, importPath)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		if rows.Next() {
+			if err := rows.Scan(&synopsis); err != nil {
+				return err
+			}
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return "", err
+	}
+	return synopsis, nil
+}
+
+// Packages returns a list of package information for the given import paths.
+// Only the ImportPath and Synopsis fields will be populated.
 func (db *Database) Packages(ctx context.Context, importPaths []string) ([]Package, error) {
 	var packages []Package
 	for _, importPath := range importPaths {
-		pkg, ok, err := db.GetPackage(ctx, importPath, "latest")
+		synopsis, err := db.synopsis(ctx, importPath)
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
-			packages = append(packages, Package{
-				ImportPath: importPath,
-			})
-			continue
-		}
-		packages = append(packages, pkg)
+		packages = append(packages, Package{
+			ImportPath: importPath,
+			Synopsis:   synopsis,
+		})
 	}
 	return packages, nil
 }
 
+const subpackagesQuery = `
+SELECT
+	import_path, series_path, commit_time, name, synopsis
+FROM packages
+WHERE module_path = $1 AND version = $2 AND import_path LIKE $3 || '_%'
+AND ($4 OR import_path NOT LIKE '%/internal/%')
+ORDER BY import_path;
+`
+
+// SubPackages returns the subpackages of the given package.
 func (db *Database) SubPackages(ctx context.Context, modulePath, version, importPath string) ([]Package, error) {
 	internal := strings.HasSuffix(importPath, "/internal") ||
 		strings.Contains(importPath, "/internal/")
 	var packages []Package
 	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT
-				import_path, series_path, commit_time, name, synopsis
-			FROM packages
-			WHERE module_path = $1 AND version = $2 AND import_path LIKE $3 || '_%'
-			AND ($4 OR import_path NOT LIKE '%/internal/%')
-			ORDER BY import_path;
-			`, modulePath, version, importPath, internal)
+		rows, err := tx.QueryContext(ctx, subpackagesQuery,
+			modulePath, version, importPath, internal)
 		if err != nil {
 			return err
 		}
@@ -467,7 +523,37 @@ const (
 	HideStandardAll                  // don't show standard libraries at all
 )
 
-// Breadth-first traversal of the package's dependencies.
+const importGraphPackageQuery = `
+SELECT p.version, p.synopsis
+FROM packages p, modules m
+WHERE p.import_path = $1 AND m.module_path = p.module_path AND p.version = m.latest_version;
+`
+
+func (db *Database) importGraphPackage(ctx context.Context, importPath string) (Package, error) {
+	pkg := Package{
+		ImportPath: importPath,
+	}
+	err := db.withTx(ctx, nil, func(tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, importGraphPackageQuery, importPath)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		if rows.Next() {
+			if err := rows.Scan(&pkg.Version, &pkg.Synopsis); err != nil {
+				return err
+			}
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return Package{}, err
+	}
+	return pkg, nil
+}
+
+// ImportGraph performs a breadth-first traversal of the package's dependencies.
 func (db *Database) ImportGraph(ctx context.Context, pdoc *doc.Package, level DepLevel) ([]Package, [][2]int, error) {
 
 	var queue []Package
@@ -482,12 +568,9 @@ func (db *Database) ImportGraph(ctx context.Context, pdoc *doc.Package, level De
 		j := len(nodes)
 		index[importPath] = j
 		edges = append(edges, [2]int{0, j})
-		pkg, ok, err := db.GetPackage(ctx, importPath, "latest")
+		pkg, err := db.importGraphPackage(ctx, importPath)
 		if err != nil {
 			return nil, nil, err
-		}
-		if !ok {
-			pkg = Package{ImportPath: importPath}
 		}
 		nodes = append(nodes, pkg)
 		queue = append(queue, pkg)
@@ -508,12 +591,9 @@ func (db *Database) ImportGraph(ctx context.Context, pdoc *doc.Package, level De
 			if !ok {
 				j = len(nodes)
 				index[importPath] = j
-				pkg, ok, err := db.GetPackage(ctx, importPath, "latest")
+				pkg, err := db.importGraphPackage(ctx, importPath)
 				if err != nil {
 					return nil, nil, err
-				}
-				if !ok {
-					pkg = Package{ImportPath: importPath}
 				}
 				nodes = append(nodes, pkg)
 				queue = append(queue, pkg)
@@ -524,13 +604,16 @@ func (db *Database) ImportGraph(ctx context.Context, pdoc *doc.Package, level De
 	return nodes, edges, nil
 }
 
-func (db *Database) GetMeta(ctx context.Context, projectRoot string) (meta source.Meta, ok bool, err error) {
+const gosourceQuery = `
+SELECT project_name, project_url, dir_fmt, file_fmt, line_fmt
+FROM gosource
+WHERE project_root = $1;
+`
+
+// GetMeta returns go-source meta tag information for the given module.
+func (db *Database) GetMeta(ctx context.Context, modulePath string) (meta source.Meta, ok bool, err error) {
 	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
-			SELECT project_name, project_url, dir_fmt, file_fmt, line_fmt
-			FROM gosource
-			WHERE project_root = $1;
-			`, projectRoot)
+		rows, err := tx.QueryContext(ctx, gosourceQuery, modulePath)
 		if err != nil {
 			return err
 		}
@@ -541,7 +624,7 @@ func (db *Database) GetMeta(ctx context.Context, projectRoot string) (meta sourc
 				&meta.DirFmt, &meta.FileFmt, &meta.LineFmt); err != nil {
 				return err
 			}
-			meta.ProjectRoot = projectRoot
+			meta.ProjectRoot = modulePath
 			ok = true
 		}
 		return rows.Err()
@@ -549,17 +632,21 @@ func (db *Database) GetMeta(ctx context.Context, projectRoot string) (meta sourc
 	return
 }
 
+const insertGosource = `
+INSERT INTO gosource (
+	project_root, project_name, project_url, dir_fmt, file_fmt, line_fmt
+) VALUES (
+	$1, $2, $3, $4, $5, $6
+) ON CONFLICT (project_root) DO
+UPDATE SET project_name = $2, project_url = $3,
+dir_fmt = $4, file_fmt = $5, line_fmt = $6;
+`
+
+// PutMeta puts go-source meta tag information in the database.
 func (db *Database) PutMeta(ctx context.Context, meta source.Meta) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO gosource (
-				project_root, project_name, project_url, dir_fmt, file_fmt, line_fmt
-			) VALUES (
-				$1, $2, $3, $4, $5, $6
-			) ON CONFLICT (project_root) DO
-			UPDATE SET project_name = $2, project_url = $3,
-			dir_fmt = $4, file_fmt = $5, line_fmt = $6;
-			`, meta.ProjectRoot, meta.ProjectName, meta.ProjectURL,
+		_, err := tx.ExecContext(ctx, insertGosource,
+			meta.ProjectRoot, meta.ProjectName, meta.ProjectURL,
 			meta.DirFmt, meta.FileFmt, meta.LineFmt)
 		if err != nil {
 			return err

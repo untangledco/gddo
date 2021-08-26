@@ -106,10 +106,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	if err != nil {
 		return err
 	}
-	mod, _, err := s.db.GetModule(ctx, pkg.ModulePath)
-	if err != nil {
-		return err
-	}
 	// TODO: Configurable GOOS and GOARCH
 	pdoc, err := s.db.GetDoc(ctx, pkg.ImportPath, pkg.Version, "linux", "amd64")
 	if err != nil {
@@ -117,7 +113,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	var meta *source.Meta
-	_meta, ok, err := s.db.GetMeta(ctx, mod.SeriesPath)
+	_meta, ok, err := s.db.GetMeta(ctx, pkg.SeriesPath)
 	if err != nil {
 		return err
 	} else if ok {
@@ -132,11 +128,11 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 
 	tpkg := Package{
 		Package:    *pdoc,
-		ModulePath: mod.ModulePath,
+		ModulePath: pkg.ModulePath,
 		Version:    pkg.Version,
-		Versions:   mod.Versions,
+		Versions:   pkg.Versions,
 		CommitTime: pkg.CommitTime,
-		Updated:    mod.Updated,
+		Updated:    pkg.Updated,
 		Meta:       meta,
 	}
 

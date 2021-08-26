@@ -14,9 +14,7 @@ import (
 	"path"
 	"sort"
 	"strings"
-	"time"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
@@ -94,14 +92,16 @@ func (s *Server) fetchModule(ctx context.Context, modulePath, version string) er
 
 	seriesPath, _, _ := module.SplitPathVersion(modulePath)
 
-	_, ok, err := s.db.GetModule(ctx, modulePath)
+	ok, err := s.db.HasModule(ctx, modulePath)
 	if err != nil {
 		return err
 	}
 	// If the module is not present in the database, add it.
 	// If the latest version was requested, update the module.
 	if !ok || latest {
-		s.putModule(ctx, modulePath, seriesPath, latestVersion, time.Now().UTC())
+		if err := s.putModule(ctx, modulePath, seriesPath, latestVersion); err != nil {
+			return err
+		}
 	}
 
 	// If the module documentation is already in the database, return.
@@ -155,21 +155,14 @@ func (s *Server) fetchModule(ctx context.Context, modulePath, version string) er
 }
 
 // putModule puts a module in the database.
-func (s *Server) putModule(ctx context.Context, modulePath, seriesPath, version string, updated time.Time) error {
+func (s *Server) putModule(ctx context.Context, modulePath, seriesPath, version string) error {
 	versions, err := s.source.Versions(ctx, modulePath)
 	if err != nil {
 		return err
 	}
 	sort.Sort(byVersion(versions))
 
-	mod := database.Module{
-		ModulePath: modulePath,
-		SeriesPath: seriesPath,
-		Version:    version,
-		Versions:   versions,
-		Updated:    updated,
-	}
-	if err := s.db.PutModule(ctx, mod); err != nil {
+	if err := s.db.PutModule(ctx, modulePath, seriesPath, version, versions); err != nil {
 		return err
 	}
 	return nil
