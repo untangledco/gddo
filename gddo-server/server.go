@@ -104,9 +104,12 @@ func (s *Server) _getPackage(ctx context.Context, importPath, version string) (d
 		if err != nil {
 			return database.Package{}, err
 		}
-		pkg, _, err = s.db.GetPackage(ctx, importPath, version)
+		pkg, ok, err = s.db.GetPackage(ctx, importPath, version)
 		if err != nil {
 			return database.Package{}, err
+		}
+		if !ok {
+			return database.Package{}, proxy.ErrNotFound
 		}
 	}
 	return pkg, nil
