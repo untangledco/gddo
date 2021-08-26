@@ -30,7 +30,6 @@ CREATE TABLE packages (
 		to_tsvector('english', "name") ||
 		to_tsvector('english', coalesce(synopsis, '')) ||
 		array_to_tsvector(string_to_array("import_path", '/'))) STORED,
-	documentation bytea,
 	PRIMARY KEY (import_path, version),
 	FOREIGN KEY (module_path) REFERENCES modules (module_path) ON DELETE CASCADE
 );
