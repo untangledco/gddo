@@ -238,9 +238,8 @@ func relativePathFn(path string, parentPath interface{}) string {
 }
 
 var (
-	h3Pat      = regexp.MustCompile(`<h3 id="([^"]+)">([^<]+)</h3>`)
-	rfcPat     = regexp.MustCompile(`RFC\s+(\d{3,4})(,?\s+[Ss]ection\s+(\d+(\.\d+)*))?`)
-	packagePat = regexp.MustCompile(`\s+package\s+([-a-z0-9]\S+)`)
+	h3Pat  = regexp.MustCompile(`<h3 id="([^"]+)">([^<]+)</h3>`)
+	rfcPat = regexp.MustCompile(`RFC\s+(\d{3,4})(,?\s+[Ss]ection\s+(\d+(\.\d+)*))?`)
 )
 
 func replaceAll(src []byte, re *regexp.Regexp, replace func(out, src []byte, m []int) []byte) []byte {
@@ -288,17 +287,6 @@ func commentFn(v string) htemp.HTML {
 		out = append(out, `">`...)
 		out = append(out, src[m[0]:m[1]]...)
 		out = append(out, `</a>`...)
-		return out
-	})
-	p = replaceAll(p, packagePat, func(out, src []byte, m []int) []byte {
-		path := bytes.TrimRight(src[m[2]:m[3]], ".!?:")
-		out = append(out, src[m[0]:m[2]]...)
-		out = append(out, `<a href="/`...)
-		out = append(out, path...)
-		out = append(out, `">`...)
-		out = append(out, path...)
-		out = append(out, `</a>`...)
-		out = append(out, src[m[2]+len(path):m[1]]...)
 		return out
 	})
 	return htemp.HTML(p)
