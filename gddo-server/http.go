@@ -73,6 +73,8 @@ func (s *Server) httpEtag(
 	b = append(b, pkg.ImportPath...)
 	b = append(b, 0)
 	b = append(b, pkg.Version...)
+	b = append(b, 0)
+	b = append(b, pkg.LatestVersion...)
 
 	for _, subpkg := range subpkgs {
 		b = append(b, 0)
@@ -127,13 +129,14 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	tpkg := Package{
-		Package:    *pdoc,
-		ModulePath: pkg.ModulePath,
-		Version:    pkg.Version,
-		Versions:   pkg.Versions,
-		CommitTime: pkg.CommitTime,
-		Updated:    pkg.Updated,
-		Meta:       meta,
+		Package:       *pdoc,
+		ModulePath:    pkg.ModulePath,
+		Version:       pkg.Version,
+		CommitTime:    pkg.CommitTime,
+		LatestVersion: pkg.LatestVersion,
+		Versions:      pkg.Versions,
+		Updated:       pkg.Updated,
+		Meta:          meta,
 	}
 
 	tctx := Context{

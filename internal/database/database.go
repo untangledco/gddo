@@ -21,15 +21,16 @@ import (
 
 // Package represents a package.
 type Package struct {
-	ImportPath string    `json:"import_path"`
-	ModulePath string    `json:"module_path"`
-	SeriesPath string    `json:"-"`
-	Version    string    `json:"version"`
-	CommitTime time.Time `json:"commit_time"`
-	Name       string    `json:"name"`
-	Synopsis   string    `json:"synopsis"`
-	Versions   []string  `json:"versions"`
-	Updated    time.Time `json:"-"`
+	ImportPath    string    `json:"import_path"`
+	ModulePath    string    `json:"module_path"`
+	SeriesPath    string    `json:"-"`
+	Version       string    `json:"version"`
+	CommitTime    time.Time `json:"commit_time"`
+	LatestVersion string    `json:"-"`
+	Versions      []string  `json:"-"`
+	Name          string    `json:"name"`
+	Synopsis      string    `json:"synopsis"`
+	Updated       time.Time `json:"-"`
 }
 
 // Database stores package documentation.
@@ -167,16 +168,16 @@ func (db *Database) PutModule(ctx context.Context, modulePath, seriesPath, lates
 
 const packageQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis,
-	m.versions, m.updated
+	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions,
+	p.name, p.synopsis, m.updated
 FROM packages p, modules m
 WHERE p.import_path = $1 AND p.version = $2 AND m.module_path = p.module_path;
 `
 
 const packageLatestQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, p.name, p.synopsis,
-	m.versions, m.updated
+	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions,
+	p.name, p.synopsis, m.updated
 FROM packages p, modules m
 WHERE p.import_path = $1 AND m.module_path = p.module_path AND p.version = m.latest_version;
 `
@@ -200,7 +201,8 @@ func (db *Database) GetPackage(ctx context.Context, importPath, version string) 
 
 		if rows.Next() {
 			if err := rows.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
-				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis, (*pq.StringArray)(&pkg.Versions), &pkg.Updated); err != nil {
+				&pkg.CommitTime, &pkg.LatestVersion, (*pq.StringArray)(&pkg.Versions),
+				&pkg.Name, &pkg.Synopsis, &pkg.Updated); err != nil {
 				return err
 			}
 			pkg.ImportPath = importPath

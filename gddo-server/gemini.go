@@ -114,13 +114,14 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 
 	// The template context.
 	tctx := Package{
-		Package:    *pdoc,
-		ModulePath: pkg.ModulePath,
-		Version:    pkg.Version,
-		Versions:   pkg.Versions,
-		CommitTime: pkg.CommitTime,
-		Updated:    pkg.Updated,
-		Meta:       meta,
+		Package:       *pdoc,
+		ModulePath:    pkg.ModulePath,
+		Version:       pkg.Version,
+		CommitTime:    pkg.CommitTime,
+		LatestVersion: pkg.LatestVersion,
+		Versions:      pkg.Versions,
+		Updated:       pkg.Updated,
+		Meta:          meta,
 	}
 
 	switch {

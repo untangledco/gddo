@@ -59,14 +59,15 @@ func setFlashMessage(resp http.ResponseWriter, message string) {
 // Represents a package for use in templates.
 type Package struct {
 	doc.Package
-	ModulePath  string
-	Version     string
-	Versions    []string
-	CommitTime  time.Time
-	Updated     time.Time
-	SubPackages []database.Package
-	Meta        *source.Meta
-	allExamples []*texample
+	ModulePath    string
+	Version       string
+	CommitTime    time.Time
+	LatestVersion string
+	Versions      []string
+	Updated       time.Time
+	SubPackages   []database.Package
+	Meta          *source.Meta
+	allExamples   []*texample
 }
 
 type texample struct {

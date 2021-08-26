@@ -105,7 +105,7 @@
 
   <div id="x-pkginfo">
     {{if .Imports}}<p>{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}} imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>).</p>{{end}}
-    <p>Version <a href="?versions">{{.Version}}</a>
+    <p>Version <a href="?versions">{{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}</a>
     <span class="text-muted">|</span>
     Published <span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span>
     <span class="text-muted">|</span> GOOS={{.GOOS}}

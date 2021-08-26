@@ -111,7 +111,7 @@ import "{{.ImportPath}}"
 {{- if .Name}}
 ## Details
 
-=> ?versions Version {{.Version}}
+=> ?versions Version {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 * Published {{.CommitTime.Format "Jan 2, 2006"}}
 {{- if .Imports}}
 => ?imports Imports {{.Imports|len}} packages{{end}}
