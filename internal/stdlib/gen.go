@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -26,20 +27,23 @@ func main() {
 	output := flag.String("output", "data.go", "output file")
 	flag.Parse()
 
+	gosrc := path.Join(runtime.GOROOT(), "src")
+
 	pkgsMap := map[string]struct{}{}
-	cmd := exec.Command("go", "list", "std", "cmd")
+	cmd := exec.Command("find", gosrc, "-type", "d", "-mindepth", "1")
 	o, err := cmd.Output()
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, pkg := range strings.Fields(string(o)) {
-		if strings.HasPrefix(pkg, "vendor/") || strings.Contains(pkg, "/vendor/") {
+		pkg = strings.TrimPrefix(pkg, gosrc)
+		pkg = strings.TrimPrefix(pkg, "/")
+		if pkg == "vendor" ||
+			strings.HasPrefix(pkg, "vendor/") ||
+			strings.Contains(pkg, "/vendor/") {
 			continue
 		}
-		// Add the package and all of its parent directories
-		for ; pkg != "."; pkg = path.Dir(pkg) {
-			pkgsMap[pkg] = struct{}{}
-		}
+		pkgsMap[pkg] = struct{}{}
 	}
 
 	pkgs := []string{}
@@ -47,7 +51,8 @@ func main() {
 		// Hide cmd and internal packages from the list
 		if strings.HasPrefix(pkg, "cmd/") ||
 			strings.HasPrefix(pkg, "internal/") ||
-			strings.Contains(pkg, "/internal/") {
+			strings.Contains(pkg, "/internal/") ||
+			strings.HasSuffix(pkg, "/internal") {
 			continue
 		}
 		pkgs = append(pkgs, pkg)
