@@ -50,7 +50,7 @@ type Client struct {
 	URL string
 
 	// Client used for HTTP requests.
-	HTTPClient http.Client
+	HTTPClient *http.Client
 }
 
 // VersionInfo contains metadata about a given version of a module.
@@ -117,7 +117,7 @@ func (c *Client) GetZipSize(ctx context.Context, modulePath, resolvedVersion str
 	if err != nil {
 		return 0, err
 	}
-	res, err := ctxhttp.Head(ctx, &c.HTTPClient, url)
+	res, err := ctxhttp.Head(ctx, c.HTTPClient, url)
 	if err != nil {
 		return 0, err
 	}
@@ -209,7 +209,7 @@ func (c *Client) executeRequest(ctx context.Context, u string, disableFetch bool
 	if disableFetch {
 		req.Header.Set(disableFetchHeader, "true")
 	}
-	r, err := ctxhttp.Do(ctx, &c.HTTPClient, req)
+	r, err := ctxhttp.Do(ctx, c.HTTPClient, req)
 	if err != nil {
 		return err
 	}

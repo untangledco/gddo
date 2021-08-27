@@ -234,7 +234,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
-	ctx, cancel := context.WithTimeout(req.Context(), s.cfg.GetTimeout)
+	ctx, cancel := context.WithTimeout(req.Context(), s.cfg.FetchTimeout)
 	defer cancel()
 
 	importPath := req.Form.Get("import_path")

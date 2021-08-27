@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,24 +31,13 @@ type Server struct {
 
 // New returns a new server with the given configuration.
 func New(cfg *Config) (*Server, error) {
-	requestTimeout := cfg.RequestTimeout
-	var t http.RoundTripper = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   cfg.DialTimeout,
-			KeepAlive: requestTimeout / 2,
-		}).Dial,
-		ResponseHeaderTimeout: requestTimeout / 2,
-		TLSHandshakeTimeout:   requestTimeout / 2,
-	}
 	httpClient := &http.Client{
-		Transport: t,
-		Timeout:   requestTimeout,
+		Timeout: cfg.RequestTimeout,
 	}
 	proxySource := &source.ProxySource{
 		Client: proxy.Client{
 			URL:        cfg.GoProxy,
-			HTTPClient: *httpClient,
+			HTTPClient: httpClient,
 		},
 	}
 
@@ -70,7 +58,7 @@ func New(cfg *Config) (*Server, error) {
 
 // Background refreshes modules in the background.
 func (s *Server) Background(ctx context.Context) {
-	for range time.Tick(s.cfg.CrawlInterval) {
+	for range time.Tick(s.cfg.RefreshInterval) {
 		s.refreshOldest(ctx)
 	}
 }
@@ -90,7 +78,7 @@ func (s *Server) getPackage(ctx context.Context, platform, importPath, version s
 		ch <- result{pkg, err}
 	}()
 
-	ctx, cancel := context.WithTimeout(ctx, s.cfg.GetTimeout)
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.FetchTimeout)
 	defer cancel()
 
 	select {
