@@ -7,6 +7,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
@@ -159,13 +160,16 @@ func (s *Server) updateMeta(ctx context.Context, modulePath string) error {
 
 // refreshOldest refreshes the oldest module in the database.
 func (s *Server) refreshOldest(ctx context.Context) {
-	modulePath, err := s.db.Oldest(ctx)
+	modulePath, timestamp, err := s.db.Oldest(ctx)
 	if err != nil {
 		log.Printf("Error retrieving oldest module: %v", err)
 		return
 	}
 	if modulePath == "" {
 		// No modules in the database yet
+		return
+	}
+	if time.Now().Sub(timestamp) < s.cfg.MaxAge {
 		return
 	}
 	log.Println("REFRESH", modulePath)
