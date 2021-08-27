@@ -20,13 +20,20 @@ First install the dependencies:
 - PostgreSQL 13
 - Graphviz (required for import graphs)
 
+Then compile and install:
+
+	$ make
+	# make install
+
+## Running
+
 Initialize the PostgreSQL database:
 
 	psql -f schema.sql
 
 Then run:
 
-	go run ./gddo-server \
+	gddo-server \
 		--db "postgres://localhost" \
 		--http ":8080" \
 		--goproxy "https://proxy.golang.org"

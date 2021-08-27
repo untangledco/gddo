@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
@@ -29,8 +30,8 @@ type Server struct {
 	importGraphSem chan struct{}
 }
 
-// NewServer returns a new server with the given configuration.
-func NewServer(cfg *Config) (*Server, error) {
+// New returns a new server with the given configuration.
+func New(cfg *Config) (*Server, error) {
 	requestTimeout := cfg.RequestTimeout
 	var t http.RoundTripper = &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -65,6 +66,13 @@ func NewServer(cfg *Config) (*Server, error) {
 		templates:      make(TemplateMap),
 		importGraphSem: make(chan struct{}, 10),
 	}, nil
+}
+
+// Background refreshes modules in the background.
+func (s *Server) Background(ctx context.Context) {
+	for range time.Tick(s.cfg.CrawlInterval) {
+		s.refreshOldest(ctx)
+	}
 }
 
 // getPackage gets the package from the database. If the package is not in the

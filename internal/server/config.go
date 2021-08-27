@@ -1,17 +1,18 @@
-package main
+package server
 
 import (
 	"flag"
 	"go/build"
 	"path"
-	"path/filepath"
 	"runtime"
 	"time"
 )
 
 // Server configuration.
 type Config struct {
+	ShareDir       string
 	AssetsDir      string
+	TemplatesDir   string
 	BindHTTP       string
 	BindGemini     string
 	CertsDir       string
@@ -27,11 +28,13 @@ type Config struct {
 }
 
 func (c *Config) FlagSet() *flag.FlagSet {
-	assetsDir := filepath.Join(defaultBase("git.sr.ht/~sircmpwn/gddo/gddo-server"), "assets")
 	defaultPlatform := path.Join(runtime.GOOS, runtime.GOARCH)
+	assetsDir := path.Join(c.ShareDir, "assets")
+	templatesDir := path.Join(c.ShareDir, "templates")
 
 	flags := flag.NewFlagSet("default", flag.ExitOnError)
 	flags.StringVar(&c.AssetsDir, "assets", assetsDir, "Assets directory")
+	flags.StringVar(&c.TemplatesDir, "templates", templatesDir, "Templates directory")
 	flags.StringVar(&c.BindHTTP, "http", "", "Listen for HTTP connections on this address")
 	flags.StringVar(&c.BindGemini, "gemini", "", "Listen for Gemini connections on this address")
 	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")

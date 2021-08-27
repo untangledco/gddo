@@ -1,14 +1,9 @@
-// Copyright 2017 The Go Authors. All rights reserved.
-//
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file or at
-// https://developers.google.com/open-source/licenses/bsd.
-
 // Command gddo-server is the GoPkgDoc server.
 package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -17,28 +12,38 @@ import (
 
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~adnano/go-gemini/certificate"
+	"git.sr.ht/~sircmpwn/gddo/internal/server"
+)
+
+var (
+	Version  string
+	ShareDir string
 )
 
 func main() {
 	ctx := context.Background()
 
-	cfg := &Config{}
+	cfg := &server.Config{
+		ShareDir: ShareDir,
+	}
 	flags := cfg.FlagSet()
+	version := flags.Bool("v", false, "print version information")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)
 	}
 
-	s, err := NewServer(cfg)
+	if *version {
+		fmt.Println("gddo-server", Version)
+		return
+	}
+
+	s, err := server.New(cfg)
 	if err != nil {
 		log.Fatal("error creating server:", err)
 	}
 
 	// Refresh modules in the background
-	go func() {
-		for range time.Tick(s.cfg.CrawlInterval) {
-			s.refreshOldest(ctx)
-		}
-	}()
+	go s.Background(ctx)
 
 	var wg sync.WaitGroup
 	defer wg.Wait()

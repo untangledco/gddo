@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -53,8 +52,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	mux.Handle("/", handler(s.serveHome))
 
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
-	templatesDir := filepath.Join(s.cfg.AssetsDir, "templates")
-	if err := parseHTMLTemplates(s.templates, templatesDir, cacheBusters); err != nil {
+	if err := parseHTMLTemplates(s.templates, s.cfg.TemplatesDir, cacheBusters); err != nil {
 		return nil, err
 	}
 	return mux, nil
