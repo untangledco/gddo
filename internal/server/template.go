@@ -433,7 +433,6 @@ func joinTemplateDir(base string, files []string) []string {
 func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) error {
 	sets := [][]string{
 		{"about.html", "common.html", "layout.html"},
-		{"bot.html", "common.html", "layout.html"},
 		{"doc.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
 		{"versions.html", "common.html", "layout.html"},

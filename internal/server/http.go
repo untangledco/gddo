@@ -40,7 +40,6 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 		}
 	}
 	mux.Handle("/-/about", handler(s.serveAbout))
-	mux.Handle("/-/bot", handler(s.serveBot))
 	mux.Handle("/-/opensearch.xml", handler(s.serveOpenSearch))
 	mux.Handle("/std", handler(s.serveStdlib))
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
@@ -298,10 +297,6 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
 	return s.templates.ExecuteHTML(resp, "about.html", http.StatusOK, nil)
-}
-
-func (s *Server) serveBot(resp http.ResponseWriter, req *http.Request) error {
-	return s.templates.ExecuteHTML(resp, "bot.html", http.StatusOK, nil)
 }
 
 func getRootURL(req *http.Request) string {
