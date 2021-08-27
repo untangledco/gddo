@@ -118,6 +118,24 @@ func TestZip(t *testing.T) {
 			},
 		},
 		{
+			ModulePath: "builtin",
+			Versions:   []string{"v1.12.5"},
+			WantFiles: map[string]bool{
+				"builtin.go": true,
+			},
+		},
+		{
+			ModulePath: "flag",
+			Versions:   []string{"v1.12.5"},
+			WantFiles: map[string]bool{
+				"example_test.go":       true,
+				"example_value_test.go": true,
+				"export_test.go":        true,
+				"flag.go":               true,
+				"flag_test.go":          true,
+			},
+		},
+		{
 			ModulePath: "cmd",
 			Versions:   []string{"v1.14.6", TestVersion},
 		},
