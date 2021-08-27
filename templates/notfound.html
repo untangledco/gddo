@@ -1,8 +1,8 @@
 {{define "Head"}}<title>{{if eq .Status 404}}Not Found{{else}}Internal server error{{end}} - godocs.io</title>{{end}}
 
 {{define "Body"}}
-  {{template "FlashMessage" .Message}}
   {{if eq .Status 404}}
+  {{template "FlashMessage" .Message}}
   <h1>Not Found</h1>
   <p>Oh snap! Our team of gophers could not find the web page you are looking for. Try one of these pages:
   <ul>
