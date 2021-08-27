@@ -1,3 +1,4 @@
 User-agent: *
-Disallow: /*?imports*
-Disallow: /*?refresh*
+Disallow: /*?view=imports*
+Disallow: /*?view=versions*
+Disallow: /-/refresh*
