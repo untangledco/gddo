@@ -144,7 +144,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 
 // updateMeta updates the module's go-source meta tag information.
 func (s *Server) updateMeta(ctx context.Context, modulePath string) error {
-	meta, err := source.FetchMeta(ctx, s.httpClient, modulePath)
+	meta, err := source.FetchMeta(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
 	if err != nil {
 		if errors.Is(err, source.ErrMetaNotFound) {
 			return nil

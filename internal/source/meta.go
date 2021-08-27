@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
-	"golang.org/x/net/context/ctxhttp"
 )
 
 var ErrMetaNotFound = errors.New("no go-source meta tag found")
@@ -94,7 +93,7 @@ const (
 )
 
 // FetchMeta fetches the go-source meta tag for the provided module path.
-func FetchMeta(ctx context.Context, client *http.Client, modulePath string) (*Meta, error) {
+func FetchMeta(ctx context.Context, client *http.Client, modulePath, userAgent string) (*Meta, error) {
 	// Special case for stdlib
 	if stdlib.Contains(modulePath) {
 		return &Meta{
@@ -114,14 +113,19 @@ func FetchMeta(ctx context.Context, client *http.Client, modulePath string) (*Me
 	}
 	uri += "?go-get=1"
 
-	scheme := "https"
-	resp, err := ctxhttp.Get(ctx, client, scheme+"://"+uri)
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != 200 {
 		if err == nil {
 			resp.Body.Close()
 		}
-		scheme = "http"
-		resp, err = ctxhttp.Get(ctx, client, scheme+"://"+uri)
+		req.URL.Scheme = "http"
+		resp, err = client.Do(req)
 		if err != nil {
 			return nil, err
 		}

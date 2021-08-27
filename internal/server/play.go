@@ -7,6 +7,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -59,14 +60,15 @@ func findExample(doc *database.Documentation, export, method, name string) *doc.
 
 var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
-func (s *Server) playURL(doc *database.Documentation, id string) (string, error) {
+func (s *Server) playURL(ctx context.Context, doc *database.Documentation, id string) (string, error) {
 	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
 		if e := findExample(doc, m[1], m[2], m[3]); e != nil && e.Play != "" {
-			req, err := http.NewRequest("POST", "https://play.golang.org/share", strings.NewReader(e.Play))
+			req, err := http.NewRequestWithContext(ctx, "POST", "https://play.golang.org/share", strings.NewReader(e.Play))
 			if err != nil {
 				return "", err
 			}
 			req.Header.Set("Content-Type", "text/plain")
+			req.Header.Set("User-Agent", s.cfg.UserAgent)
 			resp, err := s.httpClient.Do(req)
 			if err != nil {
 				return "", err

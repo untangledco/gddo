@@ -202,7 +202,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if err != nil {
 			return err
 		}
-		u, err := s.playURL(&doc, req.Form.Get("play"))
+		u, err := s.playURL(ctx, &doc, req.Form.Get("play"))
 		if err != nil {
 			return err
 		}
