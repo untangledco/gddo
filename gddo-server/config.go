@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"go/build"
+	"path"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -15,8 +17,7 @@ type Config struct {
 	CertsDir       string
 	Database       string
 	GoProxy        string
-	DefaultGOOS    string
-	DefaultArch    string
+	Platform       string
 	UserAgent      string
 	GetTimeout     time.Duration
 	DialTimeout    time.Duration
@@ -27,6 +28,7 @@ type Config struct {
 
 func (c *Config) FlagSet() *flag.FlagSet {
 	assetsDir := filepath.Join(defaultBase("git.sr.ht/~sircmpwn/gddo/gddo-server"), "assets")
+	defaultPlatform := path.Join(runtime.GOOS, runtime.GOARCH)
 
 	flags := flag.NewFlagSet("default", flag.ExitOnError)
 	flags.StringVar(&c.AssetsDir, "assets", assetsDir, "Assets directory")
@@ -35,8 +37,7 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")
 	flags.StringVar(&c.Database, "db", "postgres://localhost", "PostgreSQL database URL")
 	flags.StringVar(&c.GoProxy, "goproxy", "https://proxy.golang.org", "Go module proxy")
-	flags.StringVar(&c.DefaultGOOS, "goos", "linux", "Default GOOS to use for documentation")
-	flags.StringVar(&c.DefaultArch, "arch", "amd64", "Default architecture to use for documentation")
+	flags.StringVar(&c.Platform, "platform", defaultPlatform, "Default platform to use for documentation")
 	flags.StringVar(&c.UserAgent, "user-agent", "GoDocBot", "User agent to use for HTTP requests")
 	flags.DurationVar(&c.GetTimeout, "get-timeout", 20*time.Second, "Timeout for HTTP GET requests")
 	flags.DurationVar(&c.DialTimeout, "dial-timeout", 5*time.Second, "Timeout for dialing HTTP connections")

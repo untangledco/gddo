@@ -103,7 +103,7 @@ import "{{.ImportPath}}"
 {{- if .SubPackages}}
 ## Directories
 {{range .SubPackages}}
-=> /{{.ImportPath}}{{if ne .Version $.LatestVersion}}@{{.Version}}{{end}} {{relativePath .ImportPath .ModulePath}}
+=> /{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}} {{relativePath .ImportPath .ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
@@ -111,14 +111,13 @@ import "{{.ImportPath}}"
 {{- if .Name}}
 ## Details
 
-=> ?versions Version {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+=> {{.View "versions"}} Version {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 * Published {{.CommitTime.Format "Jan 2, 2006"}}
 {{- if .Imports}}
-=> ?imports Imports {{.Imports|len}} packages{{end}}
-* GOOS={{.GOOS}}
-* GOARCH={{.GOARCH}}
+=> {{.View "imports"}} Imports {{.Imports|len}} packages{{end}}
+* Platform: {{.Platform}}
 * Last checked {{humanize .Updated}}
-=> ?refresh Refresh now
+=> /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now
 {{end}}
 => / Back to home
 => /-/search Search

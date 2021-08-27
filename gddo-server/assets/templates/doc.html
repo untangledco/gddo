@@ -101,25 +101,26 @@
   {{if $.SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
       <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-      <tbody>{{range $.SubPackages}}<tr><td><a href="/{{.ImportPath}}{{if ne .Version $.LatestVersion}}@{{.Version}}{{end}}">{{relativePath .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
+      <tbody>{{range $.SubPackages}}<tr><td><a href="/{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}}">{{relativePath .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
     </table>
   {{end}}
 
   <div id="x-pkginfo">
-    {{if .Imports}}<p>{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}} imports <a href="?imports">{{.Imports|len}} packages</a> (<a href="?import-graph">graph</a>).</p>{{end}}
-    <p>Version <a href="?versions">{{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}</a>
+    {{if .Imports}}<p>{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}} imports <a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>).</p>{{end}}
+    <p>Version <a href="{{.View "versions"}}">{{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}</a>
     <span class="text-muted">|</span>
     Published <span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span>
-    <span class="text-muted">|</span> GOOS={{.GOOS}}
-    <span class="text-muted">|</span> GOARCH={{.GOARCH}}
+    <span class="text-muted">|</span>
+    Platform: {{.Platform}}
     <span class="text-muted">|</span>
     Updated <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
     </p>
     <form class="inline-form" method="POST" action="/-/refresh">
-      <input type="hidden" name="path" value="{{.ImportPath}}">
+      <input type="hidden" name="import_path" value="{{.ImportPath}}">
+      <input type="hidden" name="platform" value="{{.Platform}}">
       <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>.
     </form>
-    <a href="?tools">Tools</a> for package owners.
+    <a href="{{.View "tools"}}">Tools</a> for package owners.
   </div>
 
 {{if and .Name (not .IsCommand)}}

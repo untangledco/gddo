@@ -14,29 +14,17 @@ import (
 
 // Package is the documentation for an entire package.
 type Package struct {
-	Name       string
-	ImportPath string
-	Imports    []string
-	Filenames  []string
-	Notes      map[string][]*Note
-
+	Name      string
+	Imports   []string
+	Filenames []string
+	Notes     map[string][]*Note
 	Doc       string
 	Synopsis  string
-	IsCommand bool
-	Truncated bool
-
-	GOOS   string
-	GOARCH string
-
-	// declarations
-	Consts []*Value
-	Types  []*Type
-	Vars   []*Value
-	Funcs  []*Func
-
-	// Examples is a sorted list of examples associated with
-	// the package.
-	Examples []*Example
+	Consts    []*Value
+	Types     []*Type
+	Vars      []*Value
+	Funcs     []*Func
+	Examples  []*Example
 }
 
 type Note struct {
@@ -144,20 +132,16 @@ func New(src *source.Package, ctx *build.Context) (*Package, error) {
 	}
 
 	return &Package{
-		Name:       pkg.Name,
-		ImportPath: pkg.ImportPath,
-		Imports:    pkg.Imports,
-		Filenames:  pkg.Filenames,
-		Notes:      b.notes(pkg.Notes),
-		Doc:        pkg.Doc,
-		Synopsis:   doc.Synopsis(pkg.Doc),
-		IsCommand:  (&build.Package{Name: pkg.Name}).IsCommand(),
-		GOOS:       ctx.GOOS,
-		GOARCH:     ctx.GOARCH,
-		Consts:     b.values(pkg.Consts),
-		Types:      b.types(pkg.Types),
-		Vars:       b.values(pkg.Vars),
-		Funcs:      b.funcs(pkg.Funcs),
-		Examples:   b.examples(pkg.Examples),
+		Name:      pkg.Name,
+		Imports:   pkg.Imports,
+		Filenames: pkg.Filenames,
+		Notes:     b.notes(pkg.Notes),
+		Doc:       pkg.Doc,
+		Synopsis:  doc.Synopsis(pkg.Doc),
+		Consts:    b.values(pkg.Consts),
+		Types:     b.types(pkg.Types),
+		Vars:      b.values(pkg.Vars),
+		Funcs:     b.funcs(pkg.Funcs),
+		Examples:  b.examples(pkg.Examples),
 	}, nil
 }

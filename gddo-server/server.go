@@ -69,7 +69,7 @@ func NewServer(cfg *Config) (*Server, error) {
 
 // getPackage gets the package from the database. If the package is not in the
 // database, it is fetched from the module proxy.
-func (s *Server) getPackage(ctx context.Context, importPath, version string) (database.Package, error) {
+func (s *Server) getPackage(ctx context.Context, platform, importPath, version string) (database.Package, error) {
 	type result struct {
 		pkg database.Package
 		err error
@@ -78,7 +78,7 @@ func (s *Server) getPackage(ctx context.Context, importPath, version string) (da
 	ch := make(chan result, 1)
 	go func() {
 		ctx := context.Background()
-		pkg, err := s._getPackage(ctx, importPath, version)
+		pkg, err := s._getPackage(ctx, platform, importPath, version)
 		ch <- result{pkg, err}
 	}()
 
@@ -94,17 +94,17 @@ func (s *Server) getPackage(ctx context.Context, importPath, version string) (da
 	}
 }
 
-func (s *Server) _getPackage(ctx context.Context, importPath, version string) (database.Package, error) {
-	pkg, ok, err := s.db.GetPackage(ctx, importPath, version)
+func (s *Server) _getPackage(ctx context.Context, platform, importPath, version string) (database.Package, error) {
+	pkg, ok, err := s.db.GetPackage(ctx, platform, importPath, version)
 	if err != nil {
 		return database.Package{}, err
 	}
 	if !ok {
-		err := s.fetch(ctx, importPath, version)
+		err := s.fetch(ctx, platform, importPath, version)
 		if err != nil {
 			return database.Package{}, err
 		}
-		pkg, ok, err = s.db.GetPackage(ctx, importPath, version)
+		pkg, ok, err = s.db.GetPackage(ctx, platform, importPath, version)
 		if err != nil {
 			return database.Package{}, err
 		}

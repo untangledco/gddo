@@ -1,3 +1,3 @@
 # Versions of {{.PageName}}
 {{range .Versions}}
-=> /{{$.ImportPath}}@{{.}} {{.}}{{if eq . $.LatestVersion}} (latest){{end}}{{end}}
+=> /{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{$.PlatformParam}} {{.}}{{if eq . $.LatestVersion}} (latest){{end}}{{end}}

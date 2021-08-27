@@ -8,7 +8,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	godoc "go/doc"
 	htemp "html/template"
@@ -22,7 +21,6 @@ import (
 	"sort"
 	"strings"
 	ttemp "text/template"
-	"time"
 
 	"github.com/dustin/go-humanize"
 
@@ -33,41 +31,17 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
-// getFlashMessage retrieves a flash message from the request and clears the flash cookie if needed.
-func getFlashMessage(resp http.ResponseWriter, req *http.Request) string {
-	c, err := req.Cookie("flash")
-	if err == http.ErrNoCookie {
-		return ""
-	}
-	http.SetCookie(resp, &http.Cookie{Name: "flash", Path: "/", MaxAge: -1, Expires: time.Now().Add(-100 * 24 * time.Hour)})
-	if err != nil {
-		return ""
-	}
-	p, err := base64.URLEncoding.DecodeString(c.Value)
-	if err != nil {
-		return ""
-	}
-	return string(p)
-}
-
-// setFlashMessage sets a cookie with the given flash message.
-func setFlashMessage(resp http.ResponseWriter, message string) {
-	value := base64.URLEncoding.EncodeToString([]byte(message))
-	http.SetCookie(resp, &http.Cookie{Name: "flash", Value: value, Path: "/"})
-}
-
 // Represents a package for use in templates.
 type Package struct {
-	doc.Package
-	ModulePath    string
-	Version       string
-	CommitTime    time.Time
-	LatestVersion string
-	Versions      []string
-	Updated       time.Time
-	SubPackages   []database.Package
-	Meta          *source.Meta
-	allExamples   []*texample
+	database.Package
+	database.Documentation
+	Meta            *source.Meta
+	Platform        string
+	DefaultPlatform string
+	Message         string
+	Imported        []database.Package
+	SubPackages     []database.Package
+	allExamples     []*texample
 }
 
 type texample struct {
@@ -78,31 +52,71 @@ type texample struct {
 	obj     interface{}
 }
 
-func (pdoc *Package) Dir() string {
-	return strings.TrimPrefix(pdoc.ImportPath, pdoc.ModulePath)
+func (pkg *Package) View(view string) string {
+	var b strings.Builder
+	b.WriteByte('?')
+	amp := false
+	if len(view) != 0 {
+		b.WriteString("view=")
+		b.WriteString(view)
+		amp = true
+	}
+	if pkg.Platform != pkg.DefaultPlatform {
+		if amp {
+			b.WriteByte('&')
+		}
+		b.WriteString("platform=")
+		b.WriteString(url.QueryEscape(pkg.Platform))
+	}
+	return b.String()
 }
 
-func (pdoc *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
-	if pos.Line == 0 || pdoc.Meta == nil {
+func (pkg *Package) PlatformParam() string {
+	if pkg.Platform == pkg.DefaultPlatform {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("?platform=")
+	b.WriteString(url.QueryEscape(pkg.Platform))
+	return b.String()
+}
+
+func (pkg *Package) VersionParam() string {
+	if pkg.Version == pkg.LatestVersion {
+		return ""
+	}
+	return "@" + pkg.Version
+}
+
+func (pkg *Package) Dir() string {
+	return strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
+}
+
+func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
+	if pos.Line == 0 || pkg.Meta == nil {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
 		return ""
 	}
-	dir := pdoc.Dir()
+	dir := pkg.Dir()
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
-		htemp.HTMLEscapeString(pdoc.Meta.Line(dir, pdoc.Filenames[pos.File], int(pos.Line))),
+		htemp.HTMLEscapeString(pkg.Meta.Line(dir, pkg.Filenames[pos.File], int(pos.Line))),
 		htemp.HTMLEscapeString(text)))
 }
 
-func (pdoc *Package) PageName() string {
-	if pdoc.Name != "" && !pdoc.IsCommand {
-		return pdoc.Name
+func (pkg *Package) PageName() string {
+	if pkg.Name != "" && pkg.Name != "main" {
+		return pkg.Name
 	}
-	return path.Base(pdoc.ImportPath)
+	return path.Base(pkg.ImportPath)
 }
 
-func (pdoc *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
+func (pkg *Package) IsCommand() bool {
+	return pkg.Name == "main"
+}
+
+func (pkg *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
 	label := export
 	id := export
 	if method != "" {
@@ -116,7 +130,7 @@ func (pdoc *Package) addExamples(obj interface{}, export, method string, example
 			Example: e,
 			obj:     obj,
 			// Only show play links for packages within the standard library.
-			Play: e.Play != "" && stdlib.Contains(pdoc.ImportPath),
+			Play: e.Play != "" && stdlib.Contains(pkg.ImportPath),
 		}
 		if e.Name != "" {
 			te.Label += " (" + e.Name + ")"
@@ -125,7 +139,7 @@ func (pdoc *Package) addExamples(obj interface{}, export, method string, example
 			}
 			te.ID += "-" + e.Name
 		}
-		pdoc.allExamples = append(pdoc.allExamples, te)
+		pkg.allExamples = append(pkg.allExamples, te)
 	}
 }
 
@@ -135,40 +149,40 @@ func (e byExampleID) Len() int           { return len(e) }
 func (e byExampleID) Less(i, j int) bool { return e[i].ID < e[j].ID }
 func (e byExampleID) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 
-func (pdoc *Package) AllExamples() []*texample {
-	if pdoc.allExamples != nil {
-		return pdoc.allExamples
+func (pkg *Package) AllExamples() []*texample {
+	if pkg.allExamples != nil {
+		return pkg.allExamples
 	}
-	pdoc.allExamples = make([]*texample, 0)
-	pdoc.addExamples(pdoc, "package", "", pdoc.Examples)
-	for _, f := range pdoc.Funcs {
-		pdoc.addExamples(f, f.Name, "", f.Examples)
+	pkg.allExamples = make([]*texample, 0)
+	pkg.addExamples(pkg, "package", "", pkg.Examples)
+	for _, f := range pkg.Funcs {
+		pkg.addExamples(f, f.Name, "", f.Examples)
 	}
-	for _, t := range pdoc.Types {
-		pdoc.addExamples(t, t.Name, "", t.Examples)
+	for _, t := range pkg.Types {
+		pkg.addExamples(t, t.Name, "", t.Examples)
 		for _, f := range t.Funcs {
-			pdoc.addExamples(f, f.Name, "", f.Examples)
+			pkg.addExamples(f, f.Name, "", f.Examples)
 		}
 		for _, m := range t.Methods {
 			if len(m.Examples) > 0 {
-				pdoc.addExamples(m, t.Name, m.Name, m.Examples)
+				pkg.addExamples(m, t.Name, m.Name, m.Examples)
 			}
 		}
 	}
-	sort.Sort(byExampleID(pdoc.allExamples))
-	return pdoc.allExamples
+	sort.Sort(byExampleID(pkg.allExamples))
+	return pkg.allExamples
 }
 
-func (pdoc *Package) PackageExamples() []*texample {
-	if pdoc.allExamples == nil {
-		pdoc.AllExamples()
+func (pkg *Package) PackageExamples() []*texample {
+	if pkg.allExamples == nil {
+		pkg.AllExamples()
 	}
-	return pdoc.ObjExamples(pdoc)
+	return pkg.ObjExamples(pkg)
 }
 
-func (pdoc *Package) ObjExamples(obj interface{}) []*texample {
+func (pkg *Package) ObjExamples(obj interface{}) []*texample {
 	var examples []*texample
-	for _, e := range pdoc.allExamples {
+	for _, e := range pkg.allExamples {
 		if e.obj == obj {
 			examples = append(examples, e)
 		}
@@ -176,45 +190,45 @@ func (pdoc *Package) ObjExamples(obj interface{}) []*texample {
 	return examples
 }
 
-func (pdoc *Package) Breadcrumbs(templateName string) htemp.HTML {
-	modulePath := pdoc.ModulePath
-	if !strings.HasPrefix(pdoc.ImportPath, pdoc.ModulePath) {
+func (pkg *Package) Breadcrumbs(templateName string) htemp.HTML {
+	modulePath := pkg.ModulePath
+	if !strings.HasPrefix(pkg.ImportPath, pkg.ModulePath) {
 		return ""
 	}
 	var buf bytes.Buffer
 	i := 0
 	j := len(modulePath)
 	if j == 0 {
-		j = strings.IndexRune(pdoc.ImportPath, '/')
+		j = strings.IndexRune(pkg.ImportPath, '/')
 		if j < 0 {
-			j = len(pdoc.ImportPath)
+			j = len(pkg.ImportPath)
 		}
 	}
 	for {
 		if i != 0 {
 			buf.WriteString(`<span class="text-muted">/</span>`)
 		}
-		link := j < len(pdoc.ImportPath) || templateName != "doc.html"
+		link := j < len(pkg.ImportPath) || templateName != "doc.html"
 		if link {
 			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(pdoc.ImportPath[:j], ""))
+			buf.WriteString(formatPathFrag(pkg.ImportPath[:j], ""))
 			buf.WriteString(`">`)
 		} else {
 			buf.WriteString(`<span class="text-muted">`)
 		}
-		buf.WriteString(htemp.HTMLEscapeString(pdoc.ImportPath[i:j]))
+		buf.WriteString(htemp.HTMLEscapeString(pkg.ImportPath[i:j]))
 		if link {
 			buf.WriteString("</a>")
 		} else {
 			buf.WriteString("</span>")
 		}
 		i = j + 1
-		if i >= len(pdoc.ImportPath) {
+		if i >= len(pkg.ImportPath) {
 			break
 		}
-		j = strings.IndexRune(pdoc.ImportPath[i:], '/')
+		j = strings.IndexRune(pkg.ImportPath[i:], '/')
 		if j < 0 {
-			j = len(pdoc.ImportPath)
+			j = len(pkg.ImportPath)
 		} else {
 			j += i
 		}
@@ -362,7 +376,7 @@ type TemplateMap map[string]interface {
 }
 
 func (m TemplateMap) ExecuteHTML(resp http.ResponseWriter, name string, status int, data interface{}) error {
-	resp.Header().Set("Content-Type", htmlMIMEType)
+	resp.Header().Set("Content-Type", "text/html; charset=utf-8")
 	return m.ExecuteHTTP(resp, name, status, data)
 }
 

@@ -14,13 +14,12 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
-	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 )
 
-func renderGraph(pdoc *doc.Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {
+func renderGraph(pkg database.Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {
 	var in, out bytes.Buffer
 
-	fmt.Fprintf(&in, "digraph %s { \n", pdoc.Name)
+	fmt.Fprintf(&in, "digraph %s { \n", pkg.Name)
 	for i, pkg := range pkgs {
 		fmt.Fprintf(&in, " n%d [label=\"%s\", URL=\"/%s\", tooltip=\"%s\"];\n",
 			i, pkg.ImportPath, pkg.ImportPath,

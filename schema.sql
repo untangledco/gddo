@@ -18,6 +18,7 @@ CREATE INDEX modules_series_path_idx ON modules (series_path);
 
 -- Stores package information
 CREATE TABLE packages (
+	platform text NOT NULL,
 	import_path text NOT NULL,
 	module_path text NOT NULL,
 	series_path text NOT NULL,
@@ -26,11 +27,13 @@ CREATE TABLE packages (
 	name text NOT NULL,
 	synopsis text NOT NULL,
 	score float NOT NULL,
+	imports text[] NOT NULL,
+	documentation bytea NOT NULL,
 	searchtext tsvector GENERATED ALWAYS AS (
 		to_tsvector('english', "name") ||
 		to_tsvector('english', coalesce(synopsis, '')) ||
 		array_to_tsvector(string_to_array("import_path", '/'))) STORED,
-	PRIMARY KEY (import_path, version),
+	PRIMARY KEY (platform, import_path, version),
 	FOREIGN KEY (module_path) REFERENCES modules (module_path) ON DELETE CASCADE
 );
 
@@ -42,30 +45,6 @@ CREATE INDEX packages_searchtext_idx ON packages USING GIN (searchtext);
 
 -- Used to retrieve all the packages in a series
 CREATE INDEX packages_series_path_idx ON packages (series_path);
-
--- Stores package documentation
-CREATE TABLE documentation (
-	import_path text NOT NULL,
-	version text NOT NULL,
-	goos text NOT NULL,
-	goarch text NOT NULL,
-	documentation bytea,
-	PRIMARY KEY (import_path, version, goos, goarch),
-	FOREIGN KEY (import_path, version)
-		REFERENCES packages (import_path, version) ON DELETE CASCADE
-);
-
--- Stores package imports
-CREATE TABLE imports (
-	import_path text NOT NULL,
-	version text NOT NULL,
-	imported_path text NOT NULL,
-	PRIMARY KEY (import_path, version, imported_path),
-	FOREIGN KEY (import_path, version)
-		REFERENCES packages (import_path, version) ON DELETE CASCADE
-);
-
-CREATE INDEX imports_idx ON imports (import_path, version);
 
 -- Stores blocked import paths
 CREATE TABLE blocklist (

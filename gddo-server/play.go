@@ -14,19 +14,20 @@ import (
 	"regexp"
 	"strings"
 
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 )
 
-func findExamples(pdoc *doc.Package, export, method string) []*doc.Example {
+func findExamples(doc *database.Documentation, export, method string) []*doc.Example {
 	if "package" == export {
-		return pdoc.Examples
+		return doc.Examples
 	}
-	for _, f := range pdoc.Funcs {
+	for _, f := range doc.Funcs {
 		if f.Name == export {
 			return f.Examples
 		}
 	}
-	for _, t := range pdoc.Types {
+	for _, t := range doc.Types {
 		for _, f := range t.Funcs {
 			if f.Name == export {
 				return f.Examples
@@ -47,8 +48,8 @@ func findExamples(pdoc *doc.Package, export, method string) []*doc.Example {
 	return nil
 }
 
-func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
-	for _, e := range findExamples(pdoc, export, method) {
+func findExample(doc *database.Documentation, export, method, name string) *doc.Example {
+	for _, e := range findExamples(doc, export, method) {
 		if name == e.Name {
 			return e
 		}
@@ -58,9 +59,9 @@ func findExample(pdoc *doc.Package, export, method, name string) *doc.Example {
 
 var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
 
-func (s *Server) playURL(pdoc *doc.Package, id string) (string, error) {
+func (s *Server) playURL(doc *database.Documentation, id string) (string, error) {
 	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
-		if e := findExample(pdoc, m[1], m[2], m[3]); e != nil && e.Play != "" {
+		if e := findExample(doc, m[1], m[2], m[3]); e != nil && e.Play != "" {
 			req, err := http.NewRequest("POST", "https://play.golang.org/share", strings.NewReader(e.Play))
 			if err != nil {
 				return "", err

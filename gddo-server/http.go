@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
@@ -20,11 +22,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
-)
-
-const (
-	textMIMEType = "text/plain; charset=utf-8"
-	htmlMIMEType = "text/html; charset=utf-8"
 )
 
 func (s *Server) HTTPHandler() (http.Handler, error) {
@@ -61,6 +58,29 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 		return nil, err
 	}
 	return mux, nil
+}
+
+// getFlashMessage retrieves a flash message from the request and clears the flash cookie if needed.
+func getFlashMessage(resp http.ResponseWriter, req *http.Request) string {
+	c, err := req.Cookie("flash")
+	if err == http.ErrNoCookie {
+		return ""
+	}
+	http.SetCookie(resp, &http.Cookie{Name: "flash", Path: "/", MaxAge: -1, Expires: time.Now().Add(-100 * 24 * time.Hour)})
+	if err != nil {
+		return ""
+	}
+	p, err := base64.URLEncoding.DecodeString(c.Value)
+	if err != nil {
+		return ""
+	}
+	return string(p)
+}
+
+// setFlashMessage sets a cookie with the given flash message.
+func setFlashMessage(resp http.ResponseWriter, message string) {
+	value := base64.URLEncoding.EncodeToString([]byte(message))
+	http.SetCookie(resp, &http.Cookie{Name: "flash", Value: value, Path: "/"})
 }
 
 // httpEtag returns the package entity tag used in HTTP transactions.
@@ -104,12 +124,12 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return err
 	}
 
-	pkg, err := s.getPackage(ctx, importPath, version)
-	if err != nil {
-		return err
+	platform := req.Form.Get("platform")
+	if platform == "" {
+		platform = s.cfg.Platform
 	}
-	// TODO: Configurable GOOS and GOARCH
-	pdoc, err := s.db.GetDoc(ctx, pkg.ImportPath, pkg.Version, "linux", "amd64")
+
+	pkg, err := s.getPackage(ctx, platform, importPath, version)
 	if err != nil {
 		return err
 	}
@@ -122,51 +142,35 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		meta = &_meta
 	}
 
-	// The template context.
-	type Context struct {
-		Package
-		Message string
+	tctx := Package{
+		Package:         pkg,
+		Meta:            meta,
+		Message:         getFlashMessage(resp, req),
+		Platform:        platform,
+		DefaultPlatform: s.cfg.Platform,
 	}
 
-	tpkg := Package{
-		Package:       *pdoc,
-		ModulePath:    pkg.ModulePath,
-		Version:       pkg.Version,
-		CommitTime:    pkg.CommitTime,
-		LatestVersion: pkg.LatestVersion,
-		Versions:      pkg.Versions,
-		Updated:       pkg.Updated,
-		Meta:          meta,
-	}
-
-	tctx := Context{
-		Package: tpkg,
-		Message: getFlashMessage(resp, req),
-	}
-
-	switch {
-	case isView(req.URL, "versions"):
+	switch req.Form.Get("view") {
+	case "versions":
 		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &tctx)
 
-	case isView(req.URL, "imports"):
-		imports, err := s.db.Packages(ctx, pdoc.Imports)
+	case "imports":
+		pkgs, err := s.db.Packages(ctx, platform, pkg.Imports)
 		if err != nil {
 			return err
 		}
-		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &struct {
-			Context
-			Imports []database.Package
-		}{tctx, imports})
+		tctx.Imported = pkgs
+		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &tctx)
 
-	case isView(req.URL, "tools"):
+	case "tools":
 		uri := fmt.Sprintf("%s/%s", getRootURL(req), importPath)
 		return s.templates.ExecuteHTML(resp, "tools.html", http.StatusOK, &struct {
-			Context
+			Package
 			URI string
 		}{tctx, uri})
 
-	case isView(req.URL, "import-graph"):
-		// Throttle ?import-graph requests.
+	case "import-graph":
+		// Throttle import-graph requests.
 		select {
 		case s.importGraphSem <- struct{}{}:
 		default:
@@ -181,22 +185,26 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		case "2":
 			hide = database.HideStandardAll
 		}
-		pkgs, edges, err := s.db.ImportGraph(ctx, pdoc, hide)
+		pkgs, edges, err := s.db.ImportGraph(ctx, platform, pkg, hide)
 		if err != nil {
 			return err
 		}
-		b, err := renderGraph(pdoc, pkgs, edges)
+		b, err := renderGraph(pkg, pkgs, edges)
 		if err != nil {
 			return err
 		}
 		return s.templates.ExecuteHTML(resp, "graph.html", http.StatusOK, &struct {
-			Context
+			Package
 			SVG  template.HTML
 			Hide database.DepLevel
 		}{tctx, template.HTML(b), hide})
 
-	case isView(req.URL, "play"):
-		u, err := s.playURL(pdoc, req.Form.Get("play"))
+	case "play":
+		doc, err := s.db.GetDocumentation(ctx, platform, pkg.ImportPath, pkg.Version)
+		if err != nil {
+			return err
+		}
+		u, err := s.playURL(&doc, req.Form.Get("play"))
 		if err != nil {
 			return err
 		}
@@ -204,11 +212,17 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return nil
 
 	default:
-		subpkgs, err := s.db.SubPackages(ctx, pkg.ModulePath, pkg.Version, importPath)
+		doc, err := s.db.GetDocumentation(ctx, platform, pkg.ImportPath, pkg.Version)
 		if err != nil {
 			return err
 		}
-		tctx.Package.SubPackages = subpkgs
+		tctx.Documentation = doc
+
+		subpkgs, err := s.db.SubPackages(ctx, platform, pkg.ModulePath, pkg.Version, pkg.ImportPath)
+		if err != nil {
+			return err
+		}
+		tctx.SubPackages = subpkgs
 
 		etag := s.httpEtag(pkg, subpkgs, tctx.Message)
 		status := http.StatusOK
@@ -225,8 +239,9 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 	ctx, cancel := context.WithTimeout(req.Context(), s.cfg.GetTimeout)
 	defer cancel()
 
-	importPath := req.Form.Get("path")
-	err := s.fetch(ctx, importPath, proxy.LatestVersion)
+	importPath := req.Form.Get("import_path")
+	platform := req.Form.Get("platform")
+	err := s.fetch(ctx, platform, importPath, proxy.LatestVersion)
 	if err != nil {
 		// TODO: Merge this with other error handling?
 		var msg string
@@ -242,7 +257,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.db.Packages(req.Context(), stdlib.Packages())
+	pkgs, err := s.db.Packages(req.Context(), s.cfg.Platform, stdlib.Packages())
 	if err != nil {
 		return err
 	}
@@ -261,22 +276,32 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
 	}
 
+	platform := req.Form.Get("platform")
+	if platform == "" {
+		platform = s.cfg.Platform
+	}
+
 	var msg string
 	importPath, err := parseImportPath(q)
 	if err == nil {
-		_, err = s.getPackage(req.Context(), importPath, "latest")
+		_, err = s.getPackage(req.Context(), platform, importPath, "latest")
 		if err == nil || errors.Is(err, context.DeadlineExceeded) {
-			http.Redirect(resp, req, "/"+importPath, http.StatusFound)
+			redirect := "/" + importPath
+			if platform != s.cfg.Platform {
+				redirect += "?" + url.QueryEscape(platform)
+			}
+			http.Redirect(resp, req, redirect, http.StatusFound)
 			return nil
 		}
 		msg = errorMessage(err)
 	}
 
-	pkgs, err := s.db.Search(req.Context(), q)
+	pkgs, err := s.db.Search(req.Context(), platform, q)
 	if err != nil {
 		return err
 	}
 
+	// TODO: UI to choose which platform to use for searches
 	return s.templates.ExecuteHTML(resp, "search.html", http.StatusOK, struct {
 		Query   string
 		Results []database.Package
@@ -339,7 +364,7 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			if rv := recover(); rv != nil {
 				err := errors.New("handler panic")
 				logError(req, err, rv)
-				resp.Header().Set("Content-Type", textMIMEType)
+				resp.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				resp.WriteHeader(http.StatusInternalServerError)
 				io.WriteString(resp, "Internal server error.")
 			}
@@ -367,7 +392,7 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			return
 		}
 
-		resp.Header().Set("Content-Type", textMIMEType)
+		resp.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		resp.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(resp, "Internal server error.")
 		logError(req, err, nil)
