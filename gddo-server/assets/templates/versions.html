@@ -12,6 +12,6 @@
   {{template "ProjectNav" $}}
   <h3>Versions of {{.PageName}}</h3>
   <ul>{{range .Package.Versions}}
-    <li><a href="/{{$.Package.ImportPath}}@{{.}}">{{.}}</a></li>{{end}}
+    <li><a href="/{{$.Package.ImportPath}}@{{.}}">{{.}}{{if eq . $.LatestVersion}} (latest){{end}}</a></li>{{end}}
   </ul>
 {{end}}
