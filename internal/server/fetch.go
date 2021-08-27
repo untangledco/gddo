@@ -121,6 +121,8 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		return ErrNoPackages
 	}
 
+	dirsMap := map[string]bool{}
+
 	// Add packages to the database
 	for _, pkg := range src.Packages {
 		doc, err := doc.New(pkg, bctx)
@@ -128,9 +130,37 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 			log.Println(err)
 			continue
 		}
+		if doc.Name == "" {
+			// No documentation
+			continue
+		}
 		if err := s.db.AddPackage(ctx, platform, pkg.Path, modulePath, seriesPath, src.Version, src.Time, doc); err != nil {
 			log.Println(err)
 			continue
+		}
+
+		// Populate directory map
+		dir := strings.TrimPrefix(pkg.Path, src.Path)
+		dir = strings.TrimPrefix(dir, "/")
+		dirsMap[dir] = false
+		for dir != "." {
+			dir = path.Dir(dir)
+			_, ok := dirsMap[dir]
+			if ok {
+				break
+			}
+			dirsMap[dir] = true
+		}
+	}
+
+	for dir, isDir := range dirsMap {
+		if !isDir {
+			continue
+		}
+		// Add the directory to the database
+		importPath := path.Join(src.Path, dir)
+		if err := s.db.AddPackage(ctx, platform, importPath, modulePath, seriesPath, src.Version, src.Time, nil); err != nil {
+			return err
 		}
 	}
 

@@ -8,7 +8,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
-	"errors"
 	"path"
 	"strings"
 	"time"
@@ -247,15 +246,18 @@ func (db *Database) GetDocumentation(ctx context.Context, platform, importPath, 
 		}
 		defer rows.Close()
 
-		if !rows.Next() {
-			return errors.New("failed to get documentation")
-		}
-		var p []byte
-		if err := rows.Scan(&p); err != nil {
-			return err
-		}
-		if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&doc); err != nil {
-			return err
+		if rows.Next() {
+			var p []byte
+			if err := rows.Scan(&p); err != nil {
+				return err
+			}
+			if len(p) == 0 {
+				// No documentation
+				return nil
+			}
+			if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&doc); err != nil {
+				return err
+			}
 		}
 		return rows.Err()
 	})
@@ -273,47 +275,57 @@ INSERT INTO packages (
 );
 `
 
-// AddPackage adds the package to the database.
+// AddPackage adds the package to the database. pkg may be nil.
 func (db *Database) AddPackage(ctx context.Context,
 	platform, importPath, modulePath, seriesPath, version string,
 	commitTime time.Time, pkg *doc.Package) error {
 
-	doc := Documentation{
-		Filenames: pkg.Filenames,
-		Notes:     pkg.Notes,
-		Doc:       pkg.Doc,
-		Consts:    pkg.Consts,
-		Types:     pkg.Types,
-		Vars:      pkg.Vars,
-		Funcs:     pkg.Funcs,
-		Examples:  pkg.Examples,
-	}
+	imports := []string{}
+	var name, synopsis string
+	var documentation []byte
+	var score float64
+	if pkg != nil {
+		imports = pkg.Imports
+		name, synopsis = pkg.Name, pkg.Synopsis
 
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(doc); err != nil {
-		return err
-	}
+		doc := Documentation{
+			Filenames: pkg.Filenames,
+			Notes:     pkg.Notes,
+			Doc:       pkg.Doc,
+			Consts:    pkg.Consts,
+			Types:     pkg.Types,
+			Vars:      pkg.Vars,
+			Funcs:     pkg.Funcs,
+			Examples:  pkg.Examples,
+		}
 
-	// Truncate large documents.
-	if len(buf.Bytes()) > 1200000 {
-		doc.Truncated = true
-		doc.Consts = nil
-		doc.Types = nil
-		doc.Vars = nil
-		doc.Funcs = nil
-		doc.Examples = nil
-		buf.Reset()
-		if err := gob.NewEncoder(&buf).Encode(pkg); err != nil {
+		var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(doc); err != nil {
 			return err
 		}
-	}
 
-	score := searchScore(importPath, pkg)
+		// Truncate large documents.
+		if len(buf.Bytes()) > 1200000 {
+			doc.Truncated = true
+			doc.Consts = nil
+			doc.Types = nil
+			doc.Vars = nil
+			doc.Funcs = nil
+			doc.Examples = nil
+			buf.Reset()
+			if err := gob.NewEncoder(&buf).Encode(doc); err != nil {
+				return err
+			}
+		}
+
+		documentation = buf.Bytes()
+		score = searchScore(importPath, pkg)
+	}
 
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, insertPackage,
 			platform, importPath, modulePath, seriesPath, version, commitTime,
-			pq.StringArray(pkg.Imports), pkg.Name, pkg.Synopsis, score, buf.Bytes())
+			pq.StringArray(imports), name, synopsis, score, documentation)
 		if err != nil {
 			return err
 		}

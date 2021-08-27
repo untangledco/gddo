@@ -124,28 +124,6 @@ func parsePackages(zip *zip.Reader, modulePath, version string) ([]*Package, err
 			return nil, err
 		}
 
-		// Add parent packages if they don't exist
-		dir := path.Dir(pkgPath)
-		for {
-			var stop bool
-			if dir == "." {
-				dir = ""
-				stop = true
-			}
-			_, ok := pkgsMap[dir]
-			if ok {
-				break
-			}
-			importPath := path.Join(modulePath, dir)
-			pkgsMap[dir] = &Package{
-				Path: importPath,
-			}
-			if stop {
-				break
-			}
-			dir = path.Dir(dir)
-		}
-
 		// Add package if it does not exist
 		pkg, ok := pkgsMap[pkgPath]
 		if !ok {
