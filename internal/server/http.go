@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/base64"
@@ -12,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -238,14 +236,8 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 	platform := req.Form.Get("platform")
 	err := s.fetch(ctx, platform, importPath, proxy.LatestVersion)
 	if err != nil {
-		// TODO: Merge this with other error handling?
-		var msg string
-		if errors.Is(err, context.DeadlineExceeded) {
-			msg = "Timeout encountered while fetching module source code."
-		} else {
-			msg = "Internal server error."
-		}
-		setFlashMessage(resp, fmt.Sprintf("Error refreshing package: %s", msg))
+		msg, _ := errorMessage(err)
+		setFlashMessage(resp, msg)
 	}
 	http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 	return nil
@@ -288,7 +280,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 			http.Redirect(resp, req, redirect, http.StatusFound)
 			return nil
 		}
-		msg = errorMessage(err)
+		msg, _ = errorMessage(err)
 	}
 
 	pkgs, err := s.db.Search(req.Context(), platform, q)
@@ -337,28 +329,11 @@ func (rc requestCleaner) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	rc.h.ServeHTTP(w, req2)
 }
 
-func errorMessage(err error) string {
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "This package is being fetched in the background. Feel free to refresh while we're working on it."
-	case errors.Is(err, ErrMismatch):
-		return "Error fetching module: The provided import path doesn't match the module path present in the go.mod file."
-	case errors.Is(err, ErrNoPackages):
-		return "Error fetching module: The requested module doesn't contain any packages."
-	case errors.Is(err, ErrInvalidPath):
-		return "Error fetching module: Invalid import path."
-	case errors.Is(err, ErrBadVersion):
-		return "Error fetching module: Invalid version."
-	}
-	return ""
-}
-
 func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
 		defer func() {
 			if rv := recover(); rv != nil {
-				err := errors.New("handler panic")
-				logError(req, err, rv)
+				logPanic(req.URL, rv)
 				resp.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				resp.WriteHeader(http.StatusInternalServerError)
 				io.WriteString(resp, "Internal server error.")
@@ -372,34 +347,14 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			return
 		}
 
-		if errors.Is(err, proxy.ErrNotFound) ||
-			errors.Is(err, proxy.ErrInvalidArgument) ||
-			errors.Is(err, context.DeadlineExceeded) ||
-			errors.Is(err, ErrBlocked) ||
-			errors.Is(err, ErrMismatch) ||
-			errors.Is(err, ErrNoPackages) ||
-			errors.Is(err, ErrBadVersion) ||
-			errors.Is(err, ErrInvalidPath) {
-
-			msg := errorMessage(err)
-			s.templates.Execute(resp, "notfound.html",
-				struct{ Message string }{msg})
-			return
+		msg, status := errorMessage(err)
+		s.templates.ExecuteHTML(resp, "notfound.html", status,
+			struct {
+				Status  int
+				Message string
+			}{status, msg})
+		if status == http.StatusInternalServerError {
+			log.Printf("Error serving %s: %v", req.URL, err)
 		}
-
-		resp.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		resp.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(resp, "Internal server error.")
-		logError(req, err, nil)
 	}
-}
-
-func logError(req *http.Request, err error, rv interface{}) {
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "Error serving %s: %v\n", req.URL, err)
-	if rv != nil {
-		fmt.Fprintln(&buf, rv)
-		buf.Write(debug.Stack())
-	}
-	log.Print(buf.String())
 }

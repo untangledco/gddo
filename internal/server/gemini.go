@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +52,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 
 	q, err := gemini.QueryUnescape(r.URL.RawQuery)
 	if err != nil {
-		w.WriteHeader(gemini.StatusBadRequest, "Bad request")
+		w.WriteHeader(gemini.StatusBadRequest, "Bad request.")
 		return nil
 	}
 	q = strings.TrimSpace(q)
@@ -65,7 +67,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 			w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 			return nil
 		}
-		if errors.Is(err, ErrMismatch) || errors.Is(err, ErrNoPackages) {
+		if shouldDisplayError(err) {
 			// Display the error to the user
 			return err
 		}
@@ -73,8 +75,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 
 	pkgs, err := s.db.Search(ctx, platform, q)
 	if err != nil {
-		w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error")
-		return nil
+		return err
 	}
 
 	s.templates.Execute(w, "search.gmi", struct {
@@ -176,27 +177,26 @@ func geminiFileHandler(path, mediatype string) gemini.HandlerFunc {
 
 func geminiErrorHandler(fn func(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error) gemini.HandlerFunc {
 	return func(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) {
+		defer func() {
+			if rv := recover(); rv != nil {
+				logPanic(r.URL, rv)
+				w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error.")
+			}
+		}()
+
 		err := fn(ctx, w, r)
 		if err == nil {
 			return
 		}
-		switch {
-		case errors.Is(err, proxy.ErrNotFound) ||
-			errors.Is(err, proxy.ErrInvalidArgument) ||
-			errors.Is(err, ErrBlocked):
-			w.WriteHeader(gemini.StatusNotFound, "Not found")
-		case errors.Is(err, context.DeadlineExceeded):
-			w.WriteHeader(gemini.StatusTemporaryFailure, "This package is being fetched in the background. Feel free to refresh while we're working on it.")
-		case errors.Is(err, ErrMismatch):
-			w.WriteHeader(gemini.StatusNotFound, "The provided import path doesn't match the module path present in the go.mod file.")
-		case errors.Is(err, ErrNoPackages):
-			w.WriteHeader(gemini.StatusNotFound, "The requested module doesn't contain any packages.")
-		case errors.Is(err, ErrInvalidPath):
-			w.WriteHeader(gemini.StatusNotFound, "Invalid import path.")
-		case errors.Is(err, ErrBadVersion):
-			w.WriteHeader(gemini.StatusNotFound, "Invalid version.")
-		default:
-			w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error")
+		msg, httpStatus := errorMessage(err)
+		status := gemini.StatusTemporaryFailure
+		if msg == "" {
+			msg = "Not found."
+			status = gemini.StatusNotFound
+		}
+		w.WriteHeader(status, msg)
+		if httpStatus == http.StatusInternalServerError {
+			log.Printf("Error serving %s: %v", r.URL, err)
 		}
 	}
 }

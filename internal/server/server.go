@@ -12,6 +12,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
@@ -142,11 +143,14 @@ func isView(u *url.URL, key string) bool {
 }
 
 func parseImportPath(q string) (string, error) {
+	if stdlib.Contains(q) {
+		return q, nil
+	}
 	// Remove leading https://
 	q = strings.TrimPrefix(q, "https://")
 	// Remove trailing slashes
 	q = strings.TrimRight(q, "/")
-	if err := module.CheckImportPath(q); err != nil {
+	if err := module.CheckPath(q); err != nil {
 		return "", ErrInvalidPath
 	}
 	return q, nil

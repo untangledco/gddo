@@ -18,14 +18,6 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-var (
-	ErrBlocked     = errors.New("blocked import path")
-	ErrMismatch    = errors.New("import paths don't match")
-	ErrNoPackages  = errors.New("no packages found")
-	ErrBadVersion  = errors.New("invalid version")
-	ErrInvalidPath = errors.New("invalid import path")
-)
-
 // byVersion sorts versions from latest to oldest.
 type byVersion []string
 
