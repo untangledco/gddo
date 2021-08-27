@@ -197,24 +197,21 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			Hide database.DepLevel
 		}{tctx, template.HTML(b), hide})
 
-	case "play":
-		doc, err := s.db.GetDocumentation(ctx, platform, pkg.ImportPath, pkg.Version)
-		if err != nil {
-			return err
-		}
-		u, err := s.playURL(ctx, &doc, req.Form.Get("play"))
-		if err != nil {
-			return err
-		}
-		http.Redirect(resp, req, u, http.StatusMovedPermanently)
-		return nil
-
 	default:
 		doc, err := s.db.GetDocumentation(ctx, platform, pkg.ImportPath, pkg.Version)
 		if err != nil {
 			return err
 		}
 		tctx.Documentation = doc
+
+		if play := req.Form.Get("play"); play != "" {
+			u, err := s.playURL(ctx, &doc, req.Form.Get("play"))
+			if err != nil {
+				return err
+			}
+			http.Redirect(resp, req, u, http.StatusMovedPermanently)
+			return nil
+		}
 
 		subpkgs, err := s.db.SubPackages(ctx, platform, pkg.ModulePath, pkg.Version, pkg.ImportPath)
 		if err != nil {
