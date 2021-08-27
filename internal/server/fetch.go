@@ -142,6 +142,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		// Populate directory map
 		dir := strings.TrimPrefix(pkg.Path, src.Path)
 		dir = strings.TrimPrefix(dir, "/")
+		dir = path.Clean(dir)
 		dirsMap[dir] = false
 		for dir != "." {
 			dir = path.Dir(dir)
