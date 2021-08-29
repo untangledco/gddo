@@ -8,7 +8,6 @@ package httputil
 
 import (
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -63,7 +62,7 @@ func (cb *CacheBusters) Get(path string) string {
 	}
 
 	w := busterWriter{
-		Writer:    ioutil.Discard,
+		Writer:    io.Discard,
 		headerMap: make(http.Header),
 	}
 	r := &http.Request{URL: &url.URL{Path: path}, Method: "HEAD"}

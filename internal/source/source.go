@@ -7,7 +7,6 @@ import (
 	"context"
 	"go/build"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -71,7 +70,7 @@ func (pkg *Package) openFile(path string) (io.ReadCloser, error) {
 	name := strings.TrimPrefix(path, "./")
 	for _, f := range pkg.Files {
 		if f.Name == name {
-			return ioutil.NopCloser(bytes.NewReader(f.Contents)), nil
+			return io.NopCloser(bytes.NewReader(f.Contents)), nil
 		}
 	}
 	return nil, os.ErrNotExist

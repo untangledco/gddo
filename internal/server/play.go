@@ -10,7 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -74,7 +74,7 @@ func (s *Server) playURL(ctx context.Context, doc *database.Documentation, id st
 				return "", err
 			}
 			defer resp.Body.Close()
-			p, err := ioutil.ReadAll(resp.Body)
+			p, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return "", err
 			}

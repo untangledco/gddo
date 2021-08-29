@@ -9,7 +9,6 @@ package httputil_test
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -37,7 +36,7 @@ func mustParseURL(urlStr string) *url.URL {
 }
 
 func computeTestHash() string {
-	p, err := ioutil.ReadFile("static_test.go")
+	p, err := os.ReadFile("static_test.go")
 	if err != nil {
 		panic(err)
 	}

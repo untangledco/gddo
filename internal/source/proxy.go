@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"path"
 	"sort"
 	"strings"
@@ -119,7 +119,7 @@ func parsePackages(zip *zip.Reader, modulePath, version string) ([]*Package, err
 		if err != nil {
 			return nil, err
 		}
-		b, err := ioutil.ReadAll(open)
+		b, err := io.ReadAll(open)
 		if err != nil {
 			return nil, err
 		}
