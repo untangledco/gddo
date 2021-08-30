@@ -1,6 +1,6 @@
 module git.sr.ht/~sircmpwn/gddo
 
-go 1.13
+go 1.16
 
 require (
 	git.sr.ht/~adnano/go-gemini v0.2.2
