@@ -15,11 +15,9 @@ import (
 )
 
 var (
-	ErrBlocked     = errors.New("blocked import path")
-	ErrMismatch    = errors.New("import paths don't match")
-	ErrNoPackages  = errors.New("no packages found")
-	ErrBadVersion  = errors.New("invalid version")
-	ErrInvalidPath = errors.New("invalid import path")
+	ErrBlocked    = errors.New("blocked import path")
+	ErrMismatch   = errors.New("import paths don't match")
+	ErrNoPackages = errors.New("no packages found")
 )
 
 func shouldDisplayError(err error) bool {
@@ -34,9 +32,9 @@ func errorMessage(err error) (string, int) {
 		return "Error fetching module: The provided import path doesn't match the module path present in the go.mod file.", http.StatusNotFound
 	case errors.Is(err, ErrNoPackages):
 		return "Error fetching module: The requested module doesn't contain any packages.", http.StatusNotFound
-	case errors.Is(err, ErrInvalidPath):
+	case errors.Is(err, proxy.ErrInvalidPath):
 		return "Error fetching module: Invalid import path.", http.StatusNotFound
-	case errors.Is(err, ErrBadVersion):
+	case errors.Is(err, proxy.ErrInvalidVersion):
 		return "Error fetching module: Invalid version.", http.StatusNotFound
 	case errors.Is(err, platforms.ErrInvalid):
 		return "Error fetching module: Invalid platform.", http.StatusNotFound

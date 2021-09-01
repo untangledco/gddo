@@ -94,7 +94,7 @@ func TagForVersion(version string) (string, error) {
 		return "go1", nil
 	}
 	if !semver.IsValid(version) {
-		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q ", proxy.ErrInvalidArgument, version)
+		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q", proxy.ErrInvalidVersion, version)
 	}
 	goVersion := semver.Canonical(version)
 	prerelease := semver.Prerelease(goVersion)
@@ -112,7 +112,7 @@ func TagForVersion(version string) (string, error) {
 		i := finalDigitsIndex(prerelease)
 		if i >= 1 {
 			if prerelease[i-1] != '.' {
-				return "", fmt.Errorf("%w: final digits in a prerelease must follow a period", proxy.ErrInvalidArgument)
+				return "", fmt.Errorf("%w: final digits in a prerelease must follow a period", proxy.ErrInvalidVersion)
 			}
 			// Remove the dot.
 			prerelease = prerelease[:i-1] + prerelease[i:]
@@ -374,7 +374,7 @@ func semanticVersion(requestedVersion string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%w: requested version unknown: %q", proxy.ErrInvalidArgument, requestedVersion)
+	return "", fmt.Errorf("%w: requested version unknown: %q", proxy.ErrNotFound, requestedVersion)
 }
 
 // addFiles adds the files in t to z, using dirpath as the path prefix.

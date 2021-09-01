@@ -124,13 +124,13 @@ func (s *Server) parseRequestPath(ctx context.Context, path string) (string, str
 		version = importPath[at+1:]
 		importPath = importPath[:at]
 		if !semver.IsValid(version) {
-			return "", "", ErrBadVersion
+			return "", "", proxy.ErrInvalidVersion
 		}
 	}
 
 	// Check import path
 	if err := module.CheckImportPath(importPath); err != nil {
-		return "", "", ErrInvalidPath
+		return "", "", proxy.ErrInvalidPath
 	}
 
 	return importPath, version, nil
@@ -151,7 +151,7 @@ func parseImportPath(q string) (string, error) {
 	// Remove trailing slashes
 	q = strings.TrimRight(q, "/")
 	if err := module.CheckPath(q); err != nil {
-		return "", ErrInvalidPath
+		return "", proxy.ErrInvalidPath
 	}
 	return q, nil
 }

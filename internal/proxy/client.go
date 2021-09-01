@@ -31,9 +31,11 @@ var (
 	// doesn't exist, or the proxy just didn't fetch it.
 	ErrNotFetched = errors.New("not fetched by proxy")
 
-	// ErrInvalidArgument indicates that the input into the request is invalid in
-	// some way (HTTP 400).
-	ErrInvalidArgument = errors.New("invalid argument")
+	// ErrInvalidPath indicates that the requested module path is invalid.
+	ErrInvalidPath = errors.New("invalid path")
+
+	// ErrInvalidVersion indicates that the requested version is invalid.
+	ErrInvalidVersion = errors.New("invalid version")
 
 	// ErrBadModule indicates a problem with a module.
 	ErrBadModule = errors.New("bad module")
@@ -138,7 +140,7 @@ func (c *Client) escapedURL(modulePath, requestedVersion, suffix string) (string
 	}
 	escapedPath, err := module.EscapePath(modulePath)
 	if err != nil {
-		return "", fmt.Errorf("path: %v: %w", err, ErrInvalidArgument)
+		return "", fmt.Errorf("path: %v: %w", err, ErrInvalidPath)
 	}
 	if requestedVersion == LatestVersion {
 		if suffix != "info" {
@@ -148,7 +150,7 @@ func (c *Client) escapedURL(modulePath, requestedVersion, suffix string) (string
 	}
 	escapedVersion, err := module.EscapeVersion(requestedVersion)
 	if err != nil {
-		return "", fmt.Errorf("version: %v: %w", err, ErrInvalidArgument)
+		return "", fmt.Errorf("version: %v: %w", err, ErrInvalidVersion)
 	}
 	return fmt.Sprintf("%s/%s/@v/%s.%s", c.URL, escapedPath, escapedVersion, suffix), nil
 }
@@ -175,7 +177,7 @@ func (c *Client) readBody(ctx context.Context, modulePath, requestedVersion, suf
 func (c *Client) ListVersions(ctx context.Context, modulePath string) ([]string, error) {
 	escapedPath, err := module.EscapePath(modulePath)
 	if err != nil {
-		return nil, ErrInvalidArgument
+		return nil, ErrInvalidPath
 	}
 	u := fmt.Sprintf("%s/%s/@v/list", c.URL, escapedPath)
 	var versions []string
