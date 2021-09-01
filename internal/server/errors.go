@@ -42,7 +42,7 @@ func errorMessage(err error) (string, int) {
 		return "Error fetching module: Invalid platform.", http.StatusNotFound
 	case errors.Is(err, proxy.ErrNotFound), errors.Is(err, ErrBlocked):
 		// No error message
-		return "", http.StatusInternalServerError
+		return "", http.StatusNotFound
 	}
 	return "Internal server error.", http.StatusInternalServerError
 }
