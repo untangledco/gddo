@@ -10,6 +10,7 @@ package stdlib
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -164,13 +165,18 @@ func getGoRepo(version string) (*git.Repository, error) {
 		}
 		ref = plumbing.NewTagReferenceName(tag)
 	}
-	return git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:           GoRepoURL,
 		ReferenceName: ref,
 		SingleBranch:  true,
 		Depth:         1,
 		Tags:          git.NoTags,
 	})
+	if errors.Is(err, git.NoMatchingRefSpecError{}) {
+		// Not found
+		err = fmt.Errorf("%w: %v", proxy.ErrNotFound, err)
+	}
+	return repo, err
 }
 
 // getTestGoRepo gets a Go repo for testing.
