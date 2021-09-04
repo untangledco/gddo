@@ -300,10 +300,14 @@ func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func getRootURL(req *http.Request) string {
+	host := req.Host
+	proto := "http"
 	if req.TLS != nil {
-		return fmt.Sprintf("https://%s", strings.TrimSuffix(req.Host, ":443"))
+		proto = "https"
+	} else if forwardedProto := req.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
+		proto = forwardedProto
 	}
-	return fmt.Sprintf("http://%s", strings.TrimSuffix(req.Host, ":80"))
+	return fmt.Sprintf("%s://%s", proto, host)
 }
 
 func (s *Server) serveOpenSearch(resp http.ResponseWriter, req *http.Request) error {
