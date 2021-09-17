@@ -5,12 +5,111 @@
 package stdlib
 
 import (
+	"io/fs"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"golang.org/x/mod/module"
 )
+
+var (
+	testVersion    = "v0.0.0-20190904010203-89fb59e2e920"
+	testCommitTime = time.Date(2019, 9, 4, 1, 2, 3, 0, time.UTC)
+	testVersions   = []string{
+		"v1.2.1",
+		"v1.3.2",
+		"v1.4.2",
+		"v1.4.3",
+		"v1.6.0",
+		"v1.6.3",
+		"v1.6.0-beta.1",
+		"v1.8.0",
+		"v1.8.0-rc.2",
+		"v1.9.0-rc.1",
+		"v1.11.0",
+		"v1.12.0",
+		"v1.12.1",
+		"v1.12.5",
+		"v1.12.9",
+		"v1.13.0",
+		"v1.13.0-beta.1",
+		"v1.14.6",
+		"master",
+	}
+)
+
+// testDataPath returns a path corresponding to a path relative to the calling
+// test file. For convenience, rel is assumed to be "/"-delimited.
+//
+// It panics on failure.
+func testDataPath(rel string) (s string) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("unable to determine relative path")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), filepath.FromSlash(rel)))
+}
+
+// getTestGoRepo gets a Go repo for testing.
+func getTestGoRepo(version string) (*git.Repository, error) {
+	if strings.HasPrefix(version, "v0.0.0") {
+		version = "master"
+	}
+
+	fs := osfs.New(filepath.Join(testDataPath("testdata"), version))
+	repo, err := git.Init(memory.NewStorage(), fs)
+	if err != nil {
+		return nil, err
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+	// Add all files in the directory.
+	if _, err := wt.Add(""); err != nil {
+		return nil, err
+	}
+	_, err = wt.Commit("", &git.CommitOptions{All: true, Author: &object.Signature{
+		Name:  "Joe Random",
+		Email: "joe@example.com",
+		When:  testCommitTime,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	return repo, nil
+}
+
+func TestVersionForTag(t *testing.T) {
+	for _, test := range []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"go1", "v1.0.0"},
+		{"go1.9beta2", "v1.9.0-beta.2"},
+		{"go1.12", "v1.12.0"},
+		{"go1.9.7", "v1.9.7"},
+		{"go2.0", "v2.0.0"},
+		{"go1.9rc2", "v1.9.0-rc.2"},
+		{"go1.1beta", ""},
+		{"go1.0", ""},
+		{"weekly.2012-02-14", ""},
+		{"latest", "latest"},
+	} {
+		got := versionForTag(test.in)
+		if got != test.want {
+			t.Errorf("versionForTag(%q) = %q, want %q", test.in, got, test.want)
+		}
+	}
+}
 
 func TestTagForVersion(t *testing.T) {
 	for _, test := range []struct {
@@ -61,7 +160,7 @@ func TestTagForVersion(t *testing.T) {
 		},
 		{
 			name:    "master version",
-			version: TestVersion,
+			version: testVersion,
 			want:    "master",
 		},
 		{
@@ -86,98 +185,20 @@ func TestTagForVersion(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := TagForVersion(test.version)
+			got, err := tagForVersion(test.version)
 			if (err != nil) != test.wantErr {
-				t.Errorf("TagForVersion(%q) = %q, %v, wantErr %v", test.version, got, err, test.wantErr)
+				t.Errorf("tagForVersion(%q) = %q, %v, wantErr %v", test.version, got, err, test.wantErr)
 				return
 			}
 			if got != test.want {
-				t.Errorf("TagForVersion(%q) = %q, %v, wanted %q, %v", test.version, got, err, test.want, nil)
+				t.Errorf("tagForVersion(%q) = %q, %v, wanted %q, %v", test.version, got, err, test.want, nil)
 			}
 		})
 	}
 }
 
-var TestVersion = "v0.0.0-20190904010203-89fb59e2e920"
-
-func TestZip(t *testing.T) {
-	UseTestData = true
-	defer func() { UseTestData = false }()
-
+func TestSemanticVersion(t *testing.T) {
 	for _, test := range []struct {
-		ModulePath string
-		Versions   []string
-		WantFiles  map[string]bool
-	}{
-		{
-			ModulePath: "errors",
-			Versions:   []string{"v1.14.6", "v1.12.5", "v1.3.2", TestVersion},
-			WantFiles: map[string]bool{
-				"errors.go":      true,
-				"errors_test.go": true,
-			},
-		},
-		{
-			ModulePath: "builtin",
-			Versions:   []string{"v1.12.5"},
-			WantFiles: map[string]bool{
-				"builtin.go": true,
-			},
-		},
-		{
-			ModulePath: "flag",
-			Versions:   []string{"v1.12.5"},
-			WantFiles: map[string]bool{
-				"example_test.go":       true,
-				"example_value_test.go": true,
-				"export_test.go":        true,
-				"flag.go":               true,
-				"flag_test.go":          true,
-			},
-		},
-		{
-			ModulePath: "cmd",
-			Versions:   []string{"v1.14.6", TestVersion},
-		},
-	} {
-		for _, resolvedVersion := range test.Versions {
-			t.Run(resolvedVersion, func(t *testing.T) {
-				zr, gotResolvedVersion, gotTime, err := Zip(test.ModulePath, resolvedVersion)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if resolvedVersion == "master" {
-					if !module.IsPseudoVersion(gotResolvedVersion) {
-						t.Errorf("resolved version: %s is not a pseudo-version", gotResolvedVersion)
-					}
-				} else if gotResolvedVersion != resolvedVersion {
-					t.Errorf("resolved version: got %s, want %s", gotResolvedVersion, resolvedVersion)
-				}
-				if !gotTime.Equal(TestCommitTime) {
-					t.Errorf("commit time: got %s, want %s", gotTime, TestCommitTime)
-				}
-
-				wantPrefix := test.ModulePath + "@" + resolvedVersion + "/"
-				for _, f := range zr.File {
-					if !strings.HasPrefix(f.Name, wantPrefix) {
-						t.Errorf("filename %q missing prefix %q", f.Name, wantPrefix)
-						continue
-					}
-					delete(test.WantFiles, f.Name[len(wantPrefix):])
-				}
-				if len(test.WantFiles) > 0 {
-					t.Errorf("zip missing files: %v", reflect.ValueOf(test.WantFiles).MapKeys())
-				}
-			})
-		}
-	}
-}
-
-func TestZipInfo(t *testing.T) {
-	UseTestData = true
-	defer func() { UseTestData = false }()
-
-	for _, tc := range []struct {
 		requestedVersion string
 		want             string
 	}{
@@ -190,60 +211,12 @@ func TestZipInfo(t *testing.T) {
 			want:             "master",
 		},
 	} {
-		gotVersion, err := ZipInfo(tc.requestedVersion)
+		gotVersion, err := semanticVersion(testVersions, test.requestedVersion)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := tc.want; gotVersion != want {
+		if want := test.want; gotVersion != want {
 			t.Errorf("version: got %q, want %q", gotVersion, want)
-		}
-	}
-}
-
-func TestVersions(t *testing.T) {
-	UseTestData = true
-	defer func() { UseTestData = false }()
-
-	got, err := Versions()
-	if err != nil {
-		t.Fatal(err)
-	}
-	gotmap := map[string]bool{}
-	for _, g := range got {
-		gotmap[g] = true
-	}
-	wants := []string{
-		"v1.4.2",
-		"v1.9.0-rc.1",
-		"v1.11.0",
-		"v1.13.0-beta.1",
-	}
-	for _, w := range wants {
-		if !gotmap[w] {
-			t.Errorf("missing %s", w)
-		}
-	}
-}
-
-func TestVersionForTag(t *testing.T) {
-	for _, test := range []struct {
-		in, want string
-	}{
-		{"", ""},
-		{"go1", "v1.0.0"},
-		{"go1.9beta2", "v1.9.0-beta.2"},
-		{"go1.12", "v1.12.0"},
-		{"go1.9.7", "v1.9.7"},
-		{"go2.0", "v2.0.0"},
-		{"go1.9rc2", "v1.9.0-rc.2"},
-		{"go1.1beta", ""},
-		{"go1.0", ""},
-		{"weekly.2012-02-14", ""},
-		{"latest", "latest"},
-	} {
-		got := VersionForTag(test.in)
-		if got != test.want {
-			t.Errorf("VersionForTag(%q) = %q, want %q", test.in, got, test.want)
 		}
 	}
 }
@@ -270,9 +243,82 @@ func TestDirectory(t *testing.T) {
 			want:    "src/io",
 		},
 	} {
-		got := Directory(test.module, test.version)
+		got := directory(test.module, test.version)
 		if got != test.want {
-			t.Errorf("Directory(%s) = %s, want %s", test.version, got, test.want)
+			t.Errorf("directory(%s) = %s, want %s", test.version, got, test.want)
+		}
+	}
+}
+
+func TestModuleFS(t *testing.T) {
+	for _, test := range []struct {
+		ModulePath string
+		Versions   []string
+		WantFiles  map[string]bool
+	}{
+		{
+			ModulePath: "errors",
+			Versions:   []string{"v1.14.6", "v1.12.5", "v1.3.2", testVersion},
+			WantFiles: map[string]bool{
+				"errors.go":      true,
+				"errors_test.go": true,
+			},
+		},
+		{
+			ModulePath: "builtin",
+			Versions:   []string{"v1.12.5"},
+			WantFiles: map[string]bool{
+				"builtin.go": true,
+			},
+		},
+		{
+			ModulePath: "flag",
+			Versions:   []string{"v1.12.5"},
+			WantFiles: map[string]bool{
+				"example_test.go":       true,
+				"example_value_test.go": true,
+				"export_test.go":        true,
+				"flag.go":               true,
+				"flag_test.go":          true,
+			},
+		},
+		{
+			ModulePath: "cmd",
+			Versions:   []string{"v1.14.6", testVersion},
+		},
+	} {
+		for _, resolvedVersion := range test.Versions {
+			t.Run(resolvedVersion, func(t *testing.T) {
+				repo, err := getTestGoRepo(resolvedVersion)
+				if err != nil {
+					t.Fatal(err)
+				}
+				fsys, gotResolvedVersion, gotTime, err := moduleFS(repo, test.ModulePath, resolvedVersion)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resolvedVersion == "master" {
+					if !module.IsPseudoVersion(gotResolvedVersion) {
+						t.Errorf("resolved version: %s is not a pseudo-version", gotResolvedVersion)
+					}
+				} else if gotResolvedVersion != resolvedVersion {
+					t.Errorf("resolved version: got %s, want %s", gotResolvedVersion, resolvedVersion)
+				}
+				if !gotTime.Equal(testCommitTime) {
+					t.Errorf("commit time: got %s, want %s", gotTime, testCommitTime)
+				}
+
+				files, err := fs.ReadDir(fsys, ".")
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, f := range files {
+					delete(test.WantFiles, f.Name())
+				}
+				if len(test.WantFiles) > 0 {
+					t.Errorf("module missing files: %v", reflect.ValueOf(test.WantFiles).MapKeys())
+				}
+			})
 		}
 	}
 }

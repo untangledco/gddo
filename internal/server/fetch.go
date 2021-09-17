@@ -9,12 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
-	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
-	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -49,15 +48,15 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 		// Loop through potential module paths
 		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
 			err := s.fetchModule(ctx, platform, modulePath, version)
-			if errors.Is(err, proxy.ErrNotFound) ||
-				errors.Is(err, proxy.ErrInvalidPath) {
+			if errors.Is(err, internal.ErrNotFound) ||
+				errors.Is(err, internal.ErrInvalidPath) {
 				// Try parent path
 				continue
 			}
 			ch <- err
 			break
 		}
-		ch <- proxy.ErrNotFound
+		ch <- internal.ErrNotFound
 	}()
 
 	select {
@@ -87,51 +86,45 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		return err
 	}
 
-	latestVersion, err := s.source.LatestVersion(ctx, modulePath)
+	// Retrieve module
+	mod, err := s.source.Module(modulePath, version)
 	if err != nil {
 		return err
 	}
-	if version == proxy.LatestVersion {
-		version = latestVersion
+	if mod.ModulePath != modulePath {
+		// The import paths don't match
+		return ErrMismatch
 	}
-
-	versions, err := s.source.Versions(ctx, modulePath)
-	if err != nil {
-		return err
-	}
-	sort.Sort(byVersion(versions))
-
-	seriesPath, _, _ := module.SplitPathVersion(modulePath)
-	if err := s.db.PutModule(ctx, modulePath, seriesPath, latestVersion, versions); err != nil {
-		return err
-	}
-
-	// If the module documentation is already in the database, return.
-	if ok, err := s.db.HasPackage(ctx, platform, modulePath, version); err != nil {
+	// If the module documentation is already in the database, return
+	if ok, err := s.db.HasPackage(ctx, platform, mod.ModulePath, mod.Version); err != nil {
 		return err
 	} else if ok {
 		return nil
 	}
 
-	// Retrieve module source code.
-	src, err := s.source.Get(ctx, modulePath, version)
+	// Retrieve packages
+	fsys, err := s.source.Files(mod)
 	if err != nil {
 		return err
 	}
-	if src.Path != modulePath {
-		// The import paths don't match
-		return ErrMismatch
-	}
-	if len(src.Packages) == 0 {
+	pkgs, err := internal.ParsePackages(fsys)
+	if len(pkgs) == 0 {
 		// The module has no packages
 		return ErrNoPackages
+	}
+
+	// Sort versions
+	sort.Sort(byVersion(mod.Versions))
+
+	if err := s.db.PutModule(ctx, mod); err != nil {
+		return err
 	}
 
 	dirsMap := map[string]bool{}
 
 	// Add packages to the database
-	for _, pkg := range src.Packages {
-		doc, err := doc.New(pkg, bctx)
+	for _, pkg := range pkgs {
+		doc, err := doc.New(&pkg, bctx)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -140,15 +133,14 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 			// No documentation
 			continue
 		}
-		if err := s.db.AddPackage(ctx, platform, pkg.Path, modulePath, seriesPath, src.Version, src.Time, doc); err != nil {
-			log.Println(err)
-			continue
+		importPath := path.Join(mod.ModulePath, pkg.Path)
+		if err := s.db.AddPackage(ctx, platform, importPath, mod.ModulePath,
+			mod.SeriesPath, mod.Version, mod.CommitTime, doc); err != nil {
+			return err
 		}
 
 		// Populate directory map
-		dir := strings.TrimPrefix(pkg.Path, src.Path)
-		dir = strings.TrimPrefix(dir, "/")
-		dir = path.Clean(dir)
+		dir := pkg.Path
 		dirsMap[dir] = false
 		for dir != "." {
 			dir = path.Dir(dir)
@@ -165,15 +157,16 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 			continue
 		}
 		// Add the directory to the database
-		importPath := path.Join(src.Path, dir)
-		if err := s.db.AddPackage(ctx, platform, importPath, modulePath, seriesPath, src.Version, src.Time, nil); err != nil {
+		importPath := path.Join(mod.ModulePath, dir)
+		if err := s.db.AddPackage(ctx, platform, importPath, mod.ModulePath,
+			mod.SeriesPath, mod.Version, mod.CommitTime, nil); err != nil {
 			return err
 		}
 	}
 
 	// Update meta
-	if err := s.updateMeta(ctx, modulePath); err != nil {
-		log.Printf("Error fetching go-source meta for %s: %v", modulePath, err)
+	if err := s.updateMeta(ctx, mod.ModulePath); err != nil {
+		log.Printf("Error fetching go-source meta for %s: %v", mod.ModulePath, err)
 	}
 
 	return nil
@@ -181,15 +174,15 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 
 // updateMeta updates the module's go-source meta tag information.
 func (s *Server) updateMeta(ctx context.Context, modulePath string) error {
-	meta, err := source.FetchMeta(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
+	m, err := meta.FetchMeta(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
 	if err != nil {
-		if errors.Is(err, source.ErrMetaNotFound) {
+		if errors.Is(err, meta.ErrMetaNotFound) {
 			return nil
 		}
 		return err
 	}
 
-	if err := s.db.PutMeta(ctx, *meta); err != nil {
+	if err := s.db.PutMeta(ctx, *m); err != nil {
 		return err
 	}
 	return nil
@@ -210,7 +203,7 @@ func (s *Server) refreshOldest(ctx context.Context) {
 		return
 	}
 	log.Println("REFRESH", modulePath)
-	if err := s.fetchModule(ctx, s.cfg.Platform, modulePath, proxy.LatestVersion); err != nil {
+	if err := s.fetchModule(ctx, s.cfg.Platform, modulePath, internal.LatestVersion); err != nil {
 		log.Printf("Error refreshing %s: %v", modulePath, err)
 		return
 	}

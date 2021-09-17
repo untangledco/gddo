@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"runtime/debug"
 
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
-	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 )
 
 func shouldDisplayError(err error) bool {
-	return !errors.Is(err, ErrBlocked) && !errors.Is(err, proxy.ErrNotFound)
+	return !errors.Is(err, ErrBlocked) && !errors.Is(err, internal.ErrNotFound)
 }
 
 func errorMessage(err error) (string, int) {
@@ -32,13 +32,13 @@ func errorMessage(err error) (string, int) {
 		return "Error fetching module: The provided import path doesn't match the module path present in the go.mod file.", http.StatusNotFound
 	case errors.Is(err, ErrNoPackages):
 		return "Error fetching module: The requested module doesn't contain any packages.", http.StatusNotFound
-	case errors.Is(err, proxy.ErrInvalidPath):
+	case errors.Is(err, internal.ErrInvalidPath):
 		return "Error fetching module: Invalid import path.", http.StatusNotFound
-	case errors.Is(err, proxy.ErrInvalidVersion):
+	case errors.Is(err, internal.ErrInvalidVersion):
 		return "Error fetching module: Invalid version.", http.StatusNotFound
 	case errors.Is(err, platforms.ErrInvalid):
 		return "Error fetching module: Invalid platform.", http.StatusNotFound
-	case errors.Is(err, proxy.ErrNotFound), errors.Is(err, ErrBlocked):
+	case errors.Is(err, internal.ErrNotFound), errors.Is(err, ErrBlocked):
 		// No error message
 		return "", http.StatusNotFound
 	}

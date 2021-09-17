@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"git.sr.ht/~adnano/go-gemini"
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
-	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -144,7 +144,7 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 
 	importPath := r.URL.Query().Get("import_path")
 	platform := r.URL.Query().Get("platform")
-	err := s.fetch(ctx, platform, importPath, proxy.LatestVersion)
+	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
 	if err != nil {
 		return err
 	}

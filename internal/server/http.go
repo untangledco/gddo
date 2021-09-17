@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
-	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -129,7 +129,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		return err
 	}
 
-	var meta *source.Meta
+	var meta *meta.Meta
 	_meta, ok, err := s.db.GetMeta(ctx, pkg.SeriesPath)
 	if err != nil {
 		return err
@@ -233,7 +233,7 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 
 	importPath := req.Form.Get("import_path")
 	platform := req.Form.Get("platform")
-	err := s.fetch(ctx, platform, importPath, proxy.LatestVersion)
+	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
 	if err != nil {
 		msg, _ := errorMessage(err)
 		setFlashMessage(resp, msg)

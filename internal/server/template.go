@@ -27,7 +27,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
-	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -35,7 +35,7 @@ import (
 type Package struct {
 	database.Package
 	database.Documentation
-	Meta            *source.Meta
+	Meta            *meta.Meta
 	Platform        string
 	DefaultPlatform string
 	Message         string

@@ -12,25 +12,21 @@ import (
 	"strings"
 	"time"
 
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
-	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"github.com/lib/pq"
 )
 
 // Package contains package information.
 type Package struct {
-	ImportPath    string    `json:"import_path"`
-	ModulePath    string    `json:"module_path"`
-	SeriesPath    string    `json:"-"`
-	Version       string    `json:"version"`
-	CommitTime    time.Time `json:"commit_time"`
-	LatestVersion string    `json:"-"`
-	Versions      []string  `json:"-"`
-	Imports       []string  `json:"-"`
-	Name          string    `json:"name"`
-	Synopsis      string    `json:"synopsis"`
-	Updated       time.Time `json:"-"`
+	internal.Module
+	ImportPath string
+	Imports    []string
+	Name       string
+	Synopsis   string
+	Updated    time.Time
 }
 
 // Documentation contains package documentation.
@@ -98,11 +94,11 @@ UPDATE SET series_path = $2, latest_version = $3, versions = $4, updated = NOW()
 `
 
 // PutModule stores the module information in the database.
-func (db *Database) PutModule(ctx context.Context, modulePath, seriesPath, latestVersion string,
-	versions []string) error {
+func (db *Database) PutModule(ctx context.Context, mod *internal.Module) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, insertModule,
-			modulePath, seriesPath, latestVersion, pq.StringArray(versions))
+			mod.ModulePath, mod.SeriesPath, mod.LatestVersion,
+			pq.StringArray(mod.Versions))
 		if err != nil {
 			return err
 		}
@@ -652,7 +648,7 @@ WHERE project_root = $1;
 `
 
 // GetMeta returns go-source meta tag information for the given module.
-func (db *Database) GetMeta(ctx context.Context, modulePath string) (meta source.Meta, ok bool, err error) {
+func (db *Database) GetMeta(ctx context.Context, modulePath string) (meta meta.Meta, ok bool, err error) {
 	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, gosourceQuery, modulePath)
 		if err != nil {
@@ -684,7 +680,7 @@ dir_fmt = $4, file_fmt = $5, line_fmt = $6;
 `
 
 // PutMeta puts go-source meta tag information in the database.
-func (db *Database) PutMeta(ctx context.Context, meta source.Meta) error {
+func (db *Database) PutMeta(ctx context.Context, meta meta.Meta) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, insertGosource,
 			meta.ProjectRoot, meta.ProjectName, meta.ProjectURL,

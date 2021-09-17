@@ -9,7 +9,7 @@ import (
 	"go/token"
 	"sort"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/source"
+	"git.sr.ht/~sircmpwn/gddo/internal"
 )
 
 // Package is the documentation for an entire package.
@@ -81,7 +81,7 @@ type Pos struct {
 }
 
 // New computes documentation for the given package.
-func New(src *source.Package, ctx *build.Context) (*Package, error) {
+func New(src *internal.Package, ctx *build.Context) (*Package, error) {
 	ctx = src.BuildContext(ctx)
 
 	// Sort and index files

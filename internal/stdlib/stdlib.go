@@ -8,30 +8,136 @@
 package stdlib
 
 import (
-	"archive/zip"
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
-	"os"
+	"io/fs"
 	"path"
-	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"github.com/go-git/go-billy/v5/osfs"
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
+
+// Contains reports whether the given import path is part of the Go standard library.
+func Contains(path string) bool {
+	_, ok := stdlibPackagesMap[path]
+	return ok
+}
+
+// Packages returns a list of packages in the standard library.
+func Packages() []string {
+	return stdlibPackages
+}
+
+// Module fetches a standard library module from the Go git repository.
+func Module(modulePath, version string) (*internal.Module, error) {
+	versions, err := versions()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get version info
+	version, err = semanticVersion(versions, version)
+	if err != nil {
+		return nil, err
+	}
+	latestVersion, err := semanticVersion(versions, internal.LatestVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	seriesPath, _, _ := module.SplitPathVersion(modulePath)
+
+	return &internal.Module{
+		ModulePath:    modulePath,
+		SeriesPath:    seriesPath,
+		Version:       version,
+		LatestVersion: latestVersion,
+		Versions:      versions,
+	}, nil
+}
+
+// Files returns the standard library module's files.
+func Files(mod *internal.Module) (fs.FS, error) {
+	repo, err := getGoRepo(mod.Version)
+	if err != nil {
+		return nil, err
+	}
+	// Get filesystem
+	fsys, version, commitTime, err := moduleFS(repo, mod.ModulePath, mod.Version)
+	if err != nil {
+		return nil, err
+	}
+	// Update version
+	mod.Version = version
+	mod.CommitTime = commitTime
+	return fsys, nil
+}
+
+const (
+	goRepoURL = "https://go.googlesource.com/go"
+)
+
+// getGoRepo returns a repo object for the Go repo at version.
+func getGoRepo(version string) (*git.Repository, error) {
+	var ref plumbing.ReferenceName
+	if version == "master" {
+		ref = plumbing.HEAD
+	} else {
+		tag, err := tagForVersion(version)
+		if err != nil {
+			return nil, err
+		}
+		ref = plumbing.NewTagReferenceName(tag)
+	}
+	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+		URL:           goRepoURL,
+		ReferenceName: ref,
+		SingleBranch:  true,
+		Depth:         1,
+		Tags:          git.NoTags,
+	})
+	if errors.Is(err, git.NoMatchingRefSpecError{}) {
+		// Not found
+		err = fmt.Errorf("%w: %v", internal.ErrNotFound, err)
+	}
+	return repo, err
+}
+
+// versions returns all the versions of Go that are relevant to the discovery
+// site. These are all release versions (tags of the forms "goN.N" and
+// "goN.N.N", where N is a number) and beta or rc versions (tags of the forms
+// "goN.NbetaN" and "goN.N.NbetaN", and similarly for "rc" replacing "beta").
+func versions() ([]string, error) {
+	re := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+		URLs: []string{goRepoURL},
+	})
+	refs, err := re.List(&git.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	var refNames []plumbing.ReferenceName
+	for _, r := range refs {
+		refNames = append(refNames, r.Name())
+	}
+
+	var versions []string
+	for _, name := range refNames {
+		v := versionForTag(name.Short())
+		if v != "" {
+			versions = append(versions, v)
+		}
+	}
+	return versions, nil
+}
 
 var (
 	// Regexp for matching go tags. The groups are:
@@ -43,7 +149,7 @@ var (
 	tagRegexp = regexp.MustCompile(`^go(\d+\.\d+)(\.\d+|)((beta|rc)(\d+))?$`)
 )
 
-// VersionForTag returns the semantic version for the Go tag, or "" if
+// versionForTag returns the semantic version for the Go tag, or "" if
 // tag doesn't correspond to a Go release or beta tag. In special cases,
 // when the tag specified is either `latest` or `master` it will return the tag.
 // Examples:
@@ -53,7 +159,7 @@ var (
 //   "go1.9rc2" => "v1.9.0-rc.2"
 //   "latest" => "latest"
 //   "master" => "master"
-func VersionForTag(tag string) string {
+func versionForTag(tag string) string {
 	// Special cases for go1.
 	if tag == "go1" {
 		return "v1.0.0"
@@ -81,10 +187,10 @@ func VersionForTag(tag string) string {
 	return version
 }
 
-// TagForVersion returns the Go standard library repository tag corresponding
+// tagForVersion returns the Go standard library repository tag corresponding
 // to semver. The Go tags differ from standard semantic versions in a few ways,
 // such as beginning with "go" instead of "v".
-func TagForVersion(version string) (string, error) {
+func tagForVersion(version string) (string, error) {
 	// Special case: master => master
 	if version == "master" || strings.HasPrefix(version, "v0.0.0") {
 		return "master", nil
@@ -95,7 +201,7 @@ func TagForVersion(version string) (string, error) {
 		return "go1", nil
 	}
 	if !semver.IsValid(version) {
-		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q", proxy.ErrInvalidVersion, version)
+		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q", internal.ErrInvalidVersion, version)
 	}
 	goVersion := semver.Canonical(version)
 	prerelease := semver.Prerelease(goVersion)
@@ -113,7 +219,7 @@ func TagForVersion(version string) (string, error) {
 		i := finalDigitsIndex(prerelease)
 		if i >= 1 {
 			if prerelease[i-1] != '.' {
-				return "", fmt.Errorf("%w: final digits in a prerelease must follow a period", proxy.ErrInvalidVersion)
+				return "", fmt.Errorf("%w: final digits in a prerelease must follow a period", internal.ErrInvalidVersion)
 			}
 			// Remove the dot.
 			prerelease = prerelease[:i-1] + prerelease[i:]
@@ -139,221 +245,13 @@ func finalDigitsIndex(s string) int {
 	return i + 1
 }
 
-const (
-	GoRepoURL       = "https://go.googlesource.com/go"
-	GoSourceRepoURL = GoRepoURL
-)
-
-// UseTestData determines whether to really clone the Go repo, or use
-// stripped-down versions of the repo from the testdata directory.
-var UseTestData = false
-
-// TestCommitTime is the time used for all commits when UseTestData is true.
-var (
-	TestCommitTime = time.Date(2019, 9, 4, 1, 2, 3, 0, time.UTC)
-)
-
-// getGoRepo returns a repo object for the Go repo at version.
-func getGoRepo(version string) (*git.Repository, error) {
-	var ref plumbing.ReferenceName
-	if version == "master" {
-		ref = plumbing.HEAD
-	} else {
-		tag, err := TagForVersion(version)
-		if err != nil {
-			return nil, err
-		}
-		ref = plumbing.NewTagReferenceName(tag)
-	}
-	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL:           GoRepoURL,
-		ReferenceName: ref,
-		SingleBranch:  true,
-		Depth:         1,
-		Tags:          git.NoTags,
-	})
-	if errors.Is(err, git.NoMatchingRefSpecError{}) {
-		// Not found
-		err = fmt.Errorf("%w: %v", proxy.ErrNotFound, err)
-	}
-	return repo, err
-}
-
-// getTestGoRepo gets a Go repo for testing.
-func getTestGoRepo(version string) (*git.Repository, error) {
-	if strings.HasPrefix(version, "v0.0.0") {
-		version = "master"
-	}
-
-	fs := osfs.New(filepath.Join(testDataPath("testdata"), version))
-	repo, err := git.Init(memory.NewStorage(), fs)
-	if err != nil {
-		return nil, err
-	}
-	wt, err := repo.Worktree()
-	if err != nil {
-		return nil, err
-	}
-	// Add all files in the directory.
-	if _, err := wt.Add(""); err != nil {
-		return nil, err
-	}
-	_, err = wt.Commit("", &git.CommitOptions{All: true, Author: &object.Signature{
-		Name:  "Joe Random",
-		Email: "joe@example.com",
-		When:  TestCommitTime,
-	}})
-	if err != nil {
-		return nil, err
-	}
-	return repo, nil
-}
-
-// testDataPath returns a path corresponding to a path relative to the calling
-// test file. For convenience, rel is assumed to be "/"-delimited.
-//
-// It panics on failure.
-func testDataPath(rel string) (s string) {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		panic("unable to determine relative path")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(filename), filepath.FromSlash(rel)))
-}
-
-// Versions returns all the versions of Go that are relevant to the discovery
-// site. These are all release versions (tags of the forms "goN.N" and
-// "goN.N.N", where N is a number) and beta or rc versions (tags of the forms
-// "goN.NbetaN" and "goN.N.NbetaN", and similarly for "rc" replacing "beta").
-func Versions() ([]string, error) {
-	var refNames []plumbing.ReferenceName
-	if UseTestData {
-		refNames = testRefs
-	} else {
-		re := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
-			URLs: []string{GoRepoURL},
-		})
-		refs, err := re.List(&git.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for _, r := range refs {
-			refNames = append(refNames, r.Name())
-		}
-	}
-
-	var versions []string
-	for _, name := range refNames {
-		v := VersionForTag(name.Short())
-		if v != "" {
-			versions = append(versions, v)
-		}
-	}
-	return versions, nil
-}
-
-// Directory returns the directory of the standard library relative to the repo root.
-func Directory(modulePath, version string) string {
-	if semver.Compare(version, "v1.4.0-beta.1") >= 0 ||
-		version == "master" || strings.HasPrefix(version, "v0.0.0") {
-		return path.Join("src", modulePath)
-	}
-	// For versions older than v1.4.0-beta.1, the stdlib is in src/pkg.
-	return path.Join("src/pkg", modulePath)
-}
-
-// ZipInfo returns the proxy .info information for the module std.
-func ZipInfo(requestedVersion string) (resolvedVersion string, err error) {
-	resolvedVersion, err = semanticVersion(requestedVersion)
-	if err != nil {
-		return "", err
-	}
-	return resolvedVersion, nil
-}
-
-// Zip creates a module zip representing the given standard library module at the
-// given version (which must have been resolved with ZipInfo) and returns a
-// reader to it. It also returns the time of the commit for that version. The
-// zip file is in module form, with each path prefixed by ModuleName + "@" +
-// version.
-//
-// Normally, Zip returns the resolved version it was passed. If the resolved
-// version is "master", Zip returns a semantic version for the branch.
-//
-// Zip reads the standard library at the Go repository tag corresponding to to
-// the given semantic version.
-func Zip(modulePath, resolvedVersion string) (_ *zip.Reader, resolvedVersion2 string, commitTime time.Time, err error) {
-	// This code taken, with modifications, from
-	// https://github.com/shurcooL/play/blob/master/256/moduleproxy/std/std.go.
-
-	var repo *git.Repository
-	if UseTestData {
-		repo, err = getTestGoRepo(resolvedVersion)
-	} else {
-		repo, err = getGoRepo(resolvedVersion)
-	}
-	if err != nil {
-		return nil, "", time.Time{}, err
-	}
-	var buf bytes.Buffer
-	z := zip.NewWriter(&buf)
-	head, err := repo.Head()
-	if err != nil {
-		return nil, "", time.Time{}, err
-	}
-	commit, err := repo.CommitObject(head.Hash())
-	if err != nil {
-		return nil, "", time.Time{}, err
-	}
-	if resolvedVersion == "master" {
-		resolvedVersion = newPseudoVersion("v0.0.0", commit.Committer.When, commit.Hash)
-	}
-	root, err := repo.TreeObject(commit.TreeHash)
-	if err != nil {
-		return nil, "", time.Time{}, err
-	}
-	prefixPath := modulePath + "@" + resolvedVersion
-	// Add files from the stdlib directory.
-	libdir := root
-	for _, d := range strings.Split(Directory(modulePath, resolvedVersion), "/") {
-		libdir, err = subTree(repo, libdir, d)
-		if err != nil {
-			return nil, "", time.Time{}, err
-		}
-	}
-	if err := addFiles(z, repo, libdir, prefixPath, true); err != nil {
-		return nil, "", time.Time{}, err
-	}
-	if err := z.Close(); err != nil {
-		return nil, "", time.Time{}, err
-	}
-	br := bytes.NewReader(buf.Bytes())
-	zr, err := zip.NewReader(br, int64(br.Len()))
-	if err != nil {
-		return nil, "", time.Time{}, err
-	}
-	if resolvedVersion == "master" {
-		resolvedVersion = newPseudoVersion("v0.0.0", commit.Committer.When, commit.Hash)
-	}
-	return zr, resolvedVersion, commit.Committer.When, nil
-}
-
-func newPseudoVersion(version string, commitTime time.Time, hash plumbing.Hash) string {
-	return fmt.Sprintf("%s-%s-%s", version, commitTime.Format("20060102150405"), hash.String()[:12])
-}
-
 // semanticVersion returns the semantic version corresponding to the
 // requestedVersion. If the requested version is "master", then semanticVersion
 // returns it as is. The branch name is resolved to a proper pseudo-version in
-// Zip.
-func semanticVersion(requestedVersion string) (string, error) {
+// moduleZip.
+func semanticVersion(knownVersions []string, requestedVersion string) (string, error) {
 	if requestedVersion == "master" {
 		return "master", nil
-	}
-
-	knownVersions, err := Versions()
-	if err != nil {
-		return "", err
 	}
 
 	switch requestedVersion {
@@ -380,109 +278,72 @@ func semanticVersion(requestedVersion string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%w: requested version unknown: %q", proxy.ErrNotFound, requestedVersion)
+	return "", fmt.Errorf("%w: requested version unknown: %q", internal.ErrNotFound, requestedVersion)
 }
 
-// addFiles adds the files in t to z, using dirpath as the path prefix.
-// If recursive is true, it also adds the files in all subdirectories.
-func addFiles(z *zip.Writer, r *git.Repository, t *object.Tree, dirpath string, recursive bool) error {
-	for _, e := range t.Entries {
-		if strings.HasPrefix(e.Name, ".") || strings.HasPrefix(e.Name, "_") {
-			continue
-		}
-		if e.Name == "go.mod" {
-			// ignore; we'll synthesize our own
-			continue
-		}
-		switch e.Mode {
-		case filemode.Regular, filemode.Executable:
-			blob, err := r.BlobObject(e.Hash)
-			if err != nil {
-				return err
-			}
-			src, err := blob.Reader()
-			if err != nil {
-				return err
-			}
-			if err := writeZipFile(z, path.Join(dirpath, e.Name), src); err != nil {
-				_ = src.Close()
-				return err
-			}
-			if err := src.Close(); err != nil {
-				return err
-			}
-		case filemode.Dir:
-			if !recursive || e.Name == "testdata" {
-				continue
-			}
-			t2, err := r.TreeObject(e.Hash)
-			if err != nil {
-				return err
-			}
-			if err := addFiles(z, r, t2, path.Join(dirpath, e.Name), recursive); err != nil {
-				return err
-			}
-		}
+// directory returns the directory of the standard library relative to the repo root.
+func directory(modulePath, version string) string {
+	if semver.Compare(version, "v1.4.0-beta.1") >= 0 ||
+		version == "master" || strings.HasPrefix(version, "v0.0.0") {
+		return path.Join("src", modulePath)
 	}
-	return nil
+	// For versions older than v1.4.0-beta.1, the stdlib is in src/pkg.
+	return path.Join("src/pkg", modulePath)
 }
 
-func writeZipFile(z *zip.Writer, pathname string, src io.Reader) error {
-	dst, err := z.Create(pathname)
+// moduleFS returns a filesystem containing the source code of the given
+// standard library module at the given version. It also returns the time of
+// the commit for that version.
+//
+// Normally, moduleFS returns the resolved version it was passed. If the resolved
+// version is "master", moduleFS returns a semantic version for the branch.
+//
+// moduleFS reads the standard library at the Go repository tag corresponding to to
+// the given semantic version.
+func moduleFS(repo *git.Repository, modulePath, resolvedVersion string) (_ fs.FS, resolvedVersion2 string, commitTime time.Time, err error) {
+	head, err := repo.Head()
 	if err != nil {
-		return err
+		return nil, "", time.Time{}, err
 	}
-	_, err = io.Copy(dst, src)
-	return err
+	commit, err := repo.CommitObject(head.Hash())
+	if err != nil {
+		return nil, "", time.Time{}, err
+	}
+	if resolvedVersion == "master" {
+		resolvedVersion = newPseudoVersion("v0.0.0", commit.Committer.When, commit.Hash)
+	}
+	root, err := repo.TreeObject(commit.TreeHash)
+	if err != nil {
+		return nil, "", time.Time{}, err
+	}
+	// Add files from the stdlib directory.
+	tree := root
+	for _, d := range strings.Split(directory(modulePath, resolvedVersion), "/") {
+		tree, err = subTree(repo, tree, d)
+		if err != nil {
+			return nil, "", time.Time{}, err
+		}
+	}
+	// Create filesystem
+	fsys, err := newGitFS(repo, tree)
+	if err != nil {
+		return nil, "", time.Time{}, err
+	}
+	return fsys, resolvedVersion, commit.Committer.When, nil
 }
 
 // subTree looks non-recursively for a directory with the given name in t,
 // and returns the corresponding tree.
-// If a directory with such name doesn't exist in t, it returns os.ErrNotExist.
+// If a directory with such name doesn't exist in t, it returns fs.ErrNotExist.
 func subTree(r *git.Repository, t *object.Tree, name string) (*object.Tree, error) {
 	for _, e := range t.Entries {
 		if e.Name == name {
 			return r.TreeObject(e.Hash)
 		}
 	}
-	return nil, os.ErrNotExist
+	return nil, fs.ErrNotExist
 }
 
-// Contains reports whether the given import path is part of the Go standard library.
-func Contains(path string) bool {
-	_, ok := stdlibPackagesMap[path]
-	return ok
-}
-
-// Packages returns a list of packages in the standard library.
-func Packages() []string {
-	return stdlibPackages
-}
-
-// References used for Versions during testing.
-var testRefs = []plumbing.ReferenceName{
-	// stdlib versions
-	"refs/tags/go1.2.1",
-	"refs/tags/go1.3.2",
-	"refs/tags/go1.4.2",
-	"refs/tags/go1.4.3",
-	"refs/tags/go1.6",
-	"refs/tags/go1.6.3",
-	"refs/tags/go1.6beta1",
-	"refs/tags/go1.8",
-	"refs/tags/go1.8rc2",
-	"refs/tags/go1.9rc1",
-	"refs/tags/go1.11",
-	"refs/tags/go1.12",
-	"refs/tags/go1.12.1",
-	"refs/tags/go1.12.5",
-	"refs/tags/go1.12.9",
-	"refs/tags/go1.13",
-	"refs/tags/go1.13beta1",
-	"refs/tags/go1.14.6",
-	"refs/heads/master",
-	// other tags
-	"refs/changes/56/93156/13",
-	"refs/tags/release.r59",
-	"refs/tags/weekly.2011-04-13",
+func newPseudoVersion(version string, commitTime time.Time, hash plumbing.Hash) string {
+	return fmt.Sprintf("%s-%s-%s", version, commitTime.Format("20060102150405"), hash.String()[:12])
 }

@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
-	"git.sr.ht/~sircmpwn/gddo/internal/source"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
@@ -24,7 +24,7 @@ type Server struct {
 	httpClient *http.Client
 	templates  TemplateMap
 	statusSVG  http.Handler
-	source     source.Source
+	source     internal.Source
 	fetches    sync.Map
 
 	// A semaphore to limit concurrent ?import-graph requests.
@@ -36,11 +36,9 @@ func New(cfg *Config) (*Server, error) {
 	httpClient := &http.Client{
 		Timeout: cfg.RequestTimeout,
 	}
-	proxySource := &source.ProxySource{
-		Client: proxy.Client{
-			URL:        cfg.GoProxy,
-			HTTPClient: httpClient,
-		},
+	proxySource := &proxy.Source{
+		URL:        cfg.GoProxy,
+		HTTPClient: httpClient,
 	}
 
 	db, err := database.New(cfg.Database)
@@ -107,7 +105,7 @@ func (s *Server) _getPackage(ctx context.Context, platform, importPath, version 
 			return database.Package{}, err
 		}
 		if !ok {
-			return database.Package{}, proxy.ErrNotFound
+			return database.Package{}, internal.ErrNotFound
 		}
 	}
 	return pkg, nil
@@ -117,7 +115,7 @@ func (s *Server) _getPackage(ctx context.Context, platform, importPath, version 
 func (s *Server) parseRequestPath(ctx context.Context, path string) (string, string, error) {
 	// Trim leading forward slash
 	importPath := strings.TrimPrefix(path, "/")
-	version := proxy.LatestVersion
+	version := internal.LatestVersion
 
 	// Use version if present
 	at := strings.Index(importPath, "@")
@@ -125,13 +123,13 @@ func (s *Server) parseRequestPath(ctx context.Context, path string) (string, str
 		version = importPath[at+1:]
 		importPath = importPath[:at]
 		if !semver.IsValid(version) {
-			return "", "", proxy.ErrInvalidVersion
+			return "", "", internal.ErrInvalidVersion
 		}
 	}
 
 	// Check import path
 	if err := module.CheckImportPath(importPath); err != nil {
-		return "", "", proxy.ErrInvalidPath
+		return "", "", internal.ErrInvalidPath
 	}
 
 	return importPath, version, nil
@@ -146,7 +144,7 @@ func parseImportPath(q string) (string, error) {
 	// Remove trailing slashes
 	q = strings.TrimRight(q, "/")
 	if err := module.CheckPath(q); err != nil {
-		return "", proxy.ErrInvalidPath
+		return "", internal.ErrInvalidPath
 	}
 	return q, nil
 }
