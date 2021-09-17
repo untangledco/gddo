@@ -108,7 +108,7 @@ func (s *Server) httpEtag(
 }
 
 func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error {
-	if isView(req.URL, "status.svg") {
+	if req.URL.RawQuery == "status.svg" {
 		s.statusSVG.ServeHTTP(resp, req)
 		return nil
 	}

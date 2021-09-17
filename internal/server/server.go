@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -136,12 +135,6 @@ func (s *Server) parseRequestPath(ctx context.Context, path string) (string, str
 	}
 
 	return importPath, version, nil
-}
-
-func isView(u *url.URL, key string) bool {
-	rq := u.RawQuery
-	return strings.HasPrefix(rq, key) &&
-		(len(rq) == len(key) || rq[len(key)] == '=' || rq[len(key)] == '&')
 }
 
 func parseImportPath(q string) (string, error) {
