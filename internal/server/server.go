@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
@@ -25,6 +26,7 @@ type Server struct {
 	templates  TemplateMap
 	statusSVG  http.Handler
 	source     source.Source
+	fetches    sync.Map
 
 	// A semaphore to limit concurrent ?import-graph requests.
 	importGraphSem chan struct{}

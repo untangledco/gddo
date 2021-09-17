@@ -62,13 +62,26 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 
 	select {
 	case err := <-ch:
+		if err == context.DeadlineExceeded {
+			return ErrFetching
+		}
 		return err
 	case <-ctx.Done():
-		return ctx.Err()
+		return ErrFetching
 	}
 }
 
 func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version string) error {
+	type fetchKey struct {
+		platform, modulePath, version string
+	}
+
+	key := fetchKey{platform, modulePath, version}
+	if _, ok := s.fetches.LoadOrStore(key, struct{}{}); ok {
+		return ErrFetching
+	}
+	defer s.fetches.Delete(key)
+
 	bctx, err := platforms.Parse(platform)
 	if err != nil {
 		return err

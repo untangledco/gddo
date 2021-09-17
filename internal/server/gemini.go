@@ -63,7 +63,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 	importPath, err := parseImportPath(q)
 	if err == nil {
 		_, err = s.getPackage(ctx, platform, importPath, "latest")
-		if err == nil || errors.Is(err, context.DeadlineExceeded) {
+		if err == nil || errors.Is(err, ErrFetching) {
 			w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 			return nil
 		}

@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -18,6 +17,7 @@ var (
 	ErrBlocked    = errors.New("blocked import path")
 	ErrMismatch   = errors.New("import paths don't match")
 	ErrNoPackages = errors.New("no packages found")
+	ErrFetching   = errors.New("fetch in progress")
 )
 
 func shouldDisplayError(err error) bool {
@@ -26,7 +26,7 @@ func shouldDisplayError(err error) bool {
 
 func errorMessage(err error) (string, int) {
 	switch {
-	case errors.Is(err, context.DeadlineExceeded):
+	case errors.Is(err, ErrFetching):
 		return "This package is being fetched in the background. Feel free to refresh while we're working on it.", http.StatusNotFound
 	case errors.Is(err, ErrMismatch):
 		return "Error fetching module: The provided import path doesn't match the module path present in the go.mod file.", http.StatusNotFound

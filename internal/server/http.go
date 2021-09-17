@@ -271,7 +271,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	importPath, err := parseImportPath(q)
 	if err == nil {
 		_, err = s.getPackage(req.Context(), platform, importPath, "latest")
-		if err == nil || errors.Is(err, context.DeadlineExceeded) {
+		if err == nil || errors.Is(err, ErrFetching) {
 			redirect := "/" + importPath
 			if platform != s.cfg.Platform {
 				redirect += "?" + url.QueryEscape(platform)
