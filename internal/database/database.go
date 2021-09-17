@@ -87,10 +87,10 @@ func (db *Database) withTx(ctx context.Context, opts *sql.TxOptions,
 
 const insertModule = `
 INSERT INTO modules (
-	module_path, series_path, latest_version, versions, updated
-) VALUES ( $1, $2, $3, $4, NOW() )
+	module_path, series_path, latest_version, versions, deprecated, updated
+) VALUES ( $1, $2, $3, $4, $5, NOW() )
 ON CONFLICT (module_path) DO
-UPDATE SET series_path = $2, latest_version = $3, versions = $4, updated = NOW();
+UPDATE SET series_path = $2, latest_version = $3, versions = $4, deprecated = $5, updated = NOW();
 `
 
 // PutModule stores the module information in the database.
@@ -98,7 +98,7 @@ func (db *Database) PutModule(ctx context.Context, mod *internal.Module) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, insertModule,
 			mod.ModulePath, mod.SeriesPath, mod.LatestVersion,
-			pq.StringArray(mod.Versions))
+			pq.StringArray(mod.Versions), mod.Deprecated)
 		if err != nil {
 			return err
 		}
@@ -178,7 +178,7 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]Packa
 
 const packageQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions,
+	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions, m.deprecated,
 	p.imports, p.name, p.synopsis, m.updated
 FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3 AND m.module_path = p.module_path;
@@ -186,7 +186,7 @@ WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3 AND m.module_pat
 
 const packageLatestQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions,
+	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions, m.deprecated,
 	p.imports, p.name, p.synopsis, m.updated
 FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path AND p.version = m.latest_version;
@@ -211,7 +211,7 @@ func (db *Database) GetPackage(ctx context.Context, platform, importPath, versio
 
 		if rows.Next() {
 			if err := rows.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
-				&pkg.CommitTime, &pkg.LatestVersion, (*pq.StringArray)(&pkg.Versions),
+				&pkg.CommitTime, &pkg.LatestVersion, (*pq.StringArray)(&pkg.Versions), &pkg.Deprecated,
 				(*pq.StringArray)(&pkg.Imports), &pkg.Name, &pkg.Synopsis, &pkg.Updated); err != nil {
 				return err
 			}

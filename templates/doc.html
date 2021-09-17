@@ -10,6 +10,10 @@
 {{define "Body"}}
   {{template "ProjectNav" $}}
 
+  {{if .Deprecated}}
+    <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
+  {{end}}
+
   {{if .Name}}
     <h2 id="pkg-overview">{{if .IsCommand}}Command{{else}}package{{end}} {{.PageName}}</h2>
     {{if not .IsCommand}}<p><code>import "{{.ImportPath}}"</code>{{end}}
@@ -24,7 +28,7 @@
     {{end}}
 
     {{if .Truncated}}
-      <div class="alert">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
+      <div class="alert alert-warning">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
     {{end}}
 
     <ul class="list-unstyled">

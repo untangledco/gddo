@@ -72,6 +72,15 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 	if path := modfile.ModulePath(mod); path != "" {
 		modulePath = path
 	}
+	// Get deprecated
+	var deprecated string
+	latestMod, err := s.getMod(modulePath, latest.Version)
+	if err != nil {
+		return nil, err
+	}
+	if file, err := modfile.ParseLax("go.mod", latestMod, nil); err == nil {
+		deprecated = file.Module.Deprecated
+	}
 
 	seriesPath, _, _ := module.SplitPathVersion(modulePath)
 
@@ -82,6 +91,7 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 		CommitTime:    info.Time,
 		LatestVersion: latest.Version,
 		Versions:      versions,
+		Deprecated:    deprecated,
 	}, nil
 }
 

@@ -43,6 +43,7 @@ type Module struct {
 	CommitTime    time.Time
 	LatestVersion string
 	Versions      []string
+	Deprecated    string
 }
 
 // Package represents a package.

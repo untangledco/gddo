@@ -6,6 +6,7 @@ CREATE TABLE modules (
 	series_path text NOT NULL,
 	latest_version text NOT NULL,
 	versions text[],
+	deprecated text NOT NULL,
 	updated timestamptz NOT NULL,
 	PRIMARY KEY (module_path)
 );
