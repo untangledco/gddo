@@ -3,7 +3,6 @@ package stdlib
 import (
 	"io"
 	"io/fs"
-	"log"
 	"path"
 	"time"
 
@@ -71,7 +70,6 @@ func (fsys *gitFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	for i := 0; i < len(tree.Entries); i++ {
 		file, err := newGitFile(fsys.repo, tree.Entries[i])
 		if err != nil {
-			log.Println("failed to create file", tree.Entries[i].Name)
 			return nil, err
 		}
 		es[i] = file
