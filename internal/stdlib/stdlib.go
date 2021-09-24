@@ -334,14 +334,14 @@ func moduleFS(repo *git.Repository, modulePath, resolvedVersion string) (_ fs.FS
 
 // subTree looks non-recursively for a directory with the given name in t,
 // and returns the corresponding tree.
-// If a directory with such name doesn't exist in t, it returns fs.ErrNotExist.
+// If a directory with such name doesn't exist in t, it returns ErrNotFound.
 func subTree(r *git.Repository, t *object.Tree, name string) (*object.Tree, error) {
 	for _, e := range t.Entries {
 		if e.Name == name {
 			return r.TreeObject(e.Hash)
 		}
 	}
-	return nil, fs.ErrNotExist
+	return nil, internal.ErrNotFound
 }
 
 func newPseudoVersion(version string, commitTime time.Time, hash plumbing.Hash) string {
