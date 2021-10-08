@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -85,8 +84,7 @@ func (s *Server) getPackage(ctx context.Context, platform, importPath, version s
 	case r := <-ch:
 		return r.pkg, r.err
 	case <-ctx.Done():
-		log.Printf("Serving %q as not found after timeout getting doc", importPath)
-		return database.Package{}, ctx.Err()
+		return database.Package{}, ErrFetching
 	}
 }
 
