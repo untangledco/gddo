@@ -5,7 +5,7 @@ package platforms
 import (
 	"errors"
 	"go/build"
-	"path"
+	"strings"
 )
 
 var ErrInvalid = errors.New("Invalid platform.")
@@ -21,7 +21,11 @@ func Parse(platform string) (*build.Context, error) {
 	if !Valid(platform) {
 		return nil, ErrInvalid
 	}
-	goos, goarch := path.Split(platform)
+	cut := strings.Index(platform, "/")
+	if cut == -1 {
+		return nil, ErrInvalid
+	}
+	goos, goarch := platform[:cut], platform[cut+1:]
 	return &build.Context{
 		GOOS:   goos,
 		GOARCH: goarch,
