@@ -131,7 +131,7 @@ func versions() ([]string, error) {
 
 	var versions []string
 	for _, name := range refNames {
-		v := versionForTag(name.Short())
+		v := VersionForTag(name.Short())
 		if v != "" {
 			versions = append(versions, v)
 		}
@@ -149,7 +149,7 @@ var (
 	tagRegexp = regexp.MustCompile(`^go(\d+\.\d+)(\.\d+|)((beta|rc)(\d+))?$`)
 )
 
-// versionForTag returns the semantic version for the Go tag, or "" if
+// VersionForTag returns the semantic version for the Go tag, or "" if
 // tag doesn't correspond to a Go release or beta tag. In special cases,
 // when the tag specified is either `latest` or `master` it will return the tag.
 // Examples:
@@ -159,7 +159,7 @@ var (
 //   "go1.9rc2" => "v1.9.0-rc.2"
 //   "latest" => "latest"
 //   "master" => "master"
-func versionForTag(tag string) string {
+func VersionForTag(tag string) string {
 	// Special cases for go1.
 	if tag == "go1" {
 		return "v1.0.0"
