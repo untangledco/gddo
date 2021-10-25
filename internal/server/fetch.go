@@ -17,15 +17,12 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// byVersion sorts versions from latest to oldest.
-type byVersion []string
-
-func (v byVersion) Len() int           { return len(v) }
-func (v byVersion) Less(i, j int) bool { return semver.Compare(v[i], v[j]) > 0 }
-func (v byVersion) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, platform, importPath, version string) error {
+	if s.db == nil {
+		return nil
+	}
+
 	// Check if the module is blocked
 	blocked, err := s.db.IsBlocked(ctx, importPath)
 	if err != nil {
@@ -61,9 +58,6 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 
 	select {
 	case err := <-ch:
-		if err == context.DeadlineExceeded {
-			return ErrFetching
-		}
 		return err
 	case <-ctx.Done():
 		return ErrFetching
@@ -107,14 +101,16 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	if err != nil {
 		return err
 	}
-	pkgs, err := internal.ParsePackages(fsys)
-	if len(pkgs) == 0 {
+	dirs, err := internal.ParseDirectories(fsys)
+	if len(dirs) == 0 {
 		// The module has no packages
 		return ErrNoPackages
 	}
 
 	// Sort versions
-	sort.Sort(byVersion(mod.Versions))
+	sort.Slice(mod.Versions, func(i, j int) bool {
+		return semver.Compare(mod.Versions[i], mod.Versions[j]) > 0
+	})
 
 	if err := s.db.PutModule(ctx, mod); err != nil {
 		return err
@@ -123,8 +119,8 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	dirsMap := map[string]bool{}
 
 	// Add packages to the database
-	for _, pkg := range pkgs {
-		doc, err := doc.New(&pkg, bctx)
+	for _, dir := range dirs {
+		doc, err := doc.New(&dir, bctx)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -133,14 +129,15 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 			// No documentation
 			continue
 		}
-		importPath := path.Join(mod.ModulePath, pkg.Path)
+		importPath := path.Join(mod.ModulePath, dir.Path)
 		if err := s.db.AddPackage(ctx, platform, importPath, mod.ModulePath,
-			mod.SeriesPath, mod.Version, mod.CommitTime, doc); err != nil {
+			mod.SeriesPath, mod.Version, mod.CommitTime,
+			doc.Name, doc.Synopsis, doc.Imports, &doc.Documentation); err != nil {
 			return err
 		}
 
 		// Populate directory map
-		dir := pkg.Path
+		dir := dir.Path
 		dirsMap[dir] = false
 		for dir != "." {
 			dir = path.Dir(dir)
@@ -159,7 +156,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		// Add the directory to the database
 		importPath := path.Join(mod.ModulePath, dir)
 		if err := s.db.AddPackage(ctx, platform, importPath, mod.ModulePath,
-			mod.SeriesPath, mod.Version, mod.CommitTime, nil); err != nil {
+			mod.SeriesPath, mod.Version, mod.CommitTime, "", "", nil, nil); err != nil {
 			return err
 		}
 	}

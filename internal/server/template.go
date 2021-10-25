@@ -24,7 +24,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
@@ -33,14 +33,14 @@ import (
 
 // Represents a package for use in templates.
 type Package struct {
-	database.Package
-	database.Documentation
+	internal.Package
+	doc.Documentation
 	Meta            *meta.Meta
 	Platform        string
 	DefaultPlatform string
 	Message         string
-	Imported        []database.Package
-	SubPackages     []database.Package
+	Imported        []internal.Package
+	SubPackages     []internal.Package
 	allExamples     []*texample
 }
 

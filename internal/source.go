@@ -35,7 +35,7 @@ type Source interface {
 	Files(module *Module) (fs.FS, error)
 }
 
-// Module represents a module.
+// Module contains module information.
 type Module struct {
 	ModulePath    string
 	SeriesPath    string
@@ -46,8 +46,18 @@ type Module struct {
 	Deprecated    string
 }
 
-// Package represents a package.
+// Package contains package information.
 type Package struct {
+	Module
+	ImportPath string
+	Imports    []string
+	Name       string
+	Synopsis   string
+	Updated    time.Time
+}
+
+// Directory represents a package directory.
+type Directory struct {
 	Path  string
 	Files []File
 }
@@ -59,8 +69,8 @@ type File struct {
 }
 
 // BuildContext transforms the provided build context into one suitable
-// for use with this package.
-func (pkg *Package) BuildContext(ctx *build.Context) *build.Context {
+// for use with this directory.
+func (dir *Directory) BuildContext(ctx *build.Context) *build.Context {
 	safeCopy := *ctx
 	ctx = &safeCopy
 	ctx.JoinPath = path.Join
@@ -68,25 +78,25 @@ func (pkg *Package) BuildContext(ctx *build.Context) *build.Context {
 	ctx.SplitPathList = func(list string) []string { return strings.Split(list, ":") }
 	ctx.IsDir = func(path string) bool { return path == "." }
 	ctx.HasSubdir = func(root, dir string) (rel string, ok bool) { return "", false }
-	ctx.ReadDir = pkg.readDir
-	ctx.OpenFile = pkg.openFile
+	ctx.ReadDir = dir.readDir
+	ctx.OpenFile = dir.openFile
 	return ctx
 }
 
-func (pkg *Package) readDir(name string) ([]os.FileInfo, error) {
+func (dir *Directory) readDir(name string) ([]os.FileInfo, error) {
 	if name != "." {
 		return nil, os.ErrNotExist
 	}
-	fis := make([]os.FileInfo, len(pkg.Files))
-	for i := range pkg.Files {
-		fis[i] = fileInfo{&pkg.Files[i]}
+	fis := make([]os.FileInfo, len(dir.Files))
+	for i := range dir.Files {
+		fis[i] = fileInfo{&dir.Files[i]}
 	}
 	return fis, nil
 }
 
-func (pkg *Package) openFile(path string) (io.ReadCloser, error) {
+func (dir *Directory) openFile(path string) (io.ReadCloser, error) {
 	name := strings.TrimPrefix(path, "./")
-	for _, f := range pkg.Files {
+	for _, f := range dir.Files {
 		if f.Name == name {
 			return io.NopCloser(bytes.NewReader(f.Contents)), nil
 		}
@@ -103,9 +113,9 @@ func (fi fileInfo) ModTime() time.Time { return time.Time{} }
 func (fi fileInfo) IsDir() bool        { return false }
 func (fi fileInfo) Sys() interface{}   { return nil }
 
-// ParsePackages parses packages from the provided filesystem.
-func ParsePackages(fsys fs.FS) ([]Package, error) {
-	pkgsMap := map[string]*Package{}
+// ParseDirectories parses package directories from the given filesystem.
+func ParseDirectories(fsys fs.FS) ([]Directory, error) {
+	dirsMap := map[string]*Directory{}
 	fs.WalkDir(fsys, ".", func(fpath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -116,8 +126,8 @@ func ParsePackages(fsys fs.FS) ([]Package, error) {
 			if ignoredByGoTool(fpath) || isVendored(fpath) {
 				return fs.SkipDir
 			}
-			// Add the package to the map
-			pkgsMap[fpath] = &Package{
+			// Add the directory to the map
+			dirsMap[fpath] = &Directory{
 				Path: fpath,
 			}
 			return nil
@@ -133,8 +143,8 @@ func ParsePackages(fsys fs.FS) ([]Package, error) {
 		if err != nil {
 			return err
 		}
-		pkg := pkgsMap[path.Dir(fpath)]
-		pkg.Files = append(pkg.Files, File{
+		dir := dirsMap[path.Dir(fpath)]
+		dir.Files = append(dir.Files, File{
 			Name:     d.Name(),
 			Contents: b,
 		})
@@ -142,17 +152,17 @@ func ParsePackages(fsys fs.FS) ([]Package, error) {
 		return nil
 	})
 
-	// Sort packages by path
-	var pkgs []Package
-	for _, pkg := range pkgsMap {
-		pkgs = append(pkgs, *pkg)
+	// Sort directories by path
+	var dirs []Directory
+	for _, dir := range dirsMap {
+		dirs = append(dirs, *dir)
 	}
-	sort.Sort(byPath(pkgs))
+	sort.Sort(byPath(dirs))
 
-	return pkgs, nil
+	return dirs, nil
 }
 
-type byPath []Package
+type byPath []Directory
 
 func (s byPath) Len() int           { return len(s) }
 func (s byPath) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }

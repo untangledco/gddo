@@ -12,7 +12,6 @@ import (
 
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -62,7 +61,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 
 	importPath, err := parseImportPath(q)
 	if err == nil {
-		_, err = s.getPackage(ctx, platform, importPath, "latest")
+		_, err = s.load(ctx, platform, importPath, internal.LatestVersion, 0)
 		if err == nil || errors.Is(err, ErrFetching) {
 			w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 			return nil
@@ -73,14 +72,14 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 		}
 	}
 
-	pkgs, err := s.db.Search(ctx, platform, q)
+	pkgs, err := s.search(ctx, platform, q)
 	if err != nil {
 		return err
 	}
 
 	s.templates.Execute(w, "search.gmi", struct {
 		Query   string
-		Results []database.Package
+		Results []internal.Package
 	}{q, pkgs})
 	return nil
 }
@@ -96,44 +95,32 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		platform = s.cfg.Platform
 	}
 
-	pkg, err := s.getPackage(ctx, platform, importPath, version)
+	mode := NeedDocumentation
+	switch r.URL.Query().Get("view") {
+	case "versions":
+	case "imports":
+		mode |= NeedImports
+	default:
+		mode |= NeedSubPackages
+	}
+
+	pkg, err := s.load(ctx, platform, importPath, version, NeedDocumentation)
 	if err != nil {
 		return err
 	}
 
-	// The template context.
-	tctx := Package{
-		Package:         pkg,
-		Platform:        platform,
-		DefaultPlatform: s.cfg.Platform,
-	}
+	pkg.Platform = platform
+	pkg.DefaultPlatform = s.cfg.Platform
 
 	switch r.URL.Query().Get("view") {
 	case "versions":
-		s.templates.Execute(w, "versions.gmi", &tctx)
+		s.templates.Execute(w, "versions.gmi", &pkg)
 
 	case "imports":
-		pkgs, err := s.db.Packages(ctx, platform, pkg.Imports)
-		if err != nil {
-			return err
-		}
-		tctx.Imported = pkgs
-		s.templates.Execute(w, "imports.gmi", &tctx)
+		s.templates.Execute(w, "imports.gmi", &pkg)
 
 	default:
-		doc, err := s.db.GetDocumentation(ctx, platform, pkg.ImportPath, pkg.Version)
-		if err != nil {
-			return err
-		}
-		tctx.Documentation = doc
-
-		subpkgs, err := s.db.SubPackages(ctx, platform, pkg.ModulePath, pkg.Version, pkg.ImportPath)
-		if err != nil {
-			return err
-		}
-		tctx.SubPackages = subpkgs
-
-		s.templates.Execute(w, "doc.gmi", &tctx)
+		s.templates.Execute(w, "doc.gmi", &pkg)
 	}
 	return nil
 }
@@ -153,12 +140,12 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 }
 
 func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error {
-	pkgs, err := s.db.Packages(ctx, s.cfg.Platform, stdlib.Packages())
+	pkgs, err := s.packages(ctx, s.cfg.Platform, stdlib.Packages())
 	if err != nil {
 		return err
 	}
 	return s.templates.Execute(w, "std.gmi", struct {
-		Packages []database.Package
+		Packages []internal.Package
 	}{pkgs})
 }
 

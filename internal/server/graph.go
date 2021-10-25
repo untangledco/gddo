@@ -13,10 +13,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal"
 )
 
-func renderGraph(pkg database.Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {
+func renderGraph(pkg internal.Package, pkgs []internal.Package, edges [][2]int) ([]byte, error) {
 	var in, out bytes.Buffer
 
 	fmt.Fprintf(&in, "digraph %s { \n", pkg.Name)

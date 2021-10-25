@@ -17,7 +17,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -80,8 +79,8 @@ func setFlashMessage(resp http.ResponseWriter, message string) {
 
 // httpEtag returns the package entity tag used in HTTP transactions.
 func (s *Server) httpEtag(
-	pkg database.Package,
-	subpkgs []database.Package,
+	pkg internal.Package,
+	subpkgs []internal.Package,
 	msg string,
 ) string {
 	b := make([]byte, 0, 128)
@@ -124,45 +123,39 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		platform = s.cfg.Platform
 	}
 
-	pkg, err := s.getPackage(ctx, platform, importPath, version)
+	mode := NeedDocumentation | NeedMeta
+	switch req.Form.Get("view") {
+	case "versions":
+	case "imports":
+		mode |= NeedImports
+	case "tools":
+	case "import-graph":
+	default:
+		mode |= NeedSubPackages
+	}
+
+	pkg, err := s.load(ctx, platform, importPath, version, mode)
 	if err != nil {
 		return err
 	}
 
-	var meta *meta.Meta
-	_meta, ok, err := s.db.GetMeta(ctx, pkg.SeriesPath)
-	if err != nil {
-		return err
-	} else if ok {
-		meta = &_meta
-	}
-
-	tctx := Package{
-		Package:         pkg,
-		Meta:            meta,
-		Message:         getFlashMessage(resp, req),
-		Platform:        platform,
-		DefaultPlatform: s.cfg.Platform,
-	}
+	pkg.Message = getFlashMessage(resp, req)
+	pkg.Platform = platform
+	pkg.DefaultPlatform = s.cfg.Platform
 
 	switch req.Form.Get("view") {
 	case "versions":
-		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &tctx)
+		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &pkg)
 
 	case "imports":
-		pkgs, err := s.db.Packages(ctx, platform, pkg.Imports)
-		if err != nil {
-			return err
-		}
-		tctx.Imported = pkgs
-		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &tctx)
+		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &pkg)
 
 	case "tools":
 		uri := fmt.Sprintf("%s/%s", getRootURL(req), importPath)
 		return s.templates.ExecuteHTML(resp, "tools.html", http.StatusOK, &struct {
 			Package
 			URI string
-		}{tctx, uri})
+		}{pkg, uri})
 
 	case "import-graph":
 		// Throttle import-graph requests.
@@ -180,11 +173,11 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		case "2":
 			hide = database.HideStandardAll
 		}
-		pkgs, edges, err := s.db.ImportGraph(ctx, platform, pkg, hide)
+		pkgs, edges, err := s.importGraph(ctx, platform, pkg.Package, hide)
 		if err != nil {
 			return err
 		}
-		b, err := renderGraph(pkg, pkgs, edges)
+		b, err := renderGraph(pkg.Package, pkgs, edges)
 		if err != nil {
 			return err
 		}
@@ -192,17 +185,11 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			Package
 			SVG  template.HTML
 			Hide database.DepLevel
-		}{tctx, template.HTML(b), hide})
+		}{pkg, template.HTML(b), hide})
 
 	default:
-		doc, err := s.db.GetDocumentation(ctx, platform, pkg.ImportPath, pkg.Version)
-		if err != nil {
-			return err
-		}
-		tctx.Documentation = doc
-
 		if play := req.Form.Get("play"); play != "" {
-			u, err := s.playURL(ctx, &doc, req.Form.Get("play"))
+			u, err := s.playURL(ctx, &pkg.Documentation, req.Form.Get("play"))
 			if err != nil {
 				return err
 			}
@@ -210,20 +197,14 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return nil
 		}
 
-		subpkgs, err := s.db.SubPackages(ctx, platform, pkg.ModulePath, pkg.Version, pkg.ImportPath)
-		if err != nil {
-			return err
-		}
-		tctx.SubPackages = subpkgs
-
-		etag := s.httpEtag(pkg, subpkgs, tctx.Message)
+		etag := s.httpEtag(pkg.Package, pkg.SubPackages, pkg.Message)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified
 		}
 
 		resp.Header().Set("Etag", etag)
-		return s.templates.ExecuteHTML(resp, "doc.html", status, &tctx)
+		return s.templates.ExecuteHTML(resp, "doc.html", status, &pkg)
 	}
 }
 
@@ -243,12 +224,12 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.db.Packages(req.Context(), s.cfg.Platform, stdlib.Packages())
+	pkgs, err := s.packages(req.Context(), s.cfg.Platform, stdlib.Packages())
 	if err != nil {
 		return err
 	}
 	return s.templates.ExecuteHTML(resp, "std.html", http.StatusOK, struct {
-		Packages []database.Package
+		Packages []internal.Package
 	}{pkgs})
 }
 
@@ -270,7 +251,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	var msg string
 	importPath, err := parseImportPath(q)
 	if err == nil {
-		_, err = s.getPackage(req.Context(), platform, importPath, "latest")
+		_, err = s.load(req.Context(), platform, importPath, internal.LatestVersion, 0)
 		if err == nil || errors.Is(err, ErrFetching) {
 			redirect := "/" + importPath
 			if platform != s.cfg.Platform {
@@ -282,7 +263,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		msg, _ = errorMessage(err)
 	}
 
-	pkgs, err := s.db.Search(req.Context(), platform, q)
+	pkgs, err := s.search(req.Context(), platform, q)
 	if err != nil {
 		return err
 	}
@@ -290,7 +271,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	// TODO: UI to choose which platform to use for searches
 	return s.templates.ExecuteHTML(resp, "search.html", http.StatusOK, struct {
 		Query   string
-		Results []database.Package
+		Results []internal.Package
 		Message string
 	}{q, pkgs, msg})
 }

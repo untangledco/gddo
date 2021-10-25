@@ -12,19 +12,25 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 )
 
-// Package is the documentation for an entire package.
-type Package struct {
-	Name      string
-	Imports   []string
+// Documentation is the documentation for an entire package.
+type Documentation struct {
 	Filenames []string
 	Notes     map[string][]*Note
 	Doc       string
-	Synopsis  string
 	Consts    []*Value
 	Types     []*Type
 	Vars      []*Value
 	Funcs     []*Func
 	Examples  []*Example
+	Truncated bool
+}
+
+// Package contains package documentation plus some extra information.
+type Package struct {
+	Documentation
+	Name     string
+	Synopsis string
+	Imports  []string
 }
 
 type Note struct {
@@ -81,7 +87,7 @@ type Pos struct {
 }
 
 // New computes documentation for the given package.
-func New(src *internal.Package, ctx *build.Context) (*Package, error) {
+func New(src *internal.Directory, ctx *build.Context) (*Package, error) {
 	ctx = src.BuildContext(ctx)
 
 	// Sort and index files
@@ -132,16 +138,18 @@ func New(src *internal.Package, ctx *build.Context) (*Package, error) {
 	}
 
 	return &Package{
-		Name:      pkg.Name,
-		Imports:   pkg.Imports,
-		Filenames: pkg.Filenames,
-		Notes:     b.notes(pkg.Notes),
-		Doc:       pkg.Doc,
-		Synopsis:  doc.Synopsis(pkg.Doc),
-		Consts:    b.values(pkg.Consts),
-		Types:     b.types(pkg.Types),
-		Vars:      b.values(pkg.Vars),
-		Funcs:     b.funcs(pkg.Funcs),
-		Examples:  b.examples(pkg.Examples),
+		Documentation: Documentation{
+			Filenames: pkg.Filenames,
+			Notes:     b.notes(pkg.Notes),
+			Doc:       pkg.Doc,
+			Consts:    b.values(pkg.Consts),
+			Types:     b.types(pkg.Types),
+			Vars:      b.values(pkg.Vars),
+			Funcs:     b.funcs(pkg.Funcs),
+			Examples:  b.examples(pkg.Examples),
+		},
+		Name:     pkg.Name,
+		Synopsis: doc.Synopsis(pkg.Doc),
+		Imports:  pkg.Imports,
 	}, nil
 }

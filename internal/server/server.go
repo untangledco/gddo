@@ -2,14 +2,15 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/modcache"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/module"
@@ -35,24 +36,36 @@ func New(cfg *Config) (*Server, error) {
 	httpClient := &http.Client{
 		Timeout: cfg.RequestTimeout,
 	}
-	proxySource := &proxy.Source{
-		URL:        cfg.GoProxy,
-		HTTPClient: httpClient,
+
+	var source internal.Source
+	if cfg.GoProxy != "" {
+		source = &proxy.Source{
+			URL:        cfg.GoProxy,
+			HTTPClient: httpClient,
+		}
+	} else {
+		source = &modcache.Source{
+			FS: os.DirFS(cfg.GoModCache),
+		}
 	}
 
-	db, err := database.New(cfg.Database)
-	if err != nil {
-		return nil, fmt.Errorf("open database: %v", err)
-	}
-
-	return &Server{
+	s := &Server{
 		cfg:            cfg,
-		db:             db,
 		httpClient:     httpClient,
-		source:         proxySource,
+		source:         source,
 		templates:      make(TemplateMap),
 		importGraphSem: make(chan struct{}, 10),
-	}, nil
+	}
+
+	if cfg.Database != "" {
+		db, err := database.New(cfg.Database)
+		if err != nil {
+			return nil, err
+		}
+		s.db = db
+	}
+
+	return s, nil
 }
 
 // Background refreshes modules in the background.
@@ -60,53 +73,6 @@ func (s *Server) Background(ctx context.Context) {
 	for range time.Tick(s.cfg.RefreshInterval) {
 		s.refreshOldest(ctx)
 	}
-}
-
-// getPackage gets the package from the database. If the package is not in the
-// database, it is fetched from the module proxy.
-func (s *Server) getPackage(ctx context.Context, platform, importPath, version string) (database.Package, error) {
-	type result struct {
-		pkg database.Package
-		err error
-	}
-
-	ch := make(chan result, 1)
-	go func() {
-		ctx := context.Background()
-		pkg, err := s._getPackage(ctx, platform, importPath, version)
-		ch <- result{pkg, err}
-	}()
-
-	ctx, cancel := context.WithTimeout(ctx, s.cfg.FetchTimeout)
-	defer cancel()
-
-	select {
-	case r := <-ch:
-		return r.pkg, r.err
-	case <-ctx.Done():
-		return database.Package{}, ErrFetching
-	}
-}
-
-func (s *Server) _getPackage(ctx context.Context, platform, importPath, version string) (database.Package, error) {
-	pkg, ok, err := s.db.GetPackage(ctx, platform, importPath, version)
-	if err != nil {
-		return database.Package{}, err
-	}
-	if !ok {
-		err := s.fetch(ctx, platform, importPath, version)
-		if err != nil {
-			return database.Package{}, err
-		}
-		pkg, ok, err = s.db.GetPackage(ctx, platform, importPath, version)
-		if err != nil {
-			return database.Package{}, err
-		}
-		if !ok {
-			return database.Package{}, internal.ErrNotFound
-		}
-	}
-	return pkg, nil
 }
 
 // Parses the provided request path, returning the package import path and version.
@@ -145,4 +111,34 @@ func parseImportPath(q string) (string, error) {
 		return "", internal.ErrInvalidPath
 	}
 	return q, nil
+}
+
+func (s *Server) search(ctx context.Context, platform, q string) ([]internal.Package, error) {
+	if s.db == nil {
+		// Search requires a database
+		return nil, nil
+	}
+	return s.db.Search(ctx, platform, q)
+}
+
+func (s *Server) packages(ctx context.Context, platform string, importPaths []string) ([]internal.Package, error) {
+	if s.db == nil {
+		// Populate import paths only
+		var packages []internal.Package
+		for _, importPath := range importPaths {
+			packages = append(packages, internal.Package{
+				ImportPath: importPath,
+			})
+		}
+		return packages, nil
+	}
+	return s.db.Packages(ctx, platform, importPaths)
+}
+
+func (s *Server) importGraph(ctx context.Context, platform string, pkg internal.Package, level database.DepLevel) ([]internal.Package, [][2]int, error) {
+	if s.db == nil {
+		// Import graph requires a database
+		return nil, nil, nil
+	}
+	return s.db.ImportGraph(ctx, platform, pkg, level)
 }
