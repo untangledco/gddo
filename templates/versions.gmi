@@ -1,3 +1,5 @@
-# Versions of {{.PageName}}
+# Versions of this package
 {{range .Versions}}
 => /{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{$.PlatformParam}} {{.}}{{if eq . $.LatestVersion}} (latest){{end}}{{end}}
+{{if ne .ImportPath .ModulePath}}
+=> /{{$.ModulePath}}{{$.View "versions"}} View all versions of this module{{end}}

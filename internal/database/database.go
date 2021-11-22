@@ -194,6 +194,19 @@ func (db *Database) GetPackage(ctx context.Context, platform, importPath, versio
 			}
 			pkg.ImportPath = importPath
 			ok = true
+			if pkg.ImportPath != pkg.ModulePath {
+				i := 0
+				for j := 0; j < len(pkg.Versions); j++ {
+					if ok, err := db.HasPackage(ctx, platform, pkg.ImportPath, pkg.Versions[j]); err != nil {
+						return err
+					} else if !ok {
+						continue
+					}
+					pkg.Versions[i] = pkg.Versions[j]
+					i++
+				}
+				pkg.Versions = pkg.Versions[:i]
+			}
 		}
 		return rows.Err()
 	})
