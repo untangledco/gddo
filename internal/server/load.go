@@ -5,7 +5,6 @@ import (
 	"errors"
 	"path"
 	"strings"
-	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
@@ -132,7 +131,6 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 	var pkg Package
 	pkg.Module = *mod
 	pkg.ImportPath = importPath
-	pkg.Updated = time.Now()
 
 	if mode&NeedDocumentation != 0 {
 		fsys, err := s.source.Files(mod)

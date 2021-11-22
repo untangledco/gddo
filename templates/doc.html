@@ -116,8 +116,8 @@
     Published <span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span>
     <span class="text-muted">|</span>
     Platform: {{.Platform}}
-    <span class="text-muted">|</span>
-    Updated <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
+    {{if not .Updated.IsZero}}<span class="text-muted">|</span>
+    Updated <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>{{end}}
     </p>
     <form class="inline-form" method="POST" action="/-/refresh">
       <input type="hidden" name="import_path" value="{{.ImportPath}}">
