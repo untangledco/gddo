@@ -16,7 +16,7 @@ Click on "tools" for package owners at the bottom of the page.
 
 First install the dependencies:
 
-- Go 1.13 or above
+- Go 1.16 or above
 - PostgreSQL 13
 - Graphviz (required for import graphs)
 
