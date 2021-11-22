@@ -87,7 +87,7 @@ type Pos struct {
 }
 
 // New computes documentation for the given package.
-func New(src *internal.Directory, ctx *build.Context) (*Package, error) {
+func New(modulePath string, src *internal.Directory, ctx *build.Context) (*Package, error) {
 	ctx = src.BuildContext(ctx)
 
 	// Sort and index files
@@ -120,7 +120,7 @@ func New(src *internal.Directory, ctx *build.Context) (*Package, error) {
 	}
 
 	mode := doc.Mode(0)
-	if src.Path == "builtin" {
+	if modulePath == "builtin" {
 		mode |= doc.AllDecls
 	}
 

@@ -160,7 +160,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		if err != nil {
 			return Package{}, err
 		}
-		pdoc, err := doc.New(dir, dir.BuildContext(bctx))
+		pdoc, err := doc.New(mod.ModulePath, dir, dir.BuildContext(bctx))
 		if err != nil {
 			return Package{}, err
 		}

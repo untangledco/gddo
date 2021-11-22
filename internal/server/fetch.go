@@ -120,7 +120,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 
 	// Add packages to the database
 	for _, dir := range dirs {
-		doc, err := doc.New(&dir, bctx)
+		doc, err := doc.New(mod.ModulePath, &dir, bctx)
 		if err != nil {
 			log.Println(err)
 			continue
