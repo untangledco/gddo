@@ -28,7 +28,7 @@ CREATE TABLE packages (
 	name text NOT NULL,
 	synopsis text NOT NULL,
 	score float NOT NULL,
-	imports text[] NOT NULL,
+	imports text[],
 	documentation bytea NOT NULL,
 	searchtext tsvector GENERATED ALWAYS AS (
 		to_tsvector('english', "name") ||
