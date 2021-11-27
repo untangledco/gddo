@@ -47,21 +47,22 @@ CREATE INDEX packages_searchtext_idx ON packages USING GIN (searchtext);
 -- Used to retrieve all the packages in a series
 CREATE INDEX packages_series_path_idx ON packages (series_path);
 
+-- Used to store project information
+CREATE TABLE projects (
+	module_path text NOT NULL,
+	name text NOT NULL,
+	url text NOT NULL,
+	dir_fmt text NOT NULL,
+	file_fmt text NOT NULL,
+	line_fmt text NOT NULL,
+	PRIMARY KEY (module_path),
+	FOREIGN KEY (module_path) REFERENCES modules (module_path) ON DELETE CASCADE
+);
+
 -- Stores blocked import paths
 CREATE TABLE blocklist (
 	import_path text NOT NULL,
 	PRIMARY KEY (import_path)
-);
-
--- Stores go-source meta tag data
-CREATE TABLE gosource (
-	project_root text NOT NULL,
-	project_name text NOT NULL,
-	project_url text NOT NULL,
-	dir_fmt text NOT NULL,
-	file_fmt text NOT NULL,
-	line_fmt text NOT NULL,
-	PRIMARY KEY (project_root)
 );
 
 COMMIT;

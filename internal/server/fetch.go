@@ -161,25 +161,25 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		}
 	}
 
-	// Update meta
-	if err := s.updateMeta(ctx, mod.ModulePath); err != nil {
-		log.Printf("Error fetching go-source meta for %s: %v", mod.ModulePath, err)
+	// Update project information
+	if err := s.updateProject(ctx, mod.ModulePath); err != nil {
+		log.Printf("Error fetching project information for %s: %v", mod.ModulePath, err)
 	}
 
 	return nil
 }
 
-// updateMeta updates the module's go-source meta tag information.
-func (s *Server) updateMeta(ctx context.Context, modulePath string) error {
-	m, err := meta.FetchMeta(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
+// updateProject updates the module's project information.
+func (s *Server) updateProject(ctx context.Context, modulePath string) error {
+	project, err := meta.Fetch(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
 	if err != nil {
-		if errors.Is(err, meta.ErrMetaNotFound) {
+		if errors.Is(err, meta.ErrNoInfo) {
 			return nil
 		}
 		return err
 	}
 
-	if err := s.db.PutMeta(ctx, *m); err != nil {
+	if err := s.db.PutProject(ctx, *project); err != nil {
 		return err
 	}
 	return nil

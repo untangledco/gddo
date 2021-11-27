@@ -123,7 +123,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		platform = s.cfg.Platform
 	}
 
-	mode := NeedDocumentation | NeedMeta
+	mode := NeedDocumentation | NeedProject
 	switch req.Form.Get("view") {
 	case "versions":
 	case "imports":

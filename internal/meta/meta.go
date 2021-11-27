@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"path"
 	"strings"
@@ -13,96 +12,50 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
-var ErrMetaNotFound = errors.New("no go-source meta tag found")
+var ErrNoInfo = errors.New("no project information found")
 
-// Meta represents the values in a go-source meta tag.
-type Meta struct {
-	ProjectRoot string
-	ProjectName string
-	ProjectURL  string
-	DirFmt      string
-	FileFmt     string
-	LineFmt     string
+// Project contains information about a project.
+type Project struct {
+	ModulePath string
+	Name       string
+	URL        string
+	DirFmt     string
+	FileFmt    string
+	LineFmt    string
 }
 
 // Dir returns a link to the provided directory.
-func (m *Meta) Dir(dir string) string {
-	dir, slashDir := processDir(dir)
-	return fmt.Sprintf(m.DirFmt, dir, slashDir)
+func (p *Project) Dir(ref, dir string) string {
+	return fmt.Sprintf(p.DirFmt, ref, dir)
 }
 
 // File returns a link to the provided file.
-func (m *Meta) File(dir, file string) string {
-	dir, slashDir := processDir(dir)
-	return fmt.Sprintf(m.FileFmt, dir, slashDir, file)
+func (p *Project) File(ref, dir, file string) string {
+	return fmt.Sprintf(p.FileFmt, ref, path.Join(dir, file))
 }
 
 // Line returns a link to the provided line.
-func (m *Meta) Line(dir, file string, line int) string {
-	dir, slashDir := processDir(dir)
-	return fmt.Sprintf(m.LineFmt, dir, slashDir, file, line)
-}
-
-func processDir(s string) (dir, slashDir string) {
-	dir = strings.Trim(s, "/")
-	if dir != "" {
-		slashDir = "/" + dir
-	}
-	return
-}
-
-func processDirTemplate(s string) string {
-	s = strings.Replace(s, "%", "%%", -1)
-	s = strings.Replace(s, "{dir}", "%[1]s", -1)
-	s = strings.Replace(s, "{/dir}", "%[2]s", -1)
-	return s
-}
-
-func processFileTemplate(s string) string {
-	s = processDirTemplate(s)
-	s = strings.Replace(s, "{file}", "%[3]s", -1)
-	// Cut point is right after last {file} section.
-	cut := strings.LastIndex(s, "{file}")
-	if cut != -1 {
-		cut += len("{file}")
-	}
-	switch hash := strings.Index(s, "#"); {
-	// If there's no '#', place cut at the end.
-	case hash == -1:
-		cut = len(s)
-	// If a '#' comes after last {file}, use it as cut point.
-	case hash > cut:
-		cut = hash
-	case cut == -1:
-		cut = len(s)
-	}
-	return s[:cut]
-}
-
-func processLineTemplate(s string) string {
-	s = processDirTemplate(s)
-	s = strings.Replace(s, "{file}", "%[3]s", -1)
-	s = strings.Replace(s, "{line}", "%[4]d", -1)
-	return s
+func (p *Project) Line(ref, dir, file, line string) string {
+	return fmt.Sprintf(p.LineFmt, ref, path.Join(dir, file), line)
 }
 
 const (
-	stdlibDirFmt  = "https://github.com/golang/go/tree/master/src/%s{/dir}"
-	stdlibFileFmt = "https://github.com/golang/go/blob/master/src/%s{/dir}/{file}"
-	stdlibLineFmt = "https://github.com/golang/go/blob/master/src/%s{/dir}/{file}#L{line}"
+	stdlibDirFmt  = "https://github.com/golang/go/tree/{ref}/src/%s/{path}"
+	stdlibFileFmt = "https://github.com/golang/go/blob/{ref}/src/%s/{path}"
+	stdlibLineFmt = "https://github.com/golang/go/blob/{ref}/src/%s/{path}#L{line}"
 )
 
-// FetchMeta fetches the go-source meta tag for the provided module path.
-func FetchMeta(ctx context.Context, client *http.Client, modulePath, userAgent string) (*Meta, error) {
+// Fetch fetches project information for the provided module path.
+func Fetch(ctx context.Context, client *http.Client, modulePath, userAgent string) (*Project, error) {
 	// Special case for stdlib
 	if stdlib.Contains(modulePath) {
-		return &Meta{
-			ProjectRoot: modulePath,
-			ProjectName: "Go",
-			ProjectURL:  "/std",
-			DirFmt:      processDirTemplate(fmt.Sprintf(stdlibDirFmt, modulePath)),
-			FileFmt:     processFileTemplate(fmt.Sprintf(stdlibFileFmt, modulePath)),
-			LineFmt:     processLineTemplate(fmt.Sprintf(stdlibLineFmt, modulePath)),
+		return &Project{
+			ModulePath: modulePath,
+			Name:       "Go",
+			URL:        "/std",
+			DirFmt:     processTemplate(fmt.Sprintf(stdlibDirFmt, modulePath)),
+			FileFmt:    processTemplate(fmt.Sprintf(stdlibFileFmt, modulePath)),
+			LineFmt:    processLineTemplate(fmt.Sprintf(stdlibLineFmt, modulePath)),
 		}, nil
 	}
 
@@ -111,7 +64,6 @@ func FetchMeta(ctx context.Context, client *http.Client, modulePath, userAgent s
 		// Add slash for root of domain.
 		uri += "/"
 	}
-	uri += "?go-get=1"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+uri, nil)
 	if err != nil {
@@ -131,18 +83,16 @@ func FetchMeta(ctx context.Context, client *http.Client, modulePath, userAgent s
 		}
 	}
 	defer resp.Body.Close()
-	meta := parseMeta(resp.Body)
-	if meta == nil {
-		return nil, ErrMetaNotFound
-	}
-	return meta, nil
-}
 
-// parseMeta parses a go-source meta tag from the provided response body.
-// It returns nil if no valid meta tag was found.
-func parseMeta(body io.Reader) *Meta {
-	d := xml.NewDecoder(body)
+	// Parse body for forge meta tags
+	d := xml.NewDecoder(resp.Body)
 	d.Strict = false
+
+	project := &Project{
+		ModulePath: modulePath,
+		Name:       path.Base(modulePath),
+	}
+	ok := false
 
 scan:
 	for {
@@ -163,25 +113,43 @@ scan:
 				continue scan
 			}
 			nameAttr := attrValue(t.Attr, "name")
-			if nameAttr != "go-source" {
+			if !strings.HasPrefix(nameAttr, "forge:") {
 				continue scan
 			}
-
-			fields := strings.Fields(attrValue(t.Attr, "content"))
-			if len(fields) != 4 {
+			switch nameAttr {
+			case "forge:summary":
+				project.URL = attrValue(t.Attr, "content")
+			case "forge:dir":
+				project.DirFmt = processTemplate(attrValue(t.Attr, "content"))
+			case "forge:file":
+				project.FileFmt = processTemplate(attrValue(t.Attr, "content"))
+			case "forge:line":
+				project.LineFmt = processLineTemplate(attrValue(t.Attr, "content"))
+			default:
 				continue scan
 			}
-			return &Meta{
-				ProjectRoot: fields[0],
-				ProjectName: path.Base(fields[0]),
-				ProjectURL:  fields[1],
-				DirFmt:      processDirTemplate(fields[2]),
-				FileFmt:     processFileTemplate(fields[3]),
-				LineFmt:     processLineTemplate(fields[3]),
-			}
+			// Found at least one meta tag
+			ok = true
 		}
 	}
-	return nil
+
+	if ok {
+		return project, nil
+	}
+	return nil, ErrNoInfo
+}
+
+func processTemplate(s string) string {
+	s = strings.Replace(s, "%", "%%", -1)
+	s = strings.Replace(s, "{ref}", "%[1]s", -1)
+	s = strings.Replace(s, "{path}", "%[2]s", -1)
+	return s
+}
+
+func processLineTemplate(s string) string {
+	s = processTemplate(s)
+	s = strings.Replace(s, "{line}", "%[3]s", -1)
+	return s
 }
 
 func attrValue(attrs []xml.Attr, name string) string {

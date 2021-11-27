@@ -18,7 +18,7 @@ const (
 	NeedDocumentation LoadMode = 1 << iota
 	NeedSubPackages
 	NeedImports
-	NeedMeta
+	NeedProject
 )
 
 // load loads a package.
@@ -96,13 +96,13 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		pkg.Imported = imports
 	}
 
-	if mode&NeedMeta != 0 {
-		meta, ok, err := s.db.Meta(ctx, pkg.SeriesPath)
+	if mode&NeedProject != 0 {
+		project, ok, err := s.db.Project(ctx, pkg.SeriesPath)
 		if err != nil {
 			return Package{}, err
 		}
 		if ok {
-			pkg.Meta = &meta
+			pkg.Project = &project
 		}
 	}
 

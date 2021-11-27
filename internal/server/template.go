@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	ttemp "text/template"
 
@@ -35,13 +36,21 @@ import (
 type Package struct {
 	internal.Package
 	doc.Documentation
-	Meta            *meta.Meta
+	Project         *meta.Project
 	Platform        string
 	DefaultPlatform string
 	Message         string
 	Imported        []internal.Package
 	SubPackages     []internal.Package
 	allExamples     []*texample
+}
+
+func (pkg *Package) Reference() (string, error) {
+	// TODO: Store this information in the database?
+	if stdlib.Contains(pkg.ModulePath) {
+		return stdlib.TagForVersion(pkg.Version)
+	}
+	return pkg.Version, nil
 }
 
 type texample struct {
@@ -93,15 +102,16 @@ func (pkg *Package) Dir() string {
 }
 
 func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
-	if pos.Line == 0 || pkg.Meta == nil {
+	if pos.Line == 0 || pkg.Project == nil {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
 		return ""
 	}
+	ref, _ := pkg.Reference()
 	dir := pkg.Dir()
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
-		htemp.HTMLEscapeString(pkg.Meta.Line(dir, pkg.Filenames[pos.File], int(pos.Line))),
+		htemp.HTMLEscapeString(pkg.Project.Line(ref, dir, pkg.Filenames[pos.File], strconv.Itoa(int(pos.Line)))),
 		htemp.HTMLEscapeString(text)))
 }
 

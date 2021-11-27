@@ -92,7 +92,7 @@ func getGoRepo(version string) (*git.Repository, error) {
 	if version == "master" {
 		ref = plumbing.HEAD
 	} else {
-		tag, err := tagForVersion(version)
+		tag, err := TagForVersion(version)
 		if err != nil {
 			return nil, err
 		}
@@ -187,10 +187,10 @@ func VersionForTag(tag string) string {
 	return version
 }
 
-// tagForVersion returns the Go standard library repository tag corresponding
+// TagForVersion returns the Go standard library repository tag corresponding
 // to semver. The Go tags differ from standard semantic versions in a few ways,
 // such as beginning with "go" instead of "v".
-func tagForVersion(version string) (string, error) {
+func TagForVersion(version string) (string, error) {
 	// Special case: master => master
 	if version == "master" || strings.HasPrefix(version, "v0.0.0") {
 		return "master", nil

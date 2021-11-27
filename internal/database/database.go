@@ -616,27 +616,27 @@ func (db *Database) ImportGraph(ctx context.Context, platform string, pkg intern
 	return nodes, edges, nil
 }
 
-const gosourceQuery = `
-SELECT project_name, project_url, dir_fmt, file_fmt, line_fmt
-FROM gosource
-WHERE project_root = $1;
+const projectQuery = `
+SELECT name, url, dir_fmt, file_fmt, line_fmt
+FROM projects
+WHERE module_path = $1;
 `
 
-// Meta returns go-source meta tag information for the given module.
-func (db *Database) Meta(ctx context.Context, modulePath string) (meta meta.Meta, ok bool, err error) {
+// Project returns information about the project associated with the given module.
+func (db *Database) Project(ctx context.Context, modulePath string) (project meta.Project, ok bool, err error) {
 	err = db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, gosourceQuery, modulePath)
+		rows, err := tx.QueryContext(ctx, projectQuery, modulePath)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 
 		if rows.Next() {
-			if err := rows.Scan(&meta.ProjectName, &meta.ProjectURL,
-				&meta.DirFmt, &meta.FileFmt, &meta.LineFmt); err != nil {
+			if err := rows.Scan(&project.Name, &project.URL, &project.DirFmt,
+				&project.FileFmt, &project.LineFmt); err != nil {
 				return err
 			}
-			meta.ProjectRoot = modulePath
+			project.ModulePath = modulePath
 			ok = true
 		}
 		return rows.Err()
@@ -644,22 +644,22 @@ func (db *Database) Meta(ctx context.Context, modulePath string) (meta meta.Meta
 	return
 }
 
-const insertGosource = `
-INSERT INTO gosource (
-	project_root, project_name, project_url, dir_fmt, file_fmt, line_fmt
+const insertProject = `
+INSERT INTO projects (
+	module_path, name, url, dir_fmt, file_fmt, line_fmt
 ) VALUES (
 	$1, $2, $3, $4, $5, $6
-) ON CONFLICT (project_root) DO
-UPDATE SET project_name = $2, project_url = $3,
+) ON CONFLICT (module_path) DO
+UPDATE SET name = $2, url = $3,
 dir_fmt = $4, file_fmt = $5, line_fmt = $6;
 `
 
-// PutMeta puts go-source meta tag information in the database.
-func (db *Database) PutMeta(ctx context.Context, meta meta.Meta) error {
+// PutProject puts project information in the database.
+func (db *Database) PutProject(ctx context.Context, project meta.Project) error {
 	return db.withTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, insertGosource,
-			meta.ProjectRoot, meta.ProjectName, meta.ProjectURL,
-			meta.DirFmt, meta.FileFmt, meta.LineFmt)
+		_, err := tx.ExecContext(ctx, insertProject,
+			project.ModulePath, project.Name, project.URL,
+			project.DirFmt, project.FileFmt, project.LineFmt)
 		if err != nil {
 			return err
 		}
