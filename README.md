@@ -38,6 +38,9 @@ Then run:
 		--http ":8080" \
 		--goproxy "https://proxy.golang.org"
 
+See the [documentation](https://godocs.io/git.sr.ht/~sircmpwn/gddo/cmd/gddo-server)
+for more information.
+
 ## Questions? Patches?
 
 Send them to the [godocs.io list](https://lists.sr.ht/~sircmpwn/godocs.io).
