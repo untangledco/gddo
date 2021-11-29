@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
@@ -66,13 +65,6 @@ func New(cfg *Config) (*Server, error) {
 	}
 
 	return s, nil
-}
-
-// Background refreshes modules in the background.
-func (s *Server) Background(ctx context.Context) {
-	for range time.Tick(s.cfg.RefreshInterval) {
-		s.refreshOldest(ctx)
-	}
 }
 
 // Parses the provided request path, returning the package import path and version.

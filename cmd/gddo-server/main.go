@@ -55,6 +55,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
 	"time"
 
@@ -90,52 +91,117 @@ func main() {
 		log.Fatal("error creating server:", err)
 	}
 
-	// Refresh modules in the background
-	go s.Background(ctx)
-
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	if cfg.BindHTTP != "" {
-		h, err := s.HTTPHandler()
-		if err != nil {
-			log.Fatal(err)
-		}
 
+	if cfg.BindHTTP != "" {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			if err := http.ListenAndServe(cfg.BindHTTP, h); err != nil {
+			if err := serveHTTP(ctx, s, cfg); err != nil {
 				log.Println(err)
 			}
 		}()
 	}
 	if cfg.BindGemini != "" {
-		h, err := s.GeminiHandler()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		certs := &certificate.Store{}
-		certs.Register("*")
-		if err := certs.Load(cfg.CertsDir); err != nil {
-			log.Fatal(err)
-		}
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			gemsrv := &gemini.Server{
-				Addr:           cfg.BindGemini,
-				GetCertificate: certs.Get,
-				Handler:        h,
-				ReadTimeout:    30 * time.Second,
-				WriteTimeout:   30 * time.Second,
-			}
-			if err := gemsrv.ListenAndServe(ctx); err != nil {
+			if err := serveGemini(ctx, s, cfg); err != nil {
 				log.Println(err)
 			}
 		}()
+	}
+	// Refresh modules in the background
+	if cfg.RefreshInterval > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			refreshBackground(ctx, s, cfg)
+		}()
+	}
+}
+
+func serveHTTP(ctx context.Context, s *server.Server, cfg *server.Config) error {
+	h, err := s.HTTPHandler()
+	if err != nil {
+		return err
+	}
+
+	srv := &http.Server{
+		Addr:         cfg.BindHTTP,
+		Handler:      h,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+
+	// Listen for interrupt signal
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	errch := make(chan error, 1)
+	go func() {
+		errch <- srv.ListenAndServe()
+	}()
+
+	select {
+	case <-c:
+		return srv.Shutdown(ctx)
+	case err := <-errch:
+		return err
+	}
+}
+
+func serveGemini(ctx context.Context, s *server.Server, cfg *server.Config) error {
+	h, err := s.GeminiHandler()
+	if err != nil {
+		return err
+	}
+
+	certs := &certificate.Store{}
+	certs.Register("*")
+	if err := certs.Load(cfg.CertsDir); err != nil {
+		return err
+	}
+
+	srv := &gemini.Server{
+		Addr:           cfg.BindGemini,
+		GetCertificate: certs.Get,
+		Handler:        h,
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   30 * time.Second,
+	}
+
+	// Listen for interrupt signal
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	errch := make(chan error, 1)
+	go func() {
+		errch <- srv.ListenAndServe(ctx)
+	}()
+
+	select {
+	case <-c:
+		return srv.Shutdown(ctx)
+	case err := <-errch:
+		return err
+	}
+}
+
+func refreshBackground(ctx context.Context, s *server.Server, cfg *server.Config) {
+	// Listen for interrupt signal
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	ticker := time.NewTicker(cfg.RefreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			s.Refresh(ctx)
+		case <-c:
+			return
+		}
 	}
 }

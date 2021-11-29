@@ -185,8 +185,8 @@ func (s *Server) updateProject(ctx context.Context, modulePath string) error {
 	return nil
 }
 
-// refreshOldest refreshes the oldest module in the database.
-func (s *Server) refreshOldest(ctx context.Context) {
+// Refresh refreshes the oldest module in the database.
+func (s *Server) Refresh(ctx context.Context) {
 	modulePath, timestamp, err := s.db.Oldest(ctx)
 	if err != nil {
 		log.Printf("Error retrieving oldest module: %v", err)
