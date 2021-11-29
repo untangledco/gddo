@@ -16,6 +16,7 @@ type Config struct {
 	TemplatesDir    string
 	BindHTTP        string
 	BindGemini      string
+	Hostname        string
 	CertsDir        string
 	Database        string
 	GoProxy         string
@@ -38,6 +39,7 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.TemplatesDir, "templates", templatesDir, "Templates directory")
 	flags.StringVar(&c.BindHTTP, "http", "", "Listen for HTTP connections on this address")
 	flags.StringVar(&c.BindGemini, "gemini", "", "Listen for Gemini connections on this address")
+	flags.StringVar(&c.Hostname, "hostname", "", "Hostname to accept Gemini requests for")
 	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")
 	flags.StringVar(&c.Database, "db", "", "PostgreSQL database URL")
 	flags.StringVar(&c.GoProxy, "goproxy", "", "Go module proxy")

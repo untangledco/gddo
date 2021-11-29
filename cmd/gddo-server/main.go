@@ -159,7 +159,7 @@ func serveGemini(ctx context.Context, s *server.Server, cfg *server.Config) erro
 	}
 
 	certs := &certificate.Store{}
-	certs.Register("*")
+	certs.Register(cfg.Hostname)
 	if err := certs.Load(cfg.CertsDir); err != nil {
 		return err
 	}
