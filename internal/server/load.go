@@ -53,7 +53,7 @@ func (s *Server) load(ctx context.Context, platform, importPath, version string,
 
 func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
 	var pkg Package
-	dpkg, ok, err := s.db.GetPackage(ctx, platform, importPath, version)
+	dpkg, ok, err := s.db.Package(ctx, platform, importPath, version)
 	if err != nil {
 		return Package{}, err
 	}
@@ -62,7 +62,7 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		if err != nil {
 			return Package{}, err
 		}
-		dpkg, ok, err = s.db.GetPackage(ctx, platform, importPath, version)
+		dpkg, ok, err = s.db.Package(ctx, platform, importPath, version)
 		if err != nil {
 			return Package{}, err
 		}

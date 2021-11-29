@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log"
 	"path"
@@ -21,6 +22,10 @@ import (
 func (s *Server) fetch(ctx context.Context, platform, importPath, version string) error {
 	if s.db == nil {
 		return nil
+	}
+
+	if !platforms.Valid(platform) {
+		return platforms.ErrInvalid
 	}
 
 	// Check if the module is blocked
@@ -75,11 +80,6 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	}
 	defer s.fetches.Delete(key)
 
-	bctx, err := platforms.Parse(platform)
-	if err != nil {
-		return err
-	}
-
 	// Retrieve module
 	mod, err := s.source.Module(modulePath, version)
 	if err != nil {
@@ -93,6 +93,10 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	if ok, err := s.db.HasPackage(ctx, platform, mod.ModulePath, mod.Version); err != nil {
 		return err
 	} else if ok {
+		// Update the module timestamp
+		if err := s.db.TouchModule(ctx, mod.ModulePath); err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -112,7 +116,26 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		return semver.Compare(mod.Versions[i], mod.Versions[j]) > 0
 	})
 
-	if err := s.db.PutModule(ctx, mod); err != nil {
+	// Fetch project information
+	project, err := meta.Fetch(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
+	if err != nil && !errors.Is(err, meta.ErrNoInfo) {
+		log.Printf("Error fetching project information for %s: %v", mod.ModulePath, err)
+	}
+
+	return s.db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		return s.putModule(tx, platform, mod, dirs, project)
+	})
+}
+
+// putModule puts a module and its associated packages in the database.
+// project may be nil.
+func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, dirs []internal.Directory, project *meta.Project) error {
+	bctx, err := platforms.Parse(platform)
+	if err != nil {
+		return err
+	}
+
+	if err := s.db.PutModule(tx, mod); err != nil {
 		return err
 	}
 
@@ -130,9 +153,14 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 			continue
 		}
 		importPath := path.Join(mod.ModulePath, dir.Path)
-		if err := s.db.AddPackage(ctx, platform, importPath, mod.ModulePath,
-			mod.SeriesPath, mod.Version, mod.CommitTime,
-			doc.Name, doc.Synopsis, doc.Imports, &doc.Documentation); err != nil {
+		pkg := internal.Package{
+			Module:     *mod,
+			ImportPath: importPath,
+			Name:       doc.Name,
+			Synopsis:   doc.Synopsis,
+			Imports:    doc.Imports,
+		}
+		if err := s.db.PutPackage(tx, platform, pkg, &doc.Documentation); err != nil {
 			return err
 		}
 
@@ -149,39 +177,28 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 		}
 	}
 
+	// Add directories to the database
 	for dir, isDir := range dirsMap {
 		if !isDir {
 			continue
 		}
-		// Add the directory to the database
 		importPath := path.Join(mod.ModulePath, dir)
-		if err := s.db.AddPackage(ctx, platform, importPath, mod.ModulePath,
-			mod.SeriesPath, mod.Version, mod.CommitTime, "", "", nil, nil); err != nil {
+		pkg := internal.Package{
+			Module:     *mod,
+			ImportPath: importPath,
+		}
+		if err := s.db.PutPackage(tx, platform, pkg, nil); err != nil {
 			return err
 		}
 	}
 
 	// Update project information
-	if err := s.updateProject(ctx, mod.ModulePath); err != nil {
-		log.Printf("Error fetching project information for %s: %v", mod.ModulePath, err)
-	}
-
-	return nil
-}
-
-// updateProject updates the module's project information.
-func (s *Server) updateProject(ctx context.Context, modulePath string) error {
-	project, err := meta.Fetch(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
-	if err != nil {
-		if errors.Is(err, meta.ErrNoInfo) {
-			return nil
+	if project != nil {
+		if err := s.db.PutProject(tx, *project); err != nil {
+			return err
 		}
-		return err
 	}
 
-	if err := s.db.PutProject(ctx, *project); err != nil {
-		return err
-	}
 	return nil
 }
 
