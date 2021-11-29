@@ -1,3 +1,4 @@
+// Package modcache provides support for fetching packages from a local Go module cache.
 package modcache
 
 import (

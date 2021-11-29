@@ -1,5 +1,6 @@
 //go:generate go run gen.go -output data.go
 
+// Package platforms implements parsing and validation of platform strings.
 package platforms
 
 import (

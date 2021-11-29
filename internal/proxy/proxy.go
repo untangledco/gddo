@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package proxy fetches modules from a Go module proxy.
+// Package proxy provides support for fetching modules from a Go module proxy.
 package proxy
 
 import (

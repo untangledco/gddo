@@ -1,3 +1,4 @@
+// Package server implements the Go documentation server.
 package server
 
 import (

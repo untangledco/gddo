@@ -1,3 +1,4 @@
+// Package meta contains functions for processing forge meta tags.
 package meta
 
 import (
