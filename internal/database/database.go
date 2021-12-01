@@ -92,17 +92,6 @@ func (db *Database) TouchModule(ctx context.Context, modulePath string) error {
 	})
 }
 
-// Delete deletes the module with the given module path.
-func (db *Database) Delete(ctx context.Context, modulePath string) error {
-	return db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.Exec(`DELETE FROM modules WHERE module_path = $1;`, modulePath)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-}
-
 const searchQuery = `
 SELECT
 	p.import_path, p.module_path, p.series_path, p.version,
@@ -339,27 +328,6 @@ func (db *Database) HasPackage(ctx context.Context, platform, importPath, versio
 		return false, err
 	}
 	return exists, nil
-}
-
-// Block puts a domain, repo or package into the block set, removes all the
-// packages under it from the database and prevents future crawling from it.
-func (db *Database) Block(ctx context.Context, importPath string) error {
-	return db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		// Delete all matching modules
-		_, err := tx.ExecContext(ctx,
-			`DELETE FROM modules WHERE module_path LIKE $1 || '%';`, importPath)
-		if err != nil {
-			return err
-		}
-
-		// Add the import path to the blocklist
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO blocklist (import_path) VALUES ($1);`, importPath)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
 }
 
 // IsBlocked returns whether the package is blocked or belongs to a blocked

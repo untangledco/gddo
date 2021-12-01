@@ -33,12 +33,12 @@ Initialize the PostgreSQL database:
 
 Then run:
 
-	gddo-server \
+	gddo \
 		--db "postgres://localhost" \
 		--http ":8080" \
 		--goproxy "https://proxy.golang.org"
 
-See the [documentation](https://godocs.io/git.sr.ht/~sircmpwn/gddo/cmd/gddo-server)
+See the [documentation](https://godocs.io/git.sr.ht/~sircmpwn/gddo/cmd/gddo)
 for more information.
 
 ## Questions? Patches?
