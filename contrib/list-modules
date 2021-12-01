@@ -1,0 +1,2 @@
+#!/bin/sh
+psql -A -t -c 'SELECT module_path FROM modules;'
