@@ -25,7 +25,7 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 	}
 
 	if !platforms.Valid(platform) {
-		return platforms.ErrInvalid
+		return ErrInvalidPlatform
 	}
 
 	// Check if the module is blocked
@@ -130,7 +130,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 // putModule puts a module and its associated packages in the database.
 // project may be nil.
 func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, dirs []internal.Directory, project *meta.Project) error {
-	bctx, err := platforms.Parse(platform)
+	bctx, err := buildContext(platform)
 	if err != nil {
 		return err
 	}

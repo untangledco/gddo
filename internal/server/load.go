@@ -8,7 +8,6 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 )
 
 // A LoadMode configures the amount of detail returned when loading a package.
@@ -154,7 +153,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		if dir == nil {
 			return Package{}, internal.ErrNotFound
 		}
-		bctx, err := platforms.Parse(platform)
+		bctx, err := buildContext(platform)
 		if err != nil {
 			return Package{}, err
 		}

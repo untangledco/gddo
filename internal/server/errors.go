@@ -10,7 +10,6 @@ import (
 	"runtime/debug"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 )
 
 var (
@@ -18,6 +17,8 @@ var (
 	ErrMismatch   = errors.New("import paths don't match")
 	ErrNoPackages = errors.New("no packages found")
 	ErrFetching   = errors.New("fetch in progress")
+
+	ErrInvalidPlatform = errors.New("invalid platform")
 )
 
 func shouldDisplayError(err error) bool {
@@ -36,7 +37,7 @@ func errorMessage(err error) (string, int) {
 		return "Error fetching module: Invalid import path.", http.StatusNotFound
 	case errors.Is(err, internal.ErrInvalidVersion):
 		return "Error fetching module: Invalid version.", http.StatusNotFound
-	case errors.Is(err, platforms.ErrInvalid):
+	case errors.Is(err, ErrInvalidPlatform):
 		return "Error fetching module: Invalid platform.", http.StatusNotFound
 	case errors.Is(err, internal.ErrNotFound), errors.Is(err, ErrBlocked):
 		// No error message

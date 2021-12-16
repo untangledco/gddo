@@ -75,23 +75,8 @@ func (dir *Directory) BuildContext(ctx *build.Context) *build.Context {
 	ctx = &safeCopy
 	ctx.JoinPath = path.Join
 	ctx.IsAbsPath = path.IsAbs
-	ctx.SplitPathList = func(list string) []string { return strings.Split(list, ":") }
-	ctx.IsDir = func(path string) bool { return path == "." }
-	ctx.HasSubdir = func(root, dir string) (rel string, ok bool) { return "", false }
-	ctx.ReadDir = dir.readDir
 	ctx.OpenFile = dir.openFile
 	return ctx
-}
-
-func (dir *Directory) readDir(name string) ([]os.FileInfo, error) {
-	if name != "." {
-		return nil, os.ErrNotExist
-	}
-	fis := make([]os.FileInfo, len(dir.Files))
-	for i := range dir.Files {
-		fis[i] = fileInfo{&dir.Files[i]}
-	}
-	return fis, nil
 }
 
 func (dir *Directory) openFile(path string) (io.ReadCloser, error) {
@@ -103,15 +88,6 @@ func (dir *Directory) openFile(path string) (io.ReadCloser, error) {
 	}
 	return nil, os.ErrNotExist
 }
-
-type fileInfo struct{ f *File }
-
-func (fi fileInfo) Name() string       { return fi.f.Name }
-func (fi fileInfo) Size() int64        { return int64(len(fi.f.Contents)) }
-func (fi fileInfo) Mode() os.FileMode  { return 0 }
-func (fi fileInfo) ModTime() time.Time { return time.Time{} }
-func (fi fileInfo) IsDir() bool        { return false }
-func (fi fileInfo) Sys() interface{}   { return nil }
 
 // ParseDirectories parses package directories from the given filesystem.
 func ParseDirectories(fsys fs.FS) ([]Directory, error) {
