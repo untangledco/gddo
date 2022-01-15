@@ -25,33 +25,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
-
-// Represents a package for use in templates.
-type Package struct {
-	internal.Package
-	doc.Documentation
-	Project         *meta.Project
-	Platform        string
-	DefaultPlatform string
-	Message         string
-	Imported        []internal.Package
-	SubPackages     []internal.Package
-	allExamples     []*texample
-}
-
-func (pkg *Package) Reference() (string, error) {
-	// TODO: Store this information in the database?
-	if stdlib.Contains(pkg.ModulePath) {
-		return stdlib.TagForVersion(pkg.Version)
-	}
-	return pkg.Version, nil
-}
 
 type texample struct {
 	ID      string
@@ -70,7 +47,7 @@ func (pkg *Package) View(view string) string {
 		b.WriteString(view)
 		amp = true
 	}
-	if pkg.Platform != pkg.DefaultPlatform {
+	if pkg.platformParam {
 		if amp {
 			b.WriteByte('&')
 		}
@@ -81,7 +58,7 @@ func (pkg *Package) View(view string) string {
 }
 
 func (pkg *Package) PlatformParam() string {
-	if pkg.Platform == pkg.DefaultPlatform {
+	if !pkg.platformParam {
 		return ""
 	}
 	var b strings.Builder
@@ -97,10 +74,6 @@ func (pkg *Package) VersionParam() string {
 	return "@" + pkg.Version
 }
 
-func (pkg *Package) Dir() string {
-	return strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
-}
-
 func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
 	if pos.Line == 0 || pkg.Project == nil {
 		if textOnlyOK {
@@ -108,10 +81,10 @@ func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.
 		}
 		return ""
 	}
-	ref, _ := pkg.Reference()
-	dir := pkg.Dir()
+	link := pkg.Project.Line(pkg.Reference, pkg.Dir, pkg.Filenames[pos.File],
+		strconv.Itoa(int(pos.Line)))
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
-		htemp.HTMLEscapeString(pkg.Project.Line(ref, dir, pkg.Filenames[pos.File], strconv.Itoa(int(pos.Line)))),
+		htemp.HTMLEscapeString(link),
 		htemp.HTMLEscapeString(text)))
 }
 

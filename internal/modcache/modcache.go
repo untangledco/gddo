@@ -33,11 +33,13 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 			// Only latest version supported
 			return nil, internal.ErrNotFound
 		}
-		goVersion := stdlib.VersionForTag(runtime.Version())
+		tag := runtime.Version()
+		goVersion := stdlib.VersionForTag(tag)
 		return &internal.Module{
 			ModulePath:    modulePath,
 			SeriesPath:    modulePath,
 			Version:       goVersion,
+			Reference:     tag,
 			LatestVersion: goVersion,
 			Versions:      []string{goVersion},
 		}, nil
@@ -103,6 +105,7 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 		ModulePath:    modulePath,
 		SeriesPath:    seriesPath,
 		Version:       info.Version,
+		Reference:     info.Version,
 		CommitTime:    info.Time,
 		LatestVersion: latestVersion,
 		Versions:      versions,

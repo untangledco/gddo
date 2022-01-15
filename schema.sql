@@ -24,6 +24,7 @@ CREATE TABLE packages (
 	module_path text NOT NULL,
 	series_path text NOT NULL,
 	version text NOT NULL,
+	reference text NOT NULL,
 	commit_time timestamptz NOT NULL,
 	name text NOT NULL,
 	synopsis text NOT NULL,

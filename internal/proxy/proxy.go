@@ -88,6 +88,7 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 		ModulePath:    modulePath,
 		SeriesPath:    seriesPath,
 		Version:       info.Version,
+		Reference:     info.Version,
 		CommitTime:    info.Time,
 		LatestVersion: latest.Version,
 		Versions:      versions,

@@ -53,6 +53,10 @@ func Module(modulePath, version string) (*internal.Module, error) {
 	if err != nil {
 		return nil, err
 	}
+	tag, err := TagForVersion(version)
+	if err != nil {
+		return nil, err
+	}
 
 	seriesPath, _, _ := module.SplitPathVersion(modulePath)
 
@@ -60,6 +64,7 @@ func Module(modulePath, version string) (*internal.Module, error) {
 		ModulePath:    modulePath,
 		SeriesPath:    seriesPath,
 		Version:       version,
+		Reference:     tag,
 		LatestVersion: latestVersion,
 		Versions:      versions,
 	}, nil

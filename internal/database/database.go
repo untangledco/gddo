@@ -94,7 +94,7 @@ func (db *Database) TouchModule(ctx context.Context, modulePath string) error {
 
 const searchQuery = `
 SELECT
-	p.import_path, p.module_path, p.series_path, p.version,
+	p.import_path, p.module_path, p.series_path, p.version, p.reference,
 	p.commit_time, p.name, p.synopsis
 FROM packages p, modules m
 WHERE p.searchtext @@ websearch_to_tsquery('english', $2)
@@ -118,7 +118,8 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]inter
 		for rows.Next() {
 			var pkg internal.Package
 			if err := rows.Scan(&pkg.ImportPath, &pkg.ModulePath, &pkg.SeriesPath,
-				&pkg.Version, &pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
+				&pkg.Version, &pkg.Reference, &pkg.CommitTime, &pkg.Name,
+				&pkg.Synopsis); err != nil {
 				return err
 			}
 			packages = append(packages, pkg)
@@ -130,18 +131,22 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]inter
 
 const packageQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions, m.deprecated,
-	p.imports, p.name, p.synopsis, m.updated
+	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
+	m.latest_version, m.versions, m.deprecated, p.imports, p.name, p.synopsis,
+	m.updated
 FROM packages p, modules m
-WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3 AND m.module_path = p.module_path;
+WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3
+	AND m.module_path = p.module_path;
 `
 
 const packageLatestQuery = `
 SELECT
-	p.module_path, p.series_path, p.version, p.commit_time, m.latest_version, m.versions, m.deprecated,
-	p.imports, p.name, p.synopsis, m.updated
+	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
+	m.latest_version, m.versions, m.deprecated, p.imports, p.name, p.synopsis,
+	m.updated
 FROM packages p, modules m
-WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path AND p.version = m.latest_version;
+WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
+	AND p.version = m.latest_version;
 `
 
 // Package returns information about the given package.
@@ -163,8 +168,10 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 
 		if rows.Next() {
 			if err := rows.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
-				&pkg.CommitTime, &pkg.LatestVersion, (*pq.StringArray)(&pkg.Versions), &pkg.Deprecated,
-				(*pq.StringArray)(&pkg.Imports), &pkg.Name, &pkg.Synopsis, &pkg.Updated); err != nil {
+				&pkg.Reference, &pkg.CommitTime, &pkg.LatestVersion,
+				(*pq.StringArray)(&pkg.Versions), &pkg.Deprecated,
+				(*pq.StringArray)(&pkg.Imports), &pkg.Name, &pkg.Synopsis,
+				&pkg.Updated); err != nil {
 				return err
 			}
 			pkg.ImportPath = importPath
@@ -230,9 +237,10 @@ func (db *Database) Documentation(ctx context.Context, platform, importPath, ver
 
 const insertPackage = `
 INSERT INTO packages (
-	platform, import_path, module_path, series_path, version, commit_time, imports, name, synopsis, score, documentation
+	platform, import_path, module_path, series_path, version, reference,
+	commit_time, imports, name, synopsis, score, documentation
 ) VALUES (
-	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 );
 `
 
@@ -267,8 +275,8 @@ func (db *Database) PutPackage(tx *sql.Tx, platform string, pkg internal.Package
 
 	_, err := tx.Exec(insertPackage,
 		platform, pkg.ImportPath, pkg.ModulePath, pkg.SeriesPath, pkg.Version,
-		pkg.CommitTime, pq.StringArray(pkg.Imports), pkg.Name, pkg.Synopsis,
-		score, documentation)
+		pkg.Reference, pkg.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
+		pkg.Synopsis, score, documentation)
 	if err != nil {
 		return err
 	}

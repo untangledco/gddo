@@ -40,6 +40,7 @@ type Module struct {
 	ModulePath    string
 	SeriesPath    string
 	Version       string
+	Reference     string
 	CommitTime    time.Time
 	LatestVersion string
 	Versions      []string

@@ -109,9 +109,6 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		return err
 	}
 
-	pkg.Platform = platform
-	pkg.DefaultPlatform = s.cfg.Platform
-
 	switch r.URL.Query().Get("view") {
 	case "versions":
 		s.templates.Execute(w, "versions.gmi", &pkg)

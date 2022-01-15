@@ -8,6 +8,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 )
 
 // A LoadMode configures the amount of detail returned when loading a package.
@@ -19,6 +20,20 @@ const (
 	NeedImports
 	NeedProject
 )
+
+// Package contains package information and documentation for use in templates.
+type Package struct {
+	internal.Package
+	doc.Documentation
+	Project       *meta.Project
+	Platform      string
+	Dir           string
+	Imported      []internal.Package
+	SubPackages   []internal.Package
+	Message       string
+	platformParam bool
+	allExamples   []*texample
+}
 
 // load loads a package.
 func (s *Server) load(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
@@ -70,6 +85,12 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		}
 	}
 	pkg.Package = dpkg
+	pkg.Platform = platform
+	// Platform parameters are only needed when not on the default platform
+	pkg.platformParam = pkg.Platform != s.cfg.Platform
+	// Compute package directory (relative to module path)
+	pkg.Dir = strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
+	pkg.Dir = strings.TrimPrefix(pkg.Dir, "/")
 
 	if mode&NeedDocumentation != 0 {
 		doc, err := s.db.Documentation(ctx, platform, pkg.ImportPath, pkg.Version)
@@ -130,6 +151,12 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 	var pkg Package
 	pkg.Module = *mod
 	pkg.ImportPath = importPath
+	pkg.Platform = platform
+	// Platform parameters are only needed when not on the default platform
+	pkg.platformParam = pkg.Platform != s.cfg.Platform
+	// Compute package directory (relative to module path)
+	pkg.Dir = strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
+	pkg.Dir = strings.TrimPrefix(pkg.Dir, "/")
 
 	if mode&NeedDocumentation != 0 {
 		fsys, err := s.source.Files(mod)

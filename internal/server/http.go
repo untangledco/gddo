@@ -139,8 +139,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	pkg.Message = getFlashMessage(resp, req)
-	pkg.Platform = platform
-	pkg.DefaultPlatform = s.cfg.Platform
 
 	switch req.Form.Get("view") {
 	case "versions":
