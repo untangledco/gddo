@@ -16,7 +16,7 @@ gddo: $(GOSRC)
 		./cmd/$@
 
 clean:
-	rm gddo
+	rm -f gddo
 
 install: all
 	mkdir -m755 -p $(DESTDIR)$(BINDIR) $(DESTDIR)$(SHAREDIR) \
@@ -26,8 +26,8 @@ install: all
 	install -m644 templates/* $(DESTDIR)$(SHAREDIR)/templates
 
 uninstall:
-	rm $(DESTDIR)$(BINDIR)/gddo $(DESTDIR)$(BINDIR)/gddo
-	rm -r $(DESTDIR)$(SHAREDIR)/assets
-	rm -r $(DESTDIR)$(SHAREDIR)/templates
+	rm -f $(DESTDIR)$(BINDIR)/gddo $(DESTDIR)$(BINDIR)/gddo
+	rm -rf $(DESTDIR)$(SHAREDIR)/assets
+	rm -rf $(DESTDIR)$(SHAREDIR)/templates
 
 .PHONY: all doc clean install uninstall
