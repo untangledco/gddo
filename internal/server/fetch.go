@@ -85,18 +85,24 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	if err != nil {
 		return err
 	}
+
+	// Update the module timestamp.
+	// We do this before returning any errors so that background refreshes
+	// won't get stuck fetching the same broken module over and over.
+	// Note that this does nothing if the module is not present in the database.
+	if err := s.db.TouchModule(ctx, mod.ModulePath); err != nil {
+		return err
+	}
+
 	if mod.ModulePath != modulePath {
 		// The import paths don't match
 		return ErrMismatch
 	}
+
 	// If the module documentation is already in the database, return
 	if ok, err := s.db.HasPackage(ctx, platform, mod.ModulePath, mod.Version); err != nil {
 		return err
 	} else if ok {
-		// Update the module timestamp
-		if err := s.db.TouchModule(ctx, mod.ModulePath); err != nil {
-			return err
-		}
 		return nil
 	}
 

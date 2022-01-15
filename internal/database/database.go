@@ -82,6 +82,7 @@ func (db *Database) PutModule(tx *sql.Tx, mod *internal.Module) error {
 }
 
 // TouchModule updates the module's updated timestamp.
+// If the module does not exist, TouchModule does nothing.
 func (db *Database) TouchModule(ctx context.Context, modulePath string) error {
 	return db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.Exec(`UPDATE modules SET updated = NOW() WHERE module_path = $1;`, modulePath)
