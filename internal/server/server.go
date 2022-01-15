@@ -121,6 +121,7 @@ func buildContext(platform string) (*build.Context, error) {
 	return &build.Context{
 		GOOS:        goos,
 		GOARCH:      goarch,
+		CgoEnabled:  true,
 		ReleaseTags: build.Default.ReleaseTags,
 	}, nil
 }

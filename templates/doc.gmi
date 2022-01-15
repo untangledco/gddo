@@ -111,12 +111,12 @@ import "{{.ImportPath}}"
 {{- if .Name}}
 ## Details
 
-=> {{.View "versions"}} Version {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
-* Published {{.CommitTime.Format "Jan 2, 2006"}}
+=> {{.View "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+* Published: {{.CommitTime.Format "Jan 2, 2006"}}
+* Platform: {{.Platform}} {{- if .Cgo}}(Cgo){{end}}
 {{- if .Imports}}
-=> {{.View "imports"}} Imports {{.Imports|len}} packages{{end}}
-* Platform: {{.Platform}}
-* Last checked {{humanize .Updated}}
+=> {{.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
+* Last checked: {{humanize .Updated}}
 => /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now
 {{end}}
 => / Back to home

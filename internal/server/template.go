@@ -219,6 +219,15 @@ func (pkg *Package) Breadcrumbs(templateName string) htemp.HTML {
 	return htemp.HTML(buf.String())
 }
 
+func (pkg *Package) Cgo() bool {
+	for i := range pkg.Imports {
+		if pkg.Imports[i] == "C" {
+			return true
+		}
+	}
+	return false
+}
+
 func formatPathFrag(path, fragment string) string {
 	if len(path) > 0 && path[0] != '/' {
 		path = "/" + path

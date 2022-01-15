@@ -110,21 +110,29 @@
   {{end}}
 
   <div id="x-pkginfo">
-    {{if .Imports}}<p>{{if .IsCommand}}Command{{else}}Package{{end}} {{.PageName}} imports <a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>).</p>{{end}}
-    <p>Version <a href="{{.View "versions"}}">{{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}</a>
-    <span class="text-muted">|</span>
-    Published <span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span>
-    <span class="text-muted">|</span>
-    Platform: {{.Platform}}
-    {{if not .Updated.IsZero}}<span class="text-muted">|</span>
-    Updated <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>{{end}}
-    </p>
-    <form class="inline-form" method="POST" action="/-/refresh">
-      <input type="hidden" name="import_path" value="{{.ImportPath}}">
-      <input type="hidden" name="platform" value="{{.Platform}}">
-      <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>.
-    </form>
-    <a href="{{.View "tools"}}">Tools</a> for package owners.
+    <dl>
+      <dt>Version</dt>
+      <dd><a href="{{.View "versions"}}">{{.Version}}</a> {{if eq .Version .LatestVersion}} (latest){{end}}</dd>
+      <dt>Published</dt>
+      <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
+      <dt>Platform</dt>
+      <dd>{{.Platform}}{{if .Cgo}} (Cgo){{end}}</dd>
+{{- if .Imports}}
+      <dt>Imports</dt>
+      <dd><a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>)</dd>
+{{- end}}
+      <dt>Last checked</dt>
+      <dd>
+        <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
+        &ndash;
+        <form class="inline-form" method="POST" action="/-/refresh">
+          <input type="hidden" name="import_path" value="{{.ImportPath}}">
+          <input type="hidden" name="platform" value="{{.Platform}}">
+          <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>
+        </form>
+      </dd>
+    </dl>
+    <p><a href="{{.View "tools"}}">Tools</a> for package owners.</p>
   </div>
 
 {{if and .Name (not .IsCommand)}}

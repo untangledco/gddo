@@ -199,3 +199,9 @@ summary:hover .permalink {
 .jumbotron {
     margin-bottom: 2rem;
 }
+
+dl {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	grid-gap: .2rem 1rem;
+}
