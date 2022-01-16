@@ -107,8 +107,6 @@ import "{{.ImportPath}}"
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
-
-{{- if .Name}}
 ## Details
 
 => {{.View "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
@@ -119,6 +117,6 @@ import "{{.ImportPath}}"
 {{- if not .Updated.IsZero}}
 * Last checked: {{humanize .Updated}}
 => /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now{{end}}
-{{end}}
+
 => / Back to home
 => /-/search Search
