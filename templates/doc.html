@@ -112,7 +112,7 @@
   <div id="x-pkginfo">
     <dl>
       <dt>Version</dt>
-      <dd><a href="{{.View "versions"}}">{{.Version}}</a> {{if eq .Version .LatestVersion}} (latest){{end}}</dd>
+      <dd>{{if .Versions}}<a href="{{.View "versions"}}">{{.Version}}</a>{{else}}{{.Version}}{{end}}{{if eq .Version .LatestVersion}} (latest){{end}}</dd>
       <dt>Published</dt>
       <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
       <dt>Platform</dt>

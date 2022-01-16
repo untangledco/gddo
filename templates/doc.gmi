@@ -109,7 +109,11 @@ import "{{.ImportPath}}"
 {{end}}
 ## Details
 
+{{- if .Versions}}
 => {{.View "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+{{- else}}
+* Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+{{- end}}
 * Published: {{.CommitTime.Format "Jan 2, 2006"}}
 * Platform: {{.Platform}} {{- if .Cgo}}(Cgo){{end}}
 {{- if .Imports}}
