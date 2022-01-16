@@ -116,8 +116,9 @@ import "{{.ImportPath}}"
 * Platform: {{.Platform}} {{- if .Cgo}}(Cgo){{end}}
 {{- if .Imports}}
 => {{.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
+{{- if not .Updated.IsZero}}
 * Last checked: {{humanize .Updated}}
-=> /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now
+=> /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now{{end}}
 {{end}}
 => / Back to home
 => /-/search Search

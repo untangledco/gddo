@@ -121,6 +121,7 @@
       <dt>Imports</dt>
       <dd><a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>)</dd>
 {{- end}}
+{{- if not .Updated.IsZero}}
       <dt>Last checked</dt>
       <dd>
         <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
@@ -131,6 +132,7 @@
           <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>
         </form>
       </dd>
+{{- end}}
     </dl>
     <p><a href="{{.View "tools"}}">Tools</a> for package owners.</p>
   </div>
