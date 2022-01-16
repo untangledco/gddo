@@ -1,13 +1,13 @@
 {{define "ROOT"}}<!DOCTYPE html><html lang="en">
     <head>
-      <title>{{.PageName}} graph - godocs.io</title>
+      <title>{{.PageName}} graph - {{brandName}}</title>
       <meta name="robots" content="NOINDEX, NOFOLLOW">
       <link href="{{staticPath "/-/bootstrap.min.css"}}" rel="stylesheet">
       <link href="{{staticPath "/-/site.css"}}" rel="stylesheet">
     </head>
     <body>
       <div class="well-small">
-        Package <a href="/{{.ImportPath}}">{{.Name}}</a>
+        Package <a href="/{{.ImportPath}}">{{.PageName}}</a>
         {{if ne .ModulePath "std"}}<span class="text-muted">|</span>
           {{if .Hide}}
             <a href="{{.View "import-graph"}}">Show</a>

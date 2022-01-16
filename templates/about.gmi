@@ -1,4 +1,4 @@
-# About godocs.io
+# About {{brandName}}
 
 This is a fork of gddo, the software which previously powered the now-defunct godoc.org, operated by Drew DeVault.
 
@@ -8,21 +8,21 @@ This is a fork of gddo, the software which previously powered the now-defunct go
 
 ## Documentation
 
-godocs.io generates documentation from Go source code. The guidelines for writing documentation for the godoc tool apply to godocs.io.
+{{brandName}} generates documentation from Go source code. The guidelines for writing documentation for the godoc tool apply.
 
 => https://go.dev The Go language
 => https://go.dev/blog/godoc Guidelines for documenting Go code
 
-It's important to write a good summary of the package in the first sentence of the package comment. godocs.io indexes the first sentence and displays it in search results.
+It's important to write a good summary of the package in the first sentence of the package comment. {{brandName}} indexes the first sentence and displays it in search results.
 
-## Adding a package
+## Add a package
 
-To add a package to godocs.io, search for the package by import path. If godocs.io does not already have the documentation for the package, it will fetch the package source code on the fly and add the documentation.
+To add a package to {{brandName}}, search for the package by import path. If {{brandName}} does not already have the documentation for the package, it will fetch the package source code on the fly and add the documentation.
 
 => /-/search Search for a package
 
-godocs.io checks for package updates once per day. You can force godocs.io to update the documentation immediately by clicking the refresh link at the bottom of the package documentation page.
+{{brandName}} checks for package updates periodically. You can force {{brandName}} to update the documentation immediately by clicking the refresh link at the bottom of the package documentation page.
 
-## Removing a package
+## Remove a package
 
-If you do not want godocs.io to display documentation for your package, send mail to sir@cmpwn.com with the import path of the package that you want to remove.
+If you do not want {{brandName}} to display documentation for your package, send mail to sir@cmpwn.com with the import path of the package that you want to remove.

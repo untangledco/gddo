@@ -1,4 +1,4 @@
-# Versions of this package
+# {{.PageName}} versions - {{brandName}}
 {{range .Versions}}
 => /{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{$.PlatformParam}} {{.}}{{if eq . $.LatestVersion}} (latest){{end}}{{end}}
 {{if ne .ImportPath .ModulePath}}

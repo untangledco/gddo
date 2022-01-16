@@ -1,5 +1,5 @@
 {{define "Head"}}
-  <title>{{.PageName}} - godocs.io</title>
+  <title>{{.PageName}} - {{brandName}}</title>
   {{if .Synopsis}}
     <meta property="og:title" content="{{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}}">
     <meta name="description" content="{{.Synopsis}}">

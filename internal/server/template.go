@@ -422,7 +422,7 @@ func joinTemplateDir(base string, files []string) []string {
 	return result
 }
 
-func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) error {
+func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) error {
 	sets := [][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"doc.html", "common.html", "layout.html"},
@@ -443,6 +443,7 @@ func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) er
 		"relativePath": relativePathFn,
 		"staticPath":   func(p string) string { return cb.AppendQueryParam(p, "v") },
 		"humanize":     humanize.Time,
+		"brandName":    func() string { return s.cfg.BrandName },
 	}
 	for _, set := range sets {
 		err := m.ParseHTML(set[0], funcs, joinTemplateDir(dir, set)...)
@@ -450,14 +451,17 @@ func parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) er
 			return err
 		}
 	}
-	err := m.ParseText("opensearch.xml", nil, filepath.Join(dir, "opensearch.xml"))
+	tfuncs := ttemp.FuncMap{
+		"brandName": func() string { return s.cfg.BrandName },
+	}
+	err := m.ParseText("opensearch.xml", tfuncs, filepath.Join(dir, "opensearch.xml"))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func parseGeminiTemplates(m TemplateMap, dir string) error {
+func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
 	sets := [][]string{
 		{"index.gmi"},
 		{"about.gmi"},
@@ -475,6 +479,7 @@ func parseGeminiTemplates(m TemplateMap, dir string) error {
 		},
 		"relativePath": relativePathFn,
 		"humanize":     humanize.Time,
+		"brandName":    func() string { return s.cfg.BrandName },
 	}
 	for _, set := range sets {
 		err := m.ParseText(set[0], funcs, joinTemplateDir(dir, set)...)

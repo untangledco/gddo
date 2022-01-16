@@ -16,7 +16,7 @@ import (
 )
 
 func (s *Server) GeminiHandler() (gemini.Handler, error) {
-	if err := parseGeminiTemplates(s.templates, s.cfg.TemplatesDir); err != nil {
+	if err := s.parseGeminiTemplates(s.templates, s.cfg.TemplatesDir); err != nil {
 		return nil, err
 	}
 	robotsTxt := filepath.Join(s.cfg.AssetsDir, "gemini-robots.txt")

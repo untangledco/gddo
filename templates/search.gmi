@@ -1,4 +1,4 @@
-# {{printf "%q" .Query}} - godocs.io
+# {{printf "%q" .Query}} - {{brandName}}
 
 => / Home
 => /-/search Search

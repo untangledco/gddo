@@ -47,7 +47,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	mux.Handle("/", handler(s.serveHome))
 
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
-	if err := parseHTMLTemplates(s.templates, s.cfg.TemplatesDir, cacheBusters); err != nil {
+	if err := s.parseHTMLTemplates(s.templates, s.cfg.TemplatesDir, cacheBusters); err != nil {
 		return nil, err
 	}
 	return mux, nil
@@ -274,7 +274,10 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
-	return s.templates.ExecuteHTML(resp, "about.html", http.StatusOK, nil)
+	uri := fmt.Sprintf("%s/%s", getRootURL(req), "rsc.io/quote")
+	return s.templates.ExecuteHTML(resp, "about.html", http.StatusOK, &struct {
+		URI string
+	}{uri})
 }
 
 func getRootURL(req *http.Request) string {

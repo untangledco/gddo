@@ -1,4 +1,4 @@
-{{define "Head"}}<title>{{.PageName}} tools - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} tools - {{brandName}}</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
@@ -6,27 +6,22 @@
 
   <h3>Badge</h3>
 
-  <p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="godocs.io"></a>
+  <p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="Go Documentation"></a>
 
-  <p>Use one of the snippets below to add a link to godocs.io from your project
-  website or README file:</a>
+  <p>Use one of the snippets below to add a link to {{brandName}} from your
+  project website or README file:</p>
 
   <h5>HTML</h5>
-  <pre>&lt;a href="{{.URI}}"&gt;&lt;img src="{{.URI}}?status.svg" alt="godocs.io"&gt;&lt;/a&gt;</pre>
+  <pre>&lt;a href="{{.URI}}"&gt;&lt;img src="{{.URI}}?status.svg" alt="Go Documentation"&gt;&lt;/a&gt;</pre>
 
   <h5>Markdown</h5>
-  <pre>[![godocs.io]({{.URI}}?status.svg)]({{.URI}})</pre>
+  <pre>[![Go Documentation]({{.URI}}?status.svg)]({{.URI}})</pre>
 
-  {{if .Name}}
-    {{if and (not .IsCommand) (not .Synopsis)}}
-      <p>The {{.Name}} package does not have a package declaration
-      comment.  See the <a
-        href="https://go.dev/blog/godoc">Go documentation guidelines</a>
-      for information on how to write a package comment.
-      It's important to write a good summary of the package in the
-      first sentence of the package comment. godocs.io indexes the first sentence
-      and displays the first sentence in package lists.
-    {{end}}
-  {{end}}
-  <p>&nbsp;
+{{if and .Name (not .IsCommand) (not .Synopsis)}}
+  <p>The {{.Name}} package does not have a package declaration comment.
+  See the <a href="https://go.dev/blog/godoc">Go documentation guidelines</a>
+  for information on how to write a package comment. It's important to write
+  a good summary of the package in the first sentence of the package comment.
+  {{brandName}} indexes the first sentence and displays it in search results.
+{{end}}
 {{end}}

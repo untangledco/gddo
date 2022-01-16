@@ -14,7 +14,7 @@ Output:
 {{.}}```
 {{end}}{{end}}{{end -}}
 
-# {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}} - godocs.io
+# {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}} - {{brandName}}
 {{if and .Name (not .IsCommand)}}
 ```
 import "{{.ImportPath}}"

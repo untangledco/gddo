@@ -1,5 +1,5 @@
-{{define "Head"}}<title>godocs.io</title>
-<link rel="search" type="application/opensearchdescription+xml" title="godocs.io" href="/-/opensearch.xml"/>{{end}}
+{{define "Head"}}<title>{{brandName}}</title>
+<link rel="search" type="application/opensearchdescription+xml" title="{{brandName}}" href="/-/opensearch.xml"/>{{end}}
 
 {{define "Body"}}
 <div class="jumbotron">
@@ -8,10 +8,9 @@
 </div>
 
 <p>
-godocs.io is an independent fork of the now-defunct godoc.org, and hosts
-documentation for <a href="https://go.dev/">Go</a> packages. Read the
-<a href="/-/about">About Page</a> for information about adding packages to
-godocs.io and more.
+{{brandName}} serves documentation for <a href="https://go.dev">Go</a> packages.
+Read the <a href="/-/about">About Page</a> for information about adding packages
+to {{brandName}} and more.
 </p>
 
 {{end}}

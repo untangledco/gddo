@@ -1,4 +1,4 @@
-# Standard Library - godocs.io
+# Standard Library - {{brandName}}
 {{range .Packages}}
 => /{{.ImportPath}} {{.ImportPath}}
 {{- if .Synopsis}}

@@ -1,14 +1,15 @@
-{{define "Head"}}<title>{{.PageName}} versions - godocs.io</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} versions - {{brandName}}</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h3>Versions of this package</h3>
+  <h3>Versions of {{.PageName}}</h3>
   <ul>{{range .Versions}}
     <li><a href="/{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{$.PlatformParam}}">{{.}}</a> {{if eq . $.LatestVersion}} (latest){{end}}</li>{{end}}
   </ul>
   {{if ne .ImportPath .ModulePath}}
   <p>
     <strong>Note</strong>: this list may be incomplete.
-    <a href="/{{$.ModulePath}}{{$.View "versions"}}">View all versions of this module.</a></p>
+    <a href="/{{$.ModulePath}}{{$.View "versions"}}">View all versions of this module.</a>
+  </p>
   {{end}}
 {{end}}

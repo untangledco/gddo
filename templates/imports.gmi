@@ -1,4 +1,4 @@
-# Packages that are imported by {{.PageName}}
+# {{.PageName}} imports - {{brandName}}
 {{if .Imported}}{{range .Imported}}
 => /{{.ImportPath}}{{$.PlatformParam}} {{.ImportPath}}
 {{- if .Synopsis}}
