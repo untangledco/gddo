@@ -104,7 +104,7 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		mode |= NeedSubPackages
 	}
 
-	pkg, err := s.load(ctx, platform, importPath, version, NeedDocumentation)
+	pkg, err := s.load(ctx, platform, importPath, version, mode)
 	if err != nil {
 		return err
 	}
