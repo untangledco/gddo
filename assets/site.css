@@ -105,11 +105,11 @@ a, .navbar-default .navbar-brand, .link {
 }
 
 .link {
-  display: inline-block;
-  border: none;
-  background: none;
-  padding: 0;
-  margin: 0;
+    display: inline-block;
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0;
 }
 
 .navbar-default, #x-footer {
@@ -157,15 +157,11 @@ summary:hover .permalink {
 }
 
 .inline-form {
-  display: inline-block;
+    display: inline-block;
 }
 
 .synopsis {
     opacity: 0.87;
-}
-
-.click-select {
-    user-select: all;
 }
 
 .modal {
@@ -201,7 +197,7 @@ summary:hover .permalink {
 }
 
 dl {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	grid-gap: .2rem 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-gap: .2rem 1rem;
 }

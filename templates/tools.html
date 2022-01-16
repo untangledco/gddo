@@ -12,10 +12,10 @@
   website or README file:</a>
 
   <h5>HTML</h5>
-  <pre class="click-select">&lt;a href="{{.URI}}"&gt;&lt;img src="{{.URI}}?status.svg" alt="godocs.io"&gt;&lt;/a&gt;</pre>
+  <pre>&lt;a href="{{.URI}}"&gt;&lt;img src="{{.URI}}?status.svg" alt="godocs.io"&gt;&lt;/a&gt;</pre>
 
   <h5>Markdown</h5>
-  <pre class="click-select">[![godocs.io]({{.URI}}?status.svg)]({{.URI}})</pre>
+  <pre>[![godocs.io]({{.URI}}?status.svg)]({{.URI}})</pre>
 
   {{if .Name}}
     {{if and (not .IsCommand) (not .Synopsis)}}
