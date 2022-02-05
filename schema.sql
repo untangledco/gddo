@@ -14,9 +14,6 @@ CREATE TABLE modules (
 -- Used for efficient pattern matching of module paths
 CREATE INDEX module_path_text_pattern_ops_idx ON modules (module_path text_pattern_ops);
 
--- Used to retrieve all the modules in a series
-CREATE INDEX modules_series_path_idx ON modules (series_path);
-
 -- Stores package information
 CREATE TABLE packages (
 	platform text NOT NULL,
@@ -44,9 +41,6 @@ CREATE INDEX packages_idx ON packages (module_path);
 
 -- Used to search for packages
 CREATE INDEX packages_searchtext_idx ON packages USING GIN (searchtext);
-
--- Used to retrieve all the packages in a series
-CREATE INDEX packages_series_path_idx ON packages (series_path);
 
 -- Used to store project information
 CREATE TABLE projects (
