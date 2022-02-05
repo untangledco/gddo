@@ -1,0 +1,3 @@
+# {{.PageName}} platforms - {{config.BrandName}}
+{{range .Platforms}}
+=> ?platform={{.}} {{.}}{{end}}
