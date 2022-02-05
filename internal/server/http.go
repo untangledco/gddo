@@ -45,6 +45,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
+	mux.Handle("/C", http.RedirectHandler("/cmd/cgo", http.StatusMovedPermanently))
 	mux.Handle("/", handler(s.serveHome))
 
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
