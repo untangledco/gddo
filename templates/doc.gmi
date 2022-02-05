@@ -115,7 +115,7 @@ import "{{.ImportPath}}"
 * Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 {{- end}}
 * Published: {{.CommitTime.Format "Jan 2, 2006"}}
-* Platform: {{.Platform}} {{- if .Cgo}}(Cgo){{end}}
+=> {{.View "platforms"}} Platform: {{.Platform}}{{if .Cgo}} (Cgo){{end}}
 {{- if .Imports}}
 => {{.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
 {{- if not .Updated.IsZero}}

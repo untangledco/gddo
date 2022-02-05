@@ -12,6 +12,7 @@ import (
 
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal"
+	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -98,6 +99,7 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 	mode := NeedDocumentation
 	switch r.URL.Query().Get("view") {
 	case "versions":
+	case "platforms":
 	case "imports":
 		mode |= NeedImports
 	default:
@@ -112,6 +114,12 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 	switch r.URL.Query().Get("view") {
 	case "versions":
 		s.templates.Execute(w, "versions.gmi", &pkg)
+
+	case "platforms":
+		s.templates.Execute(w, "platforms.gmi", &struct {
+			Package
+			Platforms []string
+		}{pkg, platforms.Platforms()})
 
 	case "imports":
 		s.templates.Execute(w, "imports.gmi", &pkg)

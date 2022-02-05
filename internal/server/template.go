@@ -428,6 +428,7 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 		{"doc.html", "common.html", "layout.html"},
 		{"index.html", "common.html", "layout.html"},
 		{"versions.html", "common.html", "layout.html"},
+		{"platforms.html", "common.html", "layout.html"},
 		{"imports.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"search.html", "common.html", "layout.html"},
@@ -468,6 +469,7 @@ func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
 		{"search.gmi"},
 		{"doc.gmi"},
 		{"versions.gmi"},
+		{"platforms.gmi"},
 		{"imports.gmi"},
 		{"std.gmi"},
 	}

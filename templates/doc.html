@@ -116,7 +116,7 @@
       <dt>Published</dt>
       <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
       <dt>Platform</dt>
-      <dd>{{.Platform}}{{if .Cgo}} (Cgo){{end}}</dd>
+      <dd><a href="{{.View "platforms"}}">{{.Platform}}</a>{{if .Cgo}} (Cgo){{end}}</dd>
 {{- if .Imports}}
       <dt>Imports</dt>
       <dd><a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>)</dd>

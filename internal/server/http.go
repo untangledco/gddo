@@ -17,6 +17,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
+	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -125,6 +126,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	mode := NeedDocumentation | NeedProject
 	switch req.Form.Get("view") {
 	case "versions":
+	case "platforms":
 	case "imports":
 		mode |= NeedImports
 	case "tools":
@@ -143,6 +145,12 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	switch req.Form.Get("view") {
 	case "versions":
 		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &pkg)
+
+	case "platforms":
+		return s.templates.ExecuteHTML(resp, "platforms.html", http.StatusOK, &struct {
+			Package
+			Platforms []string
+		}{pkg, platforms.Platforms()})
 
 	case "imports":
 		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &pkg)
