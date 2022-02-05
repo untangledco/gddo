@@ -1,4 +1,4 @@
-# {{.PageName}} imports - {{brandName}}
+# {{.PageName}} imports - {{config.BrandName}}
 {{if .Imported}}{{range .Imported}}
 => /{{.ImportPath}}{{$.PlatformParam}} {{.ImportPath}}
 {{- if .Synopsis}}

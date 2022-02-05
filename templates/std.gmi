@@ -1,4 +1,4 @@
-# Standard Library - {{brandName}}
+# Standard Library - {{config.BrandName}}
 {{range .Packages}}
 => /{{.ImportPath}} {{.ImportPath}}
 {{- if .Synopsis}}

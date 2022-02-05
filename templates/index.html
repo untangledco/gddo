@@ -1,5 +1,5 @@
-{{define "Head"}}<title>{{brandName}}</title>
-<link rel="search" type="application/opensearchdescription+xml" title="{{brandName}}" href="/-/opensearch.xml"/>{{end}}
+{{define "Head"}}<title>{{config.BrandName}}</title>
+<link rel="search" type="application/opensearchdescription+xml" title="{{config.BrandName}}" href="/-/opensearch.xml"/>{{end}}
 
 {{define "Body"}}
 <div class="jumbotron">
@@ -8,9 +8,9 @@
 </div>
 
 <p>
-{{brandName}} serves documentation for <a href="https://go.dev">Go</a> packages.
+{{config.BrandName}} serves documentation for <a href="https://go.dev">Go</a> packages.
 Read the <a href="/-/about">About Page</a> for information about adding packages
-to {{brandName}} and more.
+to {{config.BrandName}} and more.
 </p>
 
 {{end}}

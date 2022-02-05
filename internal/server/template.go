@@ -443,7 +443,7 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 		"relativePath": relativePathFn,
 		"staticPath":   func(p string) string { return cb.AppendQueryParam(p, "v") },
 		"humanize":     humanize.Time,
-		"brandName":    func() string { return s.cfg.BrandName },
+		"config":       func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
 		err := m.ParseHTML(set[0], funcs, joinTemplateDir(dir, set)...)
@@ -452,7 +452,7 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 		}
 	}
 	tfuncs := ttemp.FuncMap{
-		"brandName": func() string { return s.cfg.BrandName },
+		"config": func() *Config { return s.cfg },
 	}
 	err := m.ParseText("opensearch.xml", tfuncs, filepath.Join(dir, "opensearch.xml"))
 	if err != nil {
@@ -479,7 +479,7 @@ func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
 		},
 		"relativePath": relativePathFn,
 		"humanize":     humanize.Time,
-		"brandName":    func() string { return s.cfg.BrandName },
+		"config":       func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
 		err := m.ParseText(set[0], funcs, joinTemplateDir(dir, set)...)

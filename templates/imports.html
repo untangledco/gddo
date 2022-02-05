@@ -1,4 +1,5 @@
-{{define "Head"}}<title>{{.PageName}} imports - {{brandName}}</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} imports - {{config.BrandName}}</title>
+<meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}

@@ -1,4 +1,5 @@
-{{define "Head"}}<title>{{.PageName}} versions - {{brandName}}</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} versions - {{config.BrandName}}</title>
+<meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}

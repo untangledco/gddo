@@ -1,4 +1,5 @@
-{{define "Head"}}<title>{{.PageName}} tools - {{brandName}}</title><meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "Head"}}<title>{{.PageName}} tools - {{config.BrandName}}</title>
+<meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
@@ -8,7 +9,7 @@
 
   <p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="Go Documentation"></a>
 
-  <p>Use one of the snippets below to add a link to {{brandName}} from your
+  <p>Use one of the snippets below to add a link to {{config.BrandName}} from your
   project website or README file:</p>
 
   <h5>HTML</h5>
@@ -22,6 +23,6 @@
   See the <a href="https://go.dev/blog/godoc">Go documentation guidelines</a>
   for information on how to write a package comment. It's important to write
   a good summary of the package in the first sentence of the package comment.
-  {{brandName}} indexes the first sentence and displays it in search results.
+  {{config.BrandName}} indexes the first sentence and displays it in search results.
 {{end}}
 {{end}}

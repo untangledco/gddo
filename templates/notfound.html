@@ -1,4 +1,4 @@
-{{define "Head"}}<title>{{if eq .Status 404}}Not Found{{else}}Internal server error{{end}} - {{brandName}}</title>{{end}}
+{{define "Head"}}<title>{{if eq .Status 404}}Not Found{{else}}Internal server error{{end}} - {{config.BrandName}}</title>{{end}}
 
 {{define "Body"}}
   {{if eq .Status 404}}

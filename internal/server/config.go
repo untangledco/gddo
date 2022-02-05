@@ -15,6 +15,9 @@ type Config struct {
 	AssetsDir       string
 	TemplatesDir    string
 	BrandName       string
+	AdminName       string
+	AdminEmail      string
+	WebsiteIssues   string
 	BindHTTP        string
 	BindGemini      string
 	Hostname        string
@@ -39,6 +42,9 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.AssetsDir, "assets", assetsDir, "Assets directory")
 	flags.StringVar(&c.TemplatesDir, "templates", templatesDir, "Templates directory")
 	flags.StringVar(&c.BrandName, "brand-name", "GoDoc", "Brand name to use in templates")
+	flags.StringVar(&c.AdminName, "admin-name", "", "Admin name to use in templates")
+	flags.StringVar(&c.AdminEmail, "admin-email", "", "Admin email address to use in templates")
+	flags.StringVar(&c.WebsiteIssues, "website-issues", "", "URL for website issues to use in templates")
 	flags.StringVar(&c.BindHTTP, "http", "", "Listen for HTTP connections on this address")
 	flags.StringVar(&c.BindGemini, "gemini", "", "Listen for Gemini connections on this address")
 	flags.StringVar(&c.Hostname, "hostname", "", "Hostname to accept Gemini requests for")

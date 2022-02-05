@@ -1,32 +1,32 @@
-{{define "Head"}}<title>About {{brandName}}</title>{{end}}
+{{define "Head"}}<title>About {{config.BrandName}}</title>{{end}}
 
 {{define "Body"}}
 <h1>About</h1>
 
 <p>This is a fork of gddo, the software which previously powered the now-defunct
-godoc.org, operated by Drew DeVault. The source code is available on <a
+godoc.org{{with config.AdminName}}, operated by {{.}}{{end}}. The source code is available on <a
   href="https://sr.ht/~sircmpwn/godocs.io">sr.ht</a>.
 
 <h4 id="documentation">Documentation</h4>
 
-<p>{{brandName}} generates documentation from Go source code. The <a
+<p>{{config.BrandName}} generates documentation from Go source code. The <a
   href="https://go.dev/blog/godoc">guidelines</a>
 for writing documentation for the <a
   href="/golang.org/x/tools/cmd/godoc">godoc</a> tool apply.
 
 <p>It's important to write a good summary of the package in the first sentence
-of the package comment. {{brandName}} indexes the first sentence and displays it
+of the package comment. {{config.BrandName}} indexes the first sentence and displays it
 in search results.
 
 <h4 id="add">Add a package</h4>
 
-<p>To add a package to {{brandName}}, <a href="/">search</a> for the package by
-import path. If {{brandName}} does not already have the documentation for the
+<p>To add a package to {{config.BrandName}}, <a href="/">search</a> for the package by
+import path. If {{config.BrandName}} does not already have the documentation for the
 package, it will fetch the package source code on the fly and add the
 documentation.
 
-<p>{{brandName}} checks for package updates periodically. You can force
-{{brandName}} to update the documentation immediately by clicking the refresh
+<p>{{config.BrandName}} checks for package updates periodically. You can force
+{{config.BrandName}} to update the documentation immediately by clicking the refresh
 button at the bottom of the package documentation page.
 
 <p>To add a badge to your project like this:
@@ -35,15 +35,17 @@ button at the bottom of the package documentation page.
 
 <p>Click on "tools" for package owners at the bottom of the page.
 
+{{if config.AdminEmail -}}
 <h4 id="remove">Remove a package</h4>
 
-<p>If you do not want {{brandName}} to display documentation for your package,
-send mail to sir@cmpwn.com with the import path of the path of the package that
+<p>If you do not want {{config.BrandName}} to display documentation for your package,
+send mail to {{config.AdminEmail}} with the import path of the path of the package that
 you want to remove.
+{{- end}}
 
 <h4 id="shortcuts">Keyboard Shortcuts</h4>
 
-<p>{{brandName}} has keyboard shortcuts for navigating package documentation
+<p>{{config.BrandName}} has keyboard shortcuts for navigating package documentation
 pages. Type '?' on a package page for help.
 
 {{end}}

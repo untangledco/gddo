@@ -1,5 +1,5 @@
 {{define "Head"}}
-  <title>{{.PageName}} - {{brandName}}</title>
+  <title>{{.PageName}} - {{config.BrandName}}</title>
   {{if .Synopsis}}
     <meta property="og:title" content="{{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}}">
     <meta name="description" content="{{.Synopsis}}">

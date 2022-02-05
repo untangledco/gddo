@@ -1,4 +1,4 @@
-# {{printf "%q" .Query}} - {{brandName}}
+# {{printf "%q" .Query}} - {{config.BrandName}}
 
 => / Home
 => /-/search Search

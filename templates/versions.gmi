@@ -1,4 +1,4 @@
-# {{.PageName}} versions - {{brandName}}
+# {{.PageName}} versions - {{config.BrandName}}
 {{range .Versions}}
 => /{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{$.PlatformParam}} {{.}}{{if eq . $.LatestVersion}} (latest){{end}}{{end}}
 {{if ne .ImportPath .ModulePath}}

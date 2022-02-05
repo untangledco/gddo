@@ -1,4 +1,5 @@
-{{define "Head"}}<title>{{.Query}} - {{brandName}}</title><meta name="robots" content="NOINDEX">{{end}}
+{{define "Head"}}<title>{{.Query}} - {{config.BrandName}}</title>
+<meta name="robots" content="NOINDEX">{{end}}
 
 {{define "Body"}}
   {{template "FlashMessage" .Message}}
