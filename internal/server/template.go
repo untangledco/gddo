@@ -195,6 +195,8 @@ func (pkg *Package) Breadcrumbs(templateName string) htemp.HTML {
 		if link {
 			buf.WriteString(`<a href="`)
 			buf.WriteString(formatPathFrag(pkg.ImportPath[:j], ""))
+			buf.WriteString(pkg.VersionParam())
+			buf.WriteString(pkg.PlatformParam())
 			buf.WriteString(`">`)
 		} else {
 			buf.WriteString(`<span class="text-muted">`)
