@@ -90,7 +90,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	// We do this before returning any errors so that background refreshes
 	// won't get stuck fetching the same broken module over and over.
 	// Note that this does nothing if the module is not present in the database.
-	if err := s.db.TouchModule(ctx, mod.ModulePath); err != nil {
+	if err := s.db.TouchModule(ctx, modulePath); err != nil {
 		return err
 	}
 
