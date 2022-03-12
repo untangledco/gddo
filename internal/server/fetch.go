@@ -149,16 +149,16 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, di
 
 	// Add packages to the database
 	for _, dir := range dirs {
+		importPath := path.Join(mod.ModulePath, dir.Path)
 		doc, err := doc.New(mod.ModulePath, &dir, bctx)
 		if err != nil {
-			log.Println(err)
+			log.Printf("Failed to build documentation for %s: %v", importPath, err)
 			continue
 		}
 		if doc.Name == "" {
 			// No documentation
 			continue
 		}
-		importPath := path.Join(mod.ModulePath, dir.Path)
 		pkg := internal.Package{
 			Module:     *mod,
 			ImportPath: importPath,
