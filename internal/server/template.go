@@ -361,10 +361,6 @@ func isInterfaceFn(t *doc.Type) bool {
 	return isInterfacePat.MatchString(t.Decl.Text)
 }
 
-func noteTitleFn(s string) string {
-	return strings.Title(strings.ToLower(s))
-}
-
 type TemplateMap map[string]interface {
 	Execute(io.Writer, interface{}) error
 }
