@@ -1,5 +1,3 @@
-VERSION=1.0
-
 PREFIX?=/usr/local
 BINDIR?=$(PREFIX)/bin
 SHAREDIR?=$(PREFIX)/share/gddo
@@ -11,7 +9,7 @@ all: gddo
 
 gddo: $(GOSRC)
 	go build \
-		-ldflags "-X main.Version=$(VERSION) -X main.ShareDir=$(SHAREDIR)" \
+		-ldflags "-X main.ShareDir=$(SHAREDIR)" \
 		-o $@ \
 		./cmd/$@
 

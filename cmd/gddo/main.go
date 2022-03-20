@@ -51,7 +51,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -65,7 +64,6 @@ import (
 )
 
 var (
-	Version  string
 	ShareDir string
 )
 
@@ -76,14 +74,8 @@ func main() {
 		ShareDir: ShareDir,
 	}
 	flags := cfg.FlagSet()
-	version := flags.Bool("v", false, "print version information")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)
-	}
-
-	if *version {
-		fmt.Println("gddo", Version)
-		return
 	}
 
 	s, err := server.New(cfg)
