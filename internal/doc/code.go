@@ -27,8 +27,10 @@ const (
 
 // predeclared represents the set of all predeclared identifiers.
 var predeclared = map[string]int{
+	"any":        predeclaredType,
 	"bool":       predeclaredType,
 	"byte":       predeclaredType,
+	"comparable": predeclaredType,
 	"complex128": predeclaredType,
 	"complex64":  predeclaredType,
 	"error":      predeclaredType,
