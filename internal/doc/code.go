@@ -135,6 +135,9 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 	switch n := n.(type) {
 	case *ast.TypeSpec:
 		v.ignoreName()
+		if n.TypeParams != nil {
+			ast.Walk(v, n.TypeParams)
+		}
 		switch n := n.Type.(type) {
 		case *ast.InterfaceType:
 			for _, f := range n.Methods.List {
