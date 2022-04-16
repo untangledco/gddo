@@ -179,7 +179,11 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 		case n.Obj == nil && predeclared[n.Name] != notPredeclared:
 			v.add(BuiltinAnnotation, "")
 		case n.Obj != nil && ast.IsExported(n.Name):
-			v.add(LinkAnnotation, "")
+			if _, ok := n.Obj.Decl.(*ast.TypeSpec); ok {
+				v.add(LinkAnnotation, "")
+			} else {
+				v.ignoreName()
+			}
 		default:
 			v.ignoreName()
 		}
