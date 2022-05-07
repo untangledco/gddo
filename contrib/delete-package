@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ $# -eq 0 ]; then
+	echo "Usage: $0 <path>"
+	exit 1
+fi
+
+echo "
+BEGIN;
+DELETE FROM modules USING packages
+WHERE modules.module_path = packages.module_path
+AND packages.import_path = :'path'
+RETURNING modules.module_path;
+COMMIT;
+" | psql -At -v path=$1
