@@ -39,6 +39,9 @@ CREATE TABLE packages (
 -- Used to speed up retrieval of packages by module path
 CREATE INDEX packages_idx ON packages (module_path);
 
+-- Used to speed up retrieval of packages by import path
+CREATE INDEX packages_import_path_idx ON packages (import_path);
+
 -- Used to search for packages
 CREATE INDEX packages_searchtext_idx ON packages USING GIN (searchtext);
 
