@@ -80,17 +80,17 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	}
 	defer s.fetches.Delete(key)
 
-	// Retrieve module
-	mod, err := s.source.Module(modulePath, version)
-	if err != nil {
-		return err
-	}
-
 	// Update the module timestamp.
 	// We do this before returning any errors so that background refreshes
 	// won't get stuck fetching the same broken module over and over.
 	// Note that this does nothing if the module is not present in the database.
 	if err := s.db.TouchModule(ctx, modulePath); err != nil {
+		return err
+	}
+
+	// Retrieve module
+	mod, err := s.source.Module(modulePath, version)
+	if err != nil {
 		return err
 	}
 
