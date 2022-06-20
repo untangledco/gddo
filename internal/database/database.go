@@ -30,6 +30,7 @@ func New(serverURI string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(64)
 	return &Database{pg: db}, nil
 }
 
