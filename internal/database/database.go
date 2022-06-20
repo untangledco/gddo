@@ -327,6 +327,7 @@ func (db *Database) HasPackage(ctx context.Context, platform, importPath, versio
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 		if rows.Next() {
 			if err := rows.Scan(&exists); err != nil {
 				return err
