@@ -1,13 +1,13 @@
-PREFIX?=/usr/local
-BINDIR?=$(PREFIX)/bin
-SHAREDIR?=$(PREFIX)/share/gddo
+.POSIX:
+.SUFFIXES:
 
-GOSRC!=find . -name '*.go'
-GOSRC+=go.mod go.sum
+PREFIX=/usr/local
+BINDIR=$(PREFIX)/bin
+SHAREDIR=$(PREFIX)/share/gddo
 
 all: gddo
 
-gddo: $(GOSRC)
+gddo:
 	go build \
 		-ldflags "-X main.ShareDir=$(SHAREDIR)" \
 		-o $@ \
@@ -16,7 +16,7 @@ gddo: $(GOSRC)
 clean:
 	rm -f gddo
 
-install: all
+install:
 	mkdir -m755 -p $(DESTDIR)$(BINDIR) $(DESTDIR)$(SHAREDIR) \
 		$(DESTDIR)$(SHAREDIR)/assets $(DESTDIR)$(SHAREDIR)/templates
 	install -m755 gddo $(DESTDIR)$(BINDIR)
@@ -28,4 +28,4 @@ uninstall:
 	rm -rf $(DESTDIR)$(SHAREDIR)/assets
 	rm -rf $(DESTDIR)$(SHAREDIR)/templates
 
-.PHONY: all doc clean install uninstall
+.PHONY: all gddo clean install uninstall
