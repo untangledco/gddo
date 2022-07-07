@@ -134,20 +134,6 @@ func (s *Server) search(ctx context.Context, platform, q string) ([]internal.Pac
 	return s.db.Search(ctx, platform, q)
 }
 
-func (s *Server) packages(ctx context.Context, platform string, importPaths []string) ([]internal.Package, error) {
-	if s.db == nil {
-		// Populate import paths only
-		var packages []internal.Package
-		for _, importPath := range importPaths {
-			packages = append(packages, internal.Package{
-				ImportPath: importPath,
-			})
-		}
-		return packages, nil
-	}
-	return s.db.Packages(ctx, platform, importPaths)
-}
-
 func (s *Server) importGraph(ctx context.Context, platform string, pkg internal.Package, level database.DepLevel) ([]internal.Package, [][2]int, error) {
 	if s.db == nil {
 		// Import graph requires a database

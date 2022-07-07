@@ -422,19 +422,21 @@ const subpackagesQuery = `
 SELECT
 	import_path, series_path, commit_time, name, synopsis
 FROM packages
-WHERE platform = $1 AND module_path = $2 AND version = $3 AND import_path LIKE $4 || '_%'
-AND ($5 OR import_path NOT LIKE '%/internal/%')
+WHERE platform = $1 AND module_path = $2 AND version = $3
+AND (($4 AND import_path != module_path) OR import_path LIKE $5 || '_%')
+AND ($6 OR import_path NOT LIKE '%/internal/%')
 ORDER BY import_path;
 `
 
 // SubPackages returns the subpackages of the given package.
 func (db *Database) SubPackages(ctx context.Context, platform, modulePath, version, importPath string) ([]internal.Package, error) {
+	isModule := modulePath == importPath
 	isInternal := strings.HasSuffix(importPath, "/internal") ||
 		strings.Contains(importPath, "/internal/")
 	var packages []internal.Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, subpackagesQuery,
-			platform, modulePath, version, importPath, isInternal)
+			platform, modulePath, version, isModule, importPath, isInternal)
 		if err != nil {
 			return err
 		}

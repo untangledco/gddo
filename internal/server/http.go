@@ -18,7 +18,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 func (s *Server) HTTPHandler() (http.Handler, error) {
@@ -41,7 +40,6 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	}
 	mux.Handle("/-/about", handler(s.serveAbout))
 	mux.Handle("/-/opensearch.xml", handler(s.serveOpenSearch))
-	mux.Handle("/std", handler(s.serveStdlib))
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
 	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
 	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
@@ -227,16 +225,6 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 	}
 	http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 	return nil
-}
-
-func (s *Server) serveStdlib(resp http.ResponseWriter, req *http.Request) error {
-	pkgs, err := s.packages(req.Context(), s.cfg.Platform, stdlib.Packages())
-	if err != nil {
-		return err
-	}
-	return s.templates.ExecuteHTML(resp, "std.html", http.StatusOK, struct {
-		Packages []internal.Package
-	}{pkgs})
 }
 
 func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {

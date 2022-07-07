@@ -176,7 +176,8 @@ func (pkg *Package) ObjExamples(obj interface{}) []*texample {
 func (pkg *Package) Breadcrumbs(templateName string) htemp.HTML {
 	modulePath := pkg.ModulePath
 	if !strings.HasPrefix(pkg.ImportPath, pkg.ModulePath) {
-		return ""
+		// This is the case for stdlib packages
+		modulePath = strings.SplitN(pkg.ImportPath, "/", 2)[0]
 	}
 	var buf bytes.Buffer
 	i := 0
@@ -240,7 +241,7 @@ func formatPathFrag(path, fragment string) string {
 
 // relativePathFn formats an import path as HTML.
 func relativePathFn(path string, parentPath interface{}) string {
-	if p, ok := parentPath.(string); ok && p != "" && strings.HasPrefix(path, p) {
+	if p, ok := parentPath.(string); ok && p != "" && strings.HasPrefix(path, p+"/") {
 		path = path[len(p)+1:]
 	}
 	return path

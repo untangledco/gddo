@@ -41,8 +41,8 @@ type Source struct {
 // Module fetches a module from the module proxy. If the module is in the
 // standard library, it is fetched from the Go git repository instead.
 func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
-	if stdlib.Contains(modulePath) {
-		return stdlib.Module(modulePath, version)
+	if modulePath == stdlib.ModulePath {
+		return stdlib.Module(version)
 	}
 
 	// Get version info
@@ -98,7 +98,7 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 
 // Files returns the module's files.
 func (s *Source) Files(mod *internal.Module) (fs.FS, error) {
-	if stdlib.Contains(mod.ModulePath) {
+	if mod.ModulePath == stdlib.ModulePath {
 		return stdlib.Files(mod)
 	}
 

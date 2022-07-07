@@ -9,6 +9,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 // A LoadMode configures the amount of detail returned when loading a package.
@@ -132,17 +133,25 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
 	// Loop through potential module paths
 	var mod *internal.Module
-	for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
+	if stdlib.Contains(importPath) {
 		var err error
-		mod, err = s.source.Module(modulePath, version)
+		mod, err = s.source.Module(stdlib.ModulePath, version)
 		if err != nil {
-			if errors.Is(err, internal.ErrNotFound) {
-				// Try parent path
-				continue
-			}
 			return Package{}, err
 		}
-		break
+	} else {
+		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
+			var err error
+			mod, err = s.source.Module(modulePath, version)
+			if err != nil {
+				if errors.Is(err, internal.ErrNotFound) {
+					// Try parent path
+					continue
+				}
+				return Package{}, err
+			}
+			break
+		}
 	}
 	if mod == nil {
 		return Package{}, internal.ErrNotFound
@@ -193,13 +202,17 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		pkg.Synopsis = pdoc.Synopsis
 		pkg.Imports = pdoc.Imports
 
+		isModule := mod.ModulePath == importPath
+
 		if mode&NeedSubPackages != 0 {
 			for _, d := range dirs {
-				subPath := path.Join(pkg.ModulePath, d.Path)
-				if !strings.HasPrefix(subPath, pkg.ImportPath) || subPath == pkg.ImportPath {
+				subPath := moduleImportPath(pkg.ModulePath, d.Path)
+				if (!isModule && !strings.HasPrefix(subPath, pkg.ImportPath)) ||
+					subPath == pkg.ImportPath {
 					continue
 				}
 				pkg.SubPackages = append(pkg.SubPackages, internal.Package{
+					Module:     *mod,
 					ImportPath: subPath,
 				})
 			}

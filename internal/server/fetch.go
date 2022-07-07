@@ -7,7 +7,6 @@ import (
 	"log"
 	"path"
 	"sort"
-	"strings"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
@@ -42,9 +41,7 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 		ctx := context.Background()
 		// Special case for stdlib packages
 		if stdlib.Contains(importPath) {
-			// Get the root import path (e.g. archive/tar => archive)
-			modulePath := strings.SplitN(importPath, "/", 2)[0]
-			ch <- s.fetchModule(ctx, platform, modulePath, version)
+			ch <- s.fetchModule(ctx, platform, stdlib.ModulePath, version)
 			return
 		}
 		// Loop through potential module paths
@@ -133,6 +130,13 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	})
 }
 
+func moduleImportPath(modulePath, dir string) string {
+	if modulePath == stdlib.ModulePath && dir != "." {
+		return dir
+	}
+	return path.Join(modulePath, dir)
+}
+
 // putModule puts a module and its associated packages in the database.
 // project may be nil.
 func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, dirs []internal.Directory, project *meta.Project) error {
@@ -149,7 +153,7 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, di
 
 	// Add packages to the database
 	for _, dir := range dirs {
-		importPath := path.Join(mod.ModulePath, dir.Path)
+		importPath := moduleImportPath(mod.ModulePath, dir.Path)
 		doc, err := doc.New(mod.ModulePath, &dir, bctx)
 		if err != nil {
 			log.Printf("Failed to build documentation for %s: %v", importPath, err)
@@ -188,7 +192,7 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, di
 		if !isDir {
 			continue
 		}
-		importPath := path.Join(mod.ModulePath, dir)
+		importPath := moduleImportPath(mod.ModulePath, dir)
 		pkg := internal.Package{
 			Module:     *mod,
 			ImportPath: importPath,

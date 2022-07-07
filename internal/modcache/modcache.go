@@ -28,7 +28,7 @@ type Source struct {
 // Module fetches a module from the module cache. If the module is in the
 // standard library, it is fetched from the local Go tree instead.
 func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
-	if stdlib.Contains(modulePath) {
+	if modulePath == stdlib.ModulePath {
 		if version != internal.LatestVersion {
 			// Only latest version supported
 			return nil, internal.ErrNotFound
@@ -36,8 +36,8 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 		tag := runtime.Version()
 		goVersion := stdlib.VersionForTag(tag)
 		return &internal.Module{
-			ModulePath:    modulePath,
-			SeriesPath:    modulePath,
+			ModulePath:    stdlib.ModulePath,
+			SeriesPath:    stdlib.ModulePath,
 			Version:       goVersion,
 			Reference:     tag,
 			LatestVersion: goVersion,
@@ -115,8 +115,8 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 
 // Files returns the module's files.
 func (s *Source) Files(mod *internal.Module) (fs.FS, error) {
-	if stdlib.Contains(mod.ModulePath) {
-		return os.DirFS(path.Join(runtime.GOROOT(), "src", mod.ModulePath)), nil
+	if mod.ModulePath == stdlib.ModulePath {
+		return os.DirFS(path.Join(runtime.GOROOT(), "src")), nil
 	}
 
 	escapedPath, err := module.EscapePath(mod.ModulePath)

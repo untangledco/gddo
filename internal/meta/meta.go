@@ -41,9 +41,9 @@ func (p *Project) Line(ref, dir, file, line string) string {
 }
 
 const (
-	stdlibDirFmt  = "https://github.com/golang/go/tree/{ref}/src/%s/{path}"
-	stdlibFileFmt = "https://github.com/golang/go/blob/{ref}/src/%s/{path}"
-	stdlibLineFmt = "https://github.com/golang/go/blob/{ref}/src/%s/{path}#L{line}"
+	stdlibDirFmt  = "https://github.com/golang/go/tree/{ref}/src/{path}"
+	stdlibFileFmt = "https://github.com/golang/go/blob/{ref}/src/{path}"
+	stdlibLineFmt = "https://github.com/golang/go/blob/{ref}/src/{path}#L{line}"
 )
 
 // Fetch fetches project information for the provided module path.
@@ -54,9 +54,9 @@ func Fetch(ctx context.Context, client *http.Client, modulePath, userAgent strin
 			ModulePath: modulePath,
 			Name:       "Go",
 			URL:        "/std",
-			DirFmt:     processTemplate(fmt.Sprintf(stdlibDirFmt, modulePath)),
-			FileFmt:    processTemplate(fmt.Sprintf(stdlibFileFmt, modulePath)),
-			LineFmt:    processLineTemplate(fmt.Sprintf(stdlibLineFmt, modulePath)),
+			DirFmt:     processTemplate(stdlibDirFmt),
+			FileFmt:    processTemplate(stdlibFileFmt),
+			LineFmt:    processLineTemplate(stdlibLineFmt),
 		}, nil
 	}
 

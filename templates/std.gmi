@@ -1,5 +1,0 @@
-# Standard Library - {{config.BrandName}}
-{{range .Packages}}
-=> /{{.ImportPath}} {{.ImportPath}}
-{{- if .Synopsis}}
-{{.Synopsis}}{{end}}{{end}}

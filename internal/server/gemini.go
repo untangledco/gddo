@@ -13,7 +13,6 @@ import (
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 func (s *Server) GeminiHandler() (gemini.Handler, error) {
@@ -27,7 +26,6 @@ func (s *Server) GeminiHandler() (gemini.Handler, error) {
 	mux.Handle("/-/search", geminiErrorHandler(s.serveGeminiSearch))
 	mux.Handle("/-/refresh", geminiErrorHandler(s.serveGeminiRefresh))
 	mux.Handle("/-/", gemini.NotFoundHandler())
-	mux.Handle("/std", geminiErrorHandler(s.serveGeminiStdlib))
 	mux.Handle("/robots.txt", geminiFileHandler(robotsTxt, "text/plain"))
 	mux.Handle("/C", gemini.StatusHandler(gemini.StatusPermanentRedirect, "/cmd/cgo"))
 	mux.Handle("/", geminiErrorHandler(s.serveGeminiHome))
@@ -143,16 +141,6 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 	}
 	w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 	return nil
-}
-
-func (s *Server) serveGeminiStdlib(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error {
-	pkgs, err := s.packages(ctx, s.cfg.Platform, stdlib.Packages())
-	if err != nil {
-		return err
-	}
-	return s.templates.Execute(w, "std.gmi", struct {
-		Packages []internal.Package
-	}{pkgs})
 }
 
 func geminiFileHandler(path, mediatype string) gemini.HandlerFunc {

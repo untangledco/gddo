@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -26,19 +25,21 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+// The standard library module path
+const ModulePath = "std"
+
 // Contains reports whether the given import path is part of the Go standard library.
 func Contains(path string) bool {
+	if path == ModulePath {
+		return true
+	}
+	path = strings.SplitN(path, "/", 2)[0]
 	_, ok := stdlibPackagesMap[path]
 	return ok
 }
 
-// Packages returns a list of packages in the standard library.
-func Packages() []string {
-	return stdlibPackages
-}
-
-// Module fetches a standard library module from the Go git repository.
-func Module(modulePath, version string) (*internal.Module, error) {
+// Module fetches the standard library module from the Go git repository.
+func Module(version string) (*internal.Module, error) {
 	versions, err := versions()
 	if err != nil {
 		return nil, err
@@ -58,11 +59,9 @@ func Module(modulePath, version string) (*internal.Module, error) {
 		return nil, err
 	}
 
-	seriesPath, _, _ := module.SplitPathVersion(modulePath)
-
 	return &internal.Module{
-		ModulePath:    modulePath,
-		SeriesPath:    seriesPath,
+		ModulePath:    ModulePath,
+		SeriesPath:    ModulePath,
 		Version:       version,
 		Reference:     tag,
 		LatestVersion: latestVersion,
@@ -77,7 +76,7 @@ func Files(mod *internal.Module) (fs.FS, error) {
 		return nil, err
 	}
 	// Get filesystem
-	fsys, version, commitTime, err := moduleFS(repo, mod.ModulePath, mod.Version)
+	fsys, version, commitTime, err := moduleFS(repo, mod.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -287,16 +286,16 @@ func semanticVersion(knownVersions []string, requestedVersion string) (string, e
 }
 
 // directory returns the directory of the standard library relative to the repo root.
-func directory(modulePath, version string) string {
+func directory(version string) string {
 	if semver.Compare(version, "v1.4.0-beta.1") >= 0 ||
 		version == "master" || strings.HasPrefix(version, "v0.0.0") {
-		return path.Join("src", modulePath)
+		return "src"
 	}
 	// For versions older than v1.4.0-beta.1, the stdlib is in src/pkg.
-	return path.Join("src/pkg", modulePath)
+	return "src/pkg"
 }
 
-// moduleFS returns a filesystem containing the source code of the given
+// moduleFS returns a filesystem containing the source code of the
 // standard library module at the given version. It also returns the time of
 // the commit for that version.
 //
@@ -305,7 +304,7 @@ func directory(modulePath, version string) string {
 //
 // moduleFS reads the standard library at the Go repository tag corresponding to to
 // the given semantic version.
-func moduleFS(repo *git.Repository, modulePath, resolvedVersion string) (_ fs.FS, resolvedVersion2 string, commitTime time.Time, err error) {
+func moduleFS(repo *git.Repository, resolvedVersion string) (_ fs.FS, resolvedVersion2 string, commitTime time.Time, err error) {
 	head, err := repo.Head()
 	if err != nil {
 		return nil, "", time.Time{}, err
@@ -323,7 +322,7 @@ func moduleFS(repo *git.Repository, modulePath, resolvedVersion string) (_ fs.FS
 	}
 	// Add files from the stdlib directory.
 	tree := root
-	for _, d := range strings.Split(directory(modulePath, resolvedVersion), "/") {
+	for _, d := range strings.Split(directory(resolvedVersion), "/") {
 		tree, err = subTree(repo, tree, d)
 		if err != nil {
 			return nil, "", time.Time{}, err
