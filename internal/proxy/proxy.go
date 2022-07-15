@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
@@ -41,10 +40,6 @@ type Source struct {
 // Module fetches a module from the module proxy. If the module is in the
 // standard library, it is fetched from the Go git repository instead.
 func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
-	if modulePath == stdlib.ModulePath {
-		return stdlib.Module(version)
-	}
-
 	// Get version info
 	info, err := s.getInfo(modulePath, version)
 	if err != nil {
@@ -98,10 +93,6 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 
 // Files returns the module's files.
 func (s *Source) Files(mod *internal.Module) (fs.FS, error) {
-	if mod.ModulePath == stdlib.ModulePath {
-		return stdlib.Files(mod)
-	}
-
 	// Get module zip
 	zip, err := s.getZip(mod.ModulePath, mod.Version)
 	if err != nil {

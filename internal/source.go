@@ -35,6 +35,27 @@ type Source interface {
 	Files(module *Module) (fs.FS, error)
 }
 
+// SourceList fetches modules by trying a list of module sources.
+type SourceList []Source
+
+// FindModule finds the given module, returning the module and the module source
+// which resolved it.
+func (list SourceList) FindModule(modulePath, version string) (Source, *Module, error) {
+	for _, source := range list {
+		mod, err := source.Module(modulePath, version)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				// Try other sources
+				continue
+			}
+			return nil, nil, err
+		}
+		return source, mod, nil
+	}
+	// Not found in any of the sources
+	return nil, nil, ErrNotFound
+}
+
 // Module contains module information.
 type Module struct {
 	ModulePath    string

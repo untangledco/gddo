@@ -11,7 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"path"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -38,8 +41,42 @@ func Contains(path string) bool {
 	return ok
 }
 
-// Module fetches the standard library module from the Go git repository.
-func Module(version string) (*internal.Module, error) {
+// LocalSource fetches the standard library module from GOROOT.
+type LocalSource struct{}
+
+func (LocalSource) Module(modulePath, version string) (*internal.Module, error) {
+	if modulePath != ModulePath {
+		return nil, internal.ErrNotFound
+	}
+
+	tag := runtime.Version()
+	goVersion := versionForTag(tag)
+	if version != goVersion && version != internal.LatestVersion {
+		// Only latest version supported
+		return nil, internal.ErrNotFound
+	}
+	return &internal.Module{
+		ModulePath:    ModulePath,
+		SeriesPath:    ModulePath,
+		Version:       goVersion,
+		Reference:     tag,
+		LatestVersion: goVersion,
+		Versions:      []string{goVersion},
+	}, nil
+}
+
+func (LocalSource) Files(mod *internal.Module) (fs.FS, error) {
+	return os.DirFS(path.Join(runtime.GOROOT(), "src")), nil
+}
+
+// RepoSource fetches the standard library module from the Go git repository.
+type RepoSource struct{}
+
+func (RepoSource) Module(modulePath, version string) (*internal.Module, error) {
+	if modulePath != ModulePath {
+		return nil, internal.ErrNotFound
+	}
+
 	versions, err := versions()
 	if err != nil {
 		return nil, err
@@ -69,8 +106,7 @@ func Module(version string) (*internal.Module, error) {
 	}, nil
 }
 
-// Files returns the standard library module's files.
-func Files(mod *internal.Module) (fs.FS, error) {
+func (RepoSource) Files(mod *internal.Module) (fs.FS, error) {
 	repo, err := getGoRepo(mod.Version)
 	if err != nil {
 		return nil, err
@@ -135,7 +171,7 @@ func versions() ([]string, error) {
 
 	var versions []string
 	for _, name := range refNames {
-		v := VersionForTag(name.Short())
+		v := versionForTag(name.Short())
 		if v != "" {
 			versions = append(versions, v)
 		}
@@ -153,7 +189,7 @@ var (
 	tagRegexp = regexp.MustCompile(`^go(\d+\.\d+)(\.\d+|)((beta|rc)(\d+))?$`)
 )
 
-// VersionForTag returns the semantic version for the Go tag, or "" if
+// versionForTag returns the semantic version for the Go tag, or "" if
 // tag doesn't correspond to a Go release or beta tag. In special cases,
 // when the tag specified is either `latest` or `master` it will return the tag.
 // Examples:
@@ -163,7 +199,7 @@ var (
 //   "go1.9rc2" => "v1.9.0-rc.2"
 //   "latest" => "latest"
 //   "master" => "master"
-func VersionForTag(tag string) string {
+func versionForTag(tag string) string {
 	// Special cases for go1.
 	if tag == "go1" {
 		return "v1.0.0"

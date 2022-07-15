@@ -86,7 +86,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	}
 
 	// Retrieve module
-	mod, err := s.source.Module(modulePath, version)
+	source, mod, err := s.sources.FindModule(modulePath, version)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	}
 
 	// Retrieve packages
-	fsys, err := s.source.Files(mod)
+	fsys, err := source.Files(mod)
 	if err != nil {
 		return err
 	}

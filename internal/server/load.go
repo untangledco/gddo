@@ -132,17 +132,18 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 
 func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
 	// Loop through potential module paths
+	var source internal.Source
 	var mod *internal.Module
 	if stdlib.Contains(importPath) {
 		var err error
-		mod, err = s.source.Module(stdlib.ModulePath, version)
+		source, mod, err = s.sources.FindModule(stdlib.ModulePath, version)
 		if err != nil {
 			return Package{}, err
 		}
 	} else {
 		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
 			var err error
-			mod, err = s.source.Module(modulePath, version)
+			source, mod, err = s.sources.FindModule(modulePath, version)
 			if err != nil {
 				if errors.Is(err, internal.ErrNotFound) {
 					// Try parent path
@@ -168,7 +169,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 	pkg.Dir = strings.TrimPrefix(pkg.Dir, "/")
 
 	if mode&NeedDocumentation != 0 {
-		fsys, err := s.source.Files(mod)
+		fsys, err := source.Files(mod)
 		if err != nil {
 			return Package{}, err
 		}

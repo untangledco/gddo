@@ -26,7 +26,7 @@ type Server struct {
 	httpClient *http.Client
 	templates  TemplateMap
 	statusSVG  http.Handler
-	source     internal.Source
+	sources    internal.SourceList
 	fetches    sync.Map
 
 	// A semaphore to limit concurrent ?import-graph requests.
@@ -39,22 +39,28 @@ func New(cfg *Config) (*Server, error) {
 		Timeout: cfg.RequestTimeout,
 	}
 
-	var source internal.Source
+	var sources internal.SourceList
 	if cfg.GoProxy != "" {
-		source = &proxy.Source{
-			URL:        cfg.GoProxy,
-			HTTPClient: httpClient,
+		sources = internal.SourceList{
+			&stdlib.RepoSource{},
+			&proxy.Source{
+				URL:        cfg.GoProxy,
+				HTTPClient: httpClient,
+			},
 		}
 	} else {
-		source = &modcache.Source{
-			FS: os.DirFS(cfg.GoModCache),
+		sources = internal.SourceList{
+			&stdlib.LocalSource{},
+			&modcache.Source{
+				FS: os.DirFS(cfg.GoModCache),
+			},
 		}
 	}
 
 	s := &Server{
 		cfg:            cfg,
 		httpClient:     httpClient,
-		source:         source,
+		sources:        sources,
 		templates:      make(TemplateMap),
 		importGraphSem: make(chan struct{}, 10),
 	}

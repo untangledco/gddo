@@ -7,14 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
-	"os"
 	"path"
-	"runtime"
 	"sort"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
@@ -28,23 +25,6 @@ type Source struct {
 // Module fetches a module from the module cache. If the module is in the
 // standard library, it is fetched from the local Go tree instead.
 func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
-	if modulePath == stdlib.ModulePath {
-		if version != internal.LatestVersion {
-			// Only latest version supported
-			return nil, internal.ErrNotFound
-		}
-		tag := runtime.Version()
-		goVersion := stdlib.VersionForTag(tag)
-		return &internal.Module{
-			ModulePath:    stdlib.ModulePath,
-			SeriesPath:    stdlib.ModulePath,
-			Version:       goVersion,
-			Reference:     tag,
-			LatestVersion: goVersion,
-			Versions:      []string{goVersion},
-		}, nil
-	}
-
 	escapedPath, err := module.EscapePath(modulePath)
 	if err != nil {
 		return nil, internal.ErrInvalidPath
@@ -115,10 +95,6 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 
 // Files returns the module's files.
 func (s *Source) Files(mod *internal.Module) (fs.FS, error) {
-	if mod.ModulePath == stdlib.ModulePath {
-		return os.DirFS(path.Join(runtime.GOROOT(), "src")), nil
-	}
-
 	escapedPath, err := module.EscapePath(mod.ModulePath)
 	if err != nil {
 		return nil, internal.ErrInvalidPath

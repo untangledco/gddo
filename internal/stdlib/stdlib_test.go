@@ -104,9 +104,9 @@ func TestVersionForTag(t *testing.T) {
 		{"weekly.2012-02-14", ""},
 		{"latest", "latest"},
 	} {
-		got := VersionForTag(test.in)
+		got := versionForTag(test.in)
 		if got != test.want {
-			t.Errorf("VersionForTag(%q) = %q, want %q", test.in, got, test.want)
+			t.Errorf("versionForTag(%q) = %q, want %q", test.in, got, test.want)
 		}
 	}
 }
