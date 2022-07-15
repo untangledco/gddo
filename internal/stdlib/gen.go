@@ -36,9 +36,8 @@ func main() {
 	for _, pkg := range strings.Fields(string(o)) {
 		pkg = strings.TrimPrefix(pkg, gosrc)
 		pkg = strings.TrimPrefix(pkg, "/")
-		if pkg == "vendor" ||
-			strings.HasPrefix(pkg, "vendor/") ||
-			strings.Contains(pkg, "/vendor/") {
+		pkg = strings.SplitN(pkg, "/", 2)[0]
+		if pkg == "vendor" {
 			continue
 		}
 		pkgsMap[pkg] = struct{}{}
