@@ -431,7 +431,6 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 		{"imports.html", "common.html", "layout.html"},
 		{"notfound.html", "common.html", "layout.html"},
 		{"search.html", "common.html", "layout.html"},
-		{"std.html", "common.html", "layout.html"},
 		{"tools.html", "common.html", "layout.html"},
 		{"graph.html", "common.html"},
 	}
@@ -470,7 +469,6 @@ func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
 		{"versions.gmi"},
 		{"platforms.gmi"},
 		{"imports.gmi"},
-		{"std.gmi"},
 	}
 	funcs := ttemp.FuncMap{
 		"comment": func(s string) string {
