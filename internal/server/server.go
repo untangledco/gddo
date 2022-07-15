@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"go/build"
 	"net/http"
 	"os"
@@ -29,6 +30,9 @@ type Server struct {
 	sources    internal.SourceList
 	fetches    sync.Map
 
+	// The module to serve instead of the homepage (if any)
+	defaultModule string
+
 	// A semaphore to limit concurrent ?import-graph requests.
 	importGraphSem chan struct{}
 }
@@ -39,30 +43,37 @@ func New(cfg *Config) (*Server, error) {
 		Timeout: cfg.RequestTimeout,
 	}
 
-	var sources internal.SourceList
+	s := &Server{
+		cfg:            cfg,
+		httpClient:     httpClient,
+		templates:      make(TemplateMap),
+		importGraphSem: make(chan struct{}, 10),
+	}
+
 	if cfg.GoProxy != "" {
-		sources = internal.SourceList{
+		s.sources = append(s.sources,
 			&stdlib.RepoSource{},
 			&proxy.Source{
 				URL:        cfg.GoProxy,
 				HTTPClient: httpClient,
 			},
-		}
+		)
 	} else {
-		sources = internal.SourceList{
+		// Serve the current directory
+		if dir, err := internal.DirectorySource("."); err != nil {
+			return nil, fmt.Errorf("current directory contains invalid module: %w", err)
+		} else if dir != nil {
+			// A valid go.mod file was found
+			s.sources = append(s.sources, dir)
+			s.defaultModule = dir.Mod.ModulePath
+		}
+
+		s.sources = append(s.sources,
 			&stdlib.LocalSource{},
 			&modcache.Source{
 				FS: os.DirFS(cfg.GoModCache),
 			},
-		}
-	}
-
-	s := &Server{
-		cfg:            cfg,
-		httpClient:     httpClient,
-		sources:        sources,
-		templates:      make(TemplateMap),
-		importGraphSem: make(chan struct{}, 10),
+		)
 	}
 
 	if cfg.Database != "" {

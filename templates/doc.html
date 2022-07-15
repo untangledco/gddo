@@ -111,10 +111,14 @@
 
   <div id="x-pkginfo">
     <dl>
+{{- if .Version}}
       <dt>Version</dt>
       <dd>{{if .Versions}}<a href="{{.View "versions"}}">{{.Version}}</a>{{else}}{{.Version}}{{end}}{{if eq .Version .LatestVersion}} (latest){{end}}</dd>
+{{- end}}
+{{- if not .CommitTime.IsZero}}
       <dt>Published</dt>
       <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
+{{- end}}
       <dt>Platform</dt>
       <dd><a href="{{.View "platforms"}}">{{.Platform}}</a>{{if .Cgo}} (Cgo){{end}}</dd>
 {{- if .Imports}}

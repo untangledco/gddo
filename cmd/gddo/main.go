@@ -80,7 +80,7 @@ func main() {
 
 	s, err := server.New(cfg)
 	if err != nil {
-		log.Fatal("error creating server:", err)
+		log.Fatalf("error creating server: %v", err)
 	}
 
 	var wg sync.WaitGroup

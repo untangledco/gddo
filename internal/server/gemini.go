@@ -36,6 +36,10 @@ func (s *Server) serveGeminiHome(ctx context.Context, w gemini.ResponseWriter, r
 	if r.URL.Path != "/" {
 		return s.serveGeminiPackage(ctx, w, r)
 	}
+	if s.defaultModule != "" {
+		w.WriteHeader(gemini.StatusRedirect, "/"+s.defaultModule)
+		return nil
+	}
 	return s.templates.Execute(w, "index.gmi", nil)
 }
 
