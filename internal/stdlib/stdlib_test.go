@@ -223,27 +223,23 @@ func TestSemanticVersion(t *testing.T) {
 
 func TestDirectory(t *testing.T) {
 	for _, test := range []struct {
-		module  string
 		version string
 		want    string
 	}{
 		{
-			module:  "archive",
 			version: "v1.3.0-beta2",
-			want:    "src/pkg/archive",
+			want:    "src/pkg",
 		},
 		{
-			module:  "bytes",
 			version: "v1.16.0-beta1",
-			want:    "src/bytes",
+			want:    "src",
 		},
 		{
-			module:  "io",
 			version: "master",
-			want:    "src/io",
+			want:    "src",
 		},
 	} {
-		got := directory(test.module, test.version)
+		got := directory(test.version)
 		if got != test.want {
 			t.Errorf("directory(%s) = %s, want %s", test.version, got, test.want)
 		}
@@ -252,28 +248,28 @@ func TestDirectory(t *testing.T) {
 
 func TestModuleFS(t *testing.T) {
 	for _, test := range []struct {
-		ModulePath string
-		Versions   []string
-		WantFiles  map[string]bool
+		Package   string
+		Versions  []string
+		WantFiles map[string]bool
 	}{
 		{
-			ModulePath: "errors",
-			Versions:   []string{"v1.14.6", "v1.12.5", "v1.3.2", testVersion},
+			Package:  "errors",
+			Versions: []string{"v1.14.6", "v1.12.5", "v1.3.2", testVersion},
 			WantFiles: map[string]bool{
 				"errors.go":      true,
 				"errors_test.go": true,
 			},
 		},
 		{
-			ModulePath: "builtin",
-			Versions:   []string{"v1.12.5"},
+			Package:  "builtin",
+			Versions: []string{"v1.12.5"},
 			WantFiles: map[string]bool{
 				"builtin.go": true,
 			},
 		},
 		{
-			ModulePath: "flag",
-			Versions:   []string{"v1.12.5"},
+			Package:  "flag",
+			Versions: []string{"v1.12.5"},
 			WantFiles: map[string]bool{
 				"example_test.go":       true,
 				"example_value_test.go": true,
@@ -283,8 +279,8 @@ func TestModuleFS(t *testing.T) {
 			},
 		},
 		{
-			ModulePath: "cmd",
-			Versions:   []string{"v1.14.6", testVersion},
+			Package:  "cmd",
+			Versions: []string{"v1.14.6", testVersion},
 		},
 	} {
 		for _, resolvedVersion := range test.Versions {
@@ -293,7 +289,7 @@ func TestModuleFS(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				fsys, gotResolvedVersion, gotTime, err := moduleFS(repo, test.ModulePath, resolvedVersion)
+				fsys, gotResolvedVersion, gotTime, err := moduleFS(repo, resolvedVersion)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -308,7 +304,7 @@ func TestModuleFS(t *testing.T) {
 					t.Errorf("commit time: got %s, want %s", gotTime, testCommitTime)
 				}
 
-				files, err := fs.ReadDir(fsys, ".")
+				files, err := fs.ReadDir(fsys, test.Package)
 				if err != nil {
 					t.Fatal(err)
 				}
