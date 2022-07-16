@@ -89,6 +89,9 @@ func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.
 }
 
 func (pkg *Package) PageName() string {
+	if pkg.ImportPath == stdlib.ModulePath {
+		return "Standard library"
+	}
 	if pkg.Name != "" && pkg.Name != "main" {
 		return pkg.Name
 	}
@@ -175,6 +178,9 @@ func (pkg *Package) ObjExamples(obj interface{}) []*texample {
 
 func (pkg *Package) Breadcrumbs(templateName string) htemp.HTML {
 	modulePath := pkg.ModulePath
+	if pkg.ImportPath == stdlib.ModulePath {
+		return htemp.HTML(`<span class="text-muted">Standard library</span>`)
+	}
 	if !strings.HasPrefix(pkg.ImportPath, pkg.ModulePath) {
 		// This is the case for stdlib packages
 		modulePath = strings.SplitN(pkg.ImportPath, "/", 2)[0]
