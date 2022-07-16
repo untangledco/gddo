@@ -11,7 +11,7 @@
 
 {{define "ProjectNav"}}{{template "FlashMessage" .Message}}<div class="clearfix" id="x-projnav">
   {{if .Project}}<a rel="noopener nofollow" href="{{.Project.URL}}"><strong>{{.Project.Name}}</strong></a>{{end}}
-  {{with .Breadcrumbs templateName}}<span class="text-muted">&ndash;</span> {{.}}{{end}}
+  {{with .Breadcrumbs templateName}}{{if $.Project}}<span class="text-muted">&ndash;</span> {{end}}{{.}}{{end}}
   {{if and .Name (eq templateName "doc.html") (or (not .IsCommand) .SubPackages)}}
   <span class="pull-right">
     {{if not .IsCommand}}
