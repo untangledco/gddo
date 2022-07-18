@@ -208,7 +208,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		if mode&NeedSubPackages != 0 {
 			for _, d := range dirs {
 				subPath := moduleImportPath(pkg.ModulePath, d.Path)
-				if (!isModule && !strings.HasPrefix(subPath, pkg.ImportPath)) ||
+				if (!isModule && !strings.HasPrefix(subPath, pkg.ImportPath+"/")) ||
 					subPath == pkg.ImportPath {
 					continue
 				}
