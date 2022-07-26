@@ -79,11 +79,17 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 
 	seriesPath, _, _ := module.SplitPathVersion(modulePath)
 
+	reference := info.Version
+	if module.IsPseudoVersion(reference) {
+		// The reference cannot be easily determined from the pseudo-version
+		reference = ""
+	}
+
 	return &internal.Module{
 		ModulePath:    modulePath,
 		SeriesPath:    seriesPath,
 		Version:       info.Version,
-		Reference:     info.Version,
+		Reference:     reference,
 		CommitTime:    info.Time,
 		LatestVersion: latest.Version,
 		Versions:      versions,

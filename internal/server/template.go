@@ -75,7 +75,7 @@ func (pkg *Package) VersionParam() string {
 }
 
 func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
-	if pos.Line == 0 || pkg.Project == nil {
+	if pkg.Reference == "" || pos.Line == 0 || pkg.Project == nil {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
