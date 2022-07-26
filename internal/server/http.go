@@ -18,6 +18,8 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func (s *Server) HTTPHandler() (http.Handler, error) {
@@ -31,6 +33,11 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	mux.Handle("/-/site.js", staticServer.FileHandler("site.js"))
 	mux.Handle("/-/site.css", staticServer.FileHandler("site.css"))
 	mux.Handle("/-/bootstrap.min.css", staticServer.FileHandler("bootstrap.min.css"))
+	mux.Handle("/-/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{
+		MaxRequestsInFlight: 10,
+		Timeout:             10 * time.Second,
+		EnableOpenMetrics:   true,
+	}))
 	mux.Handle("/-/", http.NotFoundHandler())
 
 	handler := func(f func(http.ResponseWriter, *http.Request) error) http.Handler {
@@ -169,6 +176,10 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return errors.New("too many requests")
 		}
 		defer func() { <-s.importGraphSem }()
+
+		s.metrics.importGraphsTotal.Inc()
+		s.metrics.importGraphsActive.Inc()
+		defer s.metrics.importGraphsActive.Dec()
 
 		hide := database.ShowAllDeps
 		switch req.Form.Get("hide") {

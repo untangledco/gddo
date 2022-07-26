@@ -9,5 +9,6 @@ require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/lib/pq v1.10.2
+	github.com/prometheus/client_golang v1.12.2
 	golang.org/x/mod v0.5.0
 )

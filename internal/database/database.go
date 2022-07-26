@@ -17,6 +17,8 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
+	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 // Database stores package documentation.
@@ -32,6 +34,10 @@ func New(serverURI string) (*Database, error) {
 	}
 	db.SetMaxOpenConns(64)
 	return &Database{pg: db}, nil
+}
+
+func (db *Database) RegisterMetrics(r prometheus.Registerer) error {
+	return r.Register(promcollectors.NewDBStatsCollector(db.pg, "main"))
 }
 
 func (db *Database) WithTx(ctx context.Context, opts *sql.TxOptions,
@@ -61,6 +67,21 @@ func (db *Database) WithTx(ctx context.Context, opts *sql.TxOptions,
 		tx.Rollback()
 	}
 	return err
+}
+
+// Modules returns the number of modules in the database.
+func (db *Database) Modules(ctx context.Context) (int64, error) {
+	var count int64
+	if err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM modules;")
+		if err := row.Scan(&count); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 const insertModule = `

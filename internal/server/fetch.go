@@ -77,6 +77,18 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	}
 	defer s.fetches.Delete(key)
 
+	s.metrics.fetchesTotal.Inc()
+	s.metrics.fetchesActive.Inc()
+	defer s.metrics.fetchesActive.Dec()
+
+	if err := s.fetchModule_(ctx, platform, modulePath, version); err != nil {
+		s.metrics.fetchErrorsTotal.Inc()
+		return err
+	}
+	return nil
+}
+
+func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version string) error {
 	// Update the module timestamp.
 	// We do this before returning any errors so that background refreshes
 	// won't get stuck fetching the same broken module over and over.

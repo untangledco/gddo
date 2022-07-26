@@ -16,6 +16,8 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
@@ -35,6 +37,16 @@ type Server struct {
 
 	// A semaphore to limit concurrent ?import-graph requests.
 	importGraphSem chan struct{}
+
+	// Prometheus metrics
+	metrics struct {
+		modulesTotal       prometheus.CounterFunc
+		fetchesTotal       prometheus.Counter
+		fetchesActive      prometheus.Gauge
+		fetchErrorsTotal   prometheus.Counter
+		importGraphsTotal  prometheus.Counter
+		importGraphsActive prometheus.Gauge
+	}
 }
 
 // New returns a new server with the given configuration.
@@ -81,8 +93,45 @@ func New(cfg *Config) (*Server, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := db.RegisterMetrics(prometheus.DefaultRegisterer); err != nil {
+			return nil, err
+		}
 		s.db = db
 	}
+
+	s.metrics.modulesTotal = promauto.NewCounterFunc(prometheus.CounterOpts{
+		Name: "gddo_modules_total",
+		Help: "Total number of modules indexed",
+	}, func() float64 {
+		if s.db == nil {
+			return 0
+		}
+		count, err := s.db.Modules(context.TODO())
+		if err != nil {
+			return 0
+		}
+		return float64(count)
+	})
+	s.metrics.fetchesTotal = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "gddo_fetches_total",
+		Help: "Total number of module fetches",
+	})
+	s.metrics.fetchesActive = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "gddo_fetches_active",
+		Help: "Number of active module fetches",
+	})
+	s.metrics.fetchErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_fetch_errors_total",
+		Help: "Total number of module fetch errors",
+	})
+	s.metrics.importGraphsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_import_graphs_total",
+		Help: "Total number of import graph requests",
+	})
+	s.metrics.importGraphsActive = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "gddo_import_graphs_active",
+		Help: "Number of active import graph requests",
+	})
 
 	return s, nil
 }
