@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
@@ -106,7 +107,9 @@ func New(cfg *Config) (*Server, error) {
 		if s.db == nil {
 			return 0
 		}
-		count, err := s.db.Modules(context.TODO())
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		count, err := s.db.Modules(ctx)
 		if err != nil {
 			return 0
 		}
