@@ -43,13 +43,7 @@ func (db *Database) RegisterMetrics(r prometheus.Registerer) error {
 func (db *Database) WithTx(ctx context.Context, opts *sql.TxOptions,
 	fn func(tx *sql.Tx) error) error {
 
-	conn, err := db.pg.Conn(ctx)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	tx, err := conn.BeginTx(ctx, opts)
+	tx, err := db.pg.BeginTx(ctx, opts)
 	if err != nil {
 		return err
 	}
