@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 // Documentation is the documentation for an entire package.
@@ -120,7 +121,7 @@ func New(modulePath string, src *internal.Directory, ctx *build.Context) (*Packa
 	}
 
 	mode := doc.Mode(0)
-	if modulePath == "builtin" {
+	if modulePath == stdlib.ModulePath && src.Path == "builtin" {
 		mode |= doc.AllDecls
 	}
 
