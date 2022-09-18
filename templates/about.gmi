@@ -9,10 +9,9 @@ This is a fork of gddo, the software which previously powered the now-defunct go
 
 ## Documentation
 
-{{config.BrandName}} generates documentation from Go source code. The guidelines for writing documentation for the godoc tool apply.
+{{config.BrandName}} generates documentation from Go source code. The guidelines for writing Go documentation apply.
 
-=> https://go.dev The Go language
-=> https://go.dev/blog/godoc Guidelines for documenting Go code
+=> https://go.dev/doc/comment Guidelines for documenting Go code
 
 It's important to write a good summary of the package in the first sentence of the package comment. {{config.BrandName}} indexes the first sentence and displays it in search results.
 
