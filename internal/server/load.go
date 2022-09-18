@@ -42,28 +42,7 @@ func (s *Server) load(ctx context.Context, platform, importPath, version string,
 		// Load the package directly from the source
 		return s.loadPackageDirect(ctx, platform, importPath, version, mode)
 	}
-
-	type result struct {
-		pkg Package
-		err error
-	}
-
-	ch := make(chan result, 1)
-	go func() {
-		ctx := context.Background()
-		pkg, err := s.loadPackage(ctx, platform, importPath, version, mode)
-		ch <- result{pkg, err}
-	}()
-
-	ctx, cancel := context.WithTimeout(ctx, s.cfg.FetchTimeout)
-	defer cancel()
-
-	select {
-	case r := <-ch:
-		return r.pkg, r.err
-	case <-ctx.Done():
-		return Package{}, ErrFetching
-	}
+	return s.loadPackage(ctx, platform, importPath, version, mode)
 }
 
 func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
