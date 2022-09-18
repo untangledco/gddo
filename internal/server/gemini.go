@@ -173,6 +173,11 @@ func geminiErrorHandler(fn func(ctx context.Context, w gemini.ResponseWriter, r 
 		if err == nil {
 			return
 		}
+		if errors.Is(err, context.Canceled) {
+			// Request was cancelled
+			return
+		}
+
 		msg, httpStatus := errorMessage(err)
 		status := gemini.StatusTemporaryFailure
 		if msg == "" {

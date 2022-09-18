@@ -338,6 +338,10 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 			rb.WriteTo(resp)
 			return
 		}
+		if errors.Is(err, context.Canceled) {
+			// Request was cancelled
+			return
+		}
 
 		msg, status := errorMessage(err)
 		s.templates.ExecuteHTML(resp, "notfound.html", status,
