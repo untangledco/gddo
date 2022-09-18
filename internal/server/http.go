@@ -286,7 +286,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
-	uri := fmt.Sprintf("%s/%s", getRootURL(req), "rsc.io/quote")
+	uri := fmt.Sprintf("%s/%s", getRootURL(req), "archive/tar")
 	return s.templates.ExecuteHTML(resp, "about.html", http.StatusOK, &struct {
 		URI string
 	}{uri})
