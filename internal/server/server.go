@@ -36,6 +36,9 @@ type Server struct {
 	// The module to serve instead of the homepage (if any)
 	defaultModule string
 
+	// A semaphore to limit concurrent module fetches.
+	moduleFetchSem chan struct{}
+
 	// A semaphore to limit concurrent ?import-graph requests.
 	importGraphSem chan struct{}
 
@@ -60,6 +63,7 @@ func New(cfg *Config) (*Server, error) {
 		cfg:            cfg,
 		httpClient:     httpClient,
 		templates:      make(TemplateMap),
+		moduleFetchSem: make(chan struct{}, 30),
 		importGraphSem: make(chan struct{}, 10),
 	}
 

@@ -36,6 +36,14 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 		return ErrBlocked
 	}
 
+	// Limit concurrent module fetches.
+	select {
+	case s.moduleFetchSem <- struct{}{}:
+	default:
+		return errors.New("too many fetches")
+	}
+	defer func() { <-s.moduleFetchSem }()
+
 	ch := make(chan error, 1)
 	go func() {
 		ctx := context.Background()
