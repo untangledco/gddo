@@ -173,7 +173,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		select {
 		case s.importGraphSem <- struct{}{}:
 		default:
-			return errors.New("too many requests")
+			return errors.New("too many import graph requests")
 		}
 		defer func() { <-s.importGraphSem }()
 
