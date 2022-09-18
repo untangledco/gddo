@@ -107,7 +107,7 @@ func New(cfg *Config) (*Server, error) {
 		if s.db == nil {
 			return 0
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		count, err := s.db.Modules(ctx)
 		if err != nil {
