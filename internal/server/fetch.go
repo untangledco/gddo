@@ -129,6 +129,9 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 		return err
 	}
 	dirs, err := internal.ParseDirectories(fsys)
+	if err != nil {
+		return err
+	}
 	if len(dirs) == 0 {
 		// The module has no packages
 		return ErrNoPackages
