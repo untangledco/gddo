@@ -249,7 +249,7 @@ func (s *Server) Refresh(ctx context.Context) {
 		// No modules in the database yet
 		return
 	}
-	if time.Now().Sub(timestamp) < s.cfg.MaxAge {
+	if time.Since(timestamp) < s.cfg.MaxAge {
 		return
 	}
 	log.Println("REFRESH", modulePath)
