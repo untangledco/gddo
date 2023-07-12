@@ -14,12 +14,22 @@ import (
 
 var (
 	ErrBlocked    = errors.New("blocked import path")
-	ErrMismatch   = errors.New("import paths don't match")
 	ErrNoPackages = errors.New("no packages found")
 	ErrFetching   = errors.New("fetch in progress")
 
 	ErrInvalidPlatform = errors.New("invalid platform")
 )
+
+// ErrMismatch represents the case where the import path is different from the
+// module path in the go.mod file.
+type ErrMismatch struct {
+	ExpectedPath string
+	ActualPath   string
+}
+
+func (e ErrMismatch) Error() string {
+	return fmt.Sprintf("import paths don't match: expected %q, got %q", e.ExpectedPath, e.ActualPath)
+}
 
 func shouldDisplayError(err error) bool {
 	return !errors.Is(err, ErrBlocked) && !errors.Is(err, internal.ErrNotFound)
@@ -29,8 +39,6 @@ func errorMessage(err error) (string, int) {
 	switch {
 	case errors.Is(err, ErrFetching):
 		return "This package is being fetched in the background. Feel free to refresh while we're working on it.", http.StatusNotFound
-	case errors.Is(err, ErrMismatch):
-		return "Error fetching module: The provided import path doesn't match the module path present in the go.mod file.", http.StatusNotFound
 	case errors.Is(err, ErrNoPackages):
 		return "Error fetching module: The requested module doesn't contain any packages.", http.StatusNotFound
 	case errors.Is(err, internal.ErrInvalidPath):

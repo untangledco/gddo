@@ -113,7 +113,10 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 
 	if mod.ModulePath != modulePath {
 		// The import paths don't match
-		return ErrMismatch
+		return ErrMismatch{
+			ExpectedPath: modulePath,
+			ActualPath:   mod.ModulePath,
+		}
 	}
 
 	// If the module documentation is already in the database, return

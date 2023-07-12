@@ -10,7 +10,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -142,6 +141,11 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	}
 
 	pkg, err := s.load(ctx, platform, importPath, version, mode)
+	var mismatch ErrMismatch
+	if errors.As(err, &mismatch) {
+		http.Redirect(resp, req, "/"+mismatch.ActualPath, http.StatusFound)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -230,6 +234,11 @@ func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error
 	importPath := req.Form.Get("import_path")
 	platform := req.Form.Get("platform")
 	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
+	var mismatch ErrMismatch
+	if errors.As(err, &mismatch) {
+		http.Redirect(resp, req, "/"+mismatch.ActualPath, http.StatusFound)
+		return nil
+	}
 	if err != nil {
 		msg, _ := errorMessage(err)
 		setFlashMessage(resp, msg)
@@ -262,11 +271,12 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	if err == nil {
 		_, err = s.load(req.Context(), platform, importPath, internal.LatestVersion, 0)
 		if err == nil || errors.Is(err, ErrFetching) {
-			redirect := "/" + importPath
-			if platform != s.cfg.Platform {
-				redirect += "?" + url.QueryEscape(platform)
-			}
-			http.Redirect(resp, req, redirect, http.StatusFound)
+			http.Redirect(resp, req, "/"+importPath, http.StatusFound)
+			return nil
+		}
+		var mismatch ErrMismatch
+		if errors.As(err, &mismatch) {
+			http.Redirect(resp, req, "/"+mismatch.ActualPath, http.StatusFound)
 			return nil
 		}
 		msg, _ = errorMessage(err)

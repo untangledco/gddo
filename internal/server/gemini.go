@@ -70,6 +70,11 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 			w.WriteHeader(gemini.StatusRedirect, "/"+importPath)
 			return nil
 		}
+		var mismatch ErrMismatch
+		if errors.As(err, &mismatch) {
+			w.WriteHeader(gemini.StatusRedirect, "/"+mismatch.ActualPath)
+			return nil
+		}
 		if shouldDisplayError(err) {
 			// Display the error to the user
 			return err
@@ -110,6 +115,11 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 	}
 
 	pkg, err := s.load(ctx, platform, importPath, version, mode)
+	var mismatch ErrMismatch
+	if errors.As(err, &mismatch) {
+		w.WriteHeader(gemini.StatusRedirect, "/"+mismatch.ActualPath)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -140,6 +150,11 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 	importPath := r.URL.Query().Get("import_path")
 	platform := r.URL.Query().Get("platform")
 	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
+	var mismatch ErrMismatch
+	if errors.As(err, &mismatch) {
+		w.WriteHeader(gemini.StatusRedirect, "/"+mismatch.ActualPath)
+		return nil
+	}
 	if err != nil {
 		return err
 	}
