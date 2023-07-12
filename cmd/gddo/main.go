@@ -2,7 +2,7 @@
 //
 // For usage, see:
 //
-//  gddo --help
+//	gddo --help
 //
 // gddo supports running as an HTTP server, a Gemini server, or both. The
 // --http and --gemini flags control which addresses gddo will listen on.
