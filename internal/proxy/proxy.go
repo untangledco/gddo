@@ -49,9 +49,6 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	if version == internal.LatestVersion {
-		version = latest.Version
-	}
 
 	versions, err := s.listVersions(modulePath)
 	if err != nil {
