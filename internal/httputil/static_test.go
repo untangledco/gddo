@@ -73,7 +73,6 @@ var fileServerTests = []*struct {
 			"Etag":           {testEtag},
 			"Cache-Control":  {"public, max-age=3"},
 			"Content-Length": {testContentLength},
-			"Content-Type":   {"application/octet-stream"},
 		},
 	},
 	{
@@ -88,7 +87,6 @@ var fileServerTests = []*struct {
 			"Etag":           {testEtag},
 			"Cache-Control":  {"public, max-age=3"},
 			"Content-Length": {testContentLength},
-			"Content-Type":   {"application/octet-stream"},
 		},
 	},
 	{
@@ -103,7 +101,6 @@ var fileServerTests = []*struct {
 			"Etag":           {testEtag},
 			"Cache-Control":  {"public, max-age=31536000"},
 			"Content-Length": {testContentLength},
-			"Content-Type":   {"application/octet-stream"},
 		},
 	},
 	{
@@ -118,7 +115,6 @@ var fileServerTests = []*struct {
 			"Etag":           {testEtag},
 			"Cache-Control":  {"public, max-age=3"},
 			"Content-Length": {testContentLength},
-			"Content-Type":   {"application/octet-stream"},
 		},
 		empty: true,
 	},
@@ -149,6 +145,10 @@ func testStaticServer(t *testing.T, f func(*httputil.StaticServer) http.Handler)
 		if w.Code != tt.status {
 			t.Errorf("%s, status=%d, want %d", tt.name, w.Code, tt.status)
 		}
+
+		// Content-Type can differ based on the MIME database of the machine
+		// running the tests. Ignore it.
+		delete(w.HeaderMap, "Content-Type")
 
 		if !reflect.DeepEqual(w.HeaderMap, tt.header) {
 			t.Errorf("%s\n\theader=%v,\n\twant   %v", tt.name, w.HeaderMap, tt.header)
