@@ -141,14 +141,14 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 		switch n := n.Type.(type) {
 		case *ast.InterfaceType:
 			for _, f := range n.Methods.List {
-				for _ = range f.Names {
+				for range f.Names {
 					v.add(AnchorAnnotation, "")
 				}
 				ast.Walk(v, f.Type)
 			}
 		case *ast.StructType:
 			for _, f := range n.Fields.List {
-				for _ = range f.Names {
+				for range f.Names {
 					v.add(AnchorAnnotation, "")
 				}
 				ast.Walk(v, f.Type)
@@ -163,12 +163,12 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 		v.ignoreName()
 		ast.Walk(v, n.Type)
 	case *ast.Field:
-		for _ = range n.Names {
+		for range n.Names {
 			v.ignoreName()
 		}
 		ast.Walk(v, n.Type)
 	case *ast.ValueSpec:
-		for _ = range n.Names {
+		for range n.Names {
 			v.add(AnchorAnnotation, "")
 		}
 		if n.Type != nil {
