@@ -2,11 +2,11 @@
 {{- range . }}
 
 Example{{with .Example.Name}} ({{.}}){{end}}
-{{with .Example.Doc}}
-{{.|comment}}{{end}}
+{{if .Example.Doc}}
+{{.Gemini .Example.Doc}}{{end}}
 Code:
 ```
-{{.Example.Code.Text}}
+{{.GeminiCode}}
 ```
 {{with .Example.Output}}
 Output:
@@ -14,44 +14,44 @@ Output:
 {{.}}```
 {{end}}{{end}}{{end -}}
 
-# {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}} - {{config.BrandName}}
-{{if and .Name (not .IsCommand)}}
+{{- with .Doc -}}
+# {{if $.IsCommand}}Command {{else if .Name}}Package {{end}}{{$.PageName}} - {{config.BrandName}}
+{{if and .Name (not $.IsCommand)}}
 ```
 import "{{.ImportPath}}"
 ```
 {{end}}
 
 {{- if .Doc}}
-{{.Doc|comment}}{{end}}
-{{- template "Examples" .PackageExamples}}
+{{$.Gemini .Doc}}{{end}}
+{{- template "Examples" $.PackageExamples}}
 
-{{- if not .IsCommand}}
-{{- if .Truncated}}The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.{{end}}
+{{- if not $.IsCommand}}
 
 {{- if .Consts}}
 ## Constants
 {{range .Consts}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}{{end}}{{end}}
+{{$.Gemini .Doc}}{{end}}{{end}}
 
 {{- if .Vars}}
 ## Variables
 {{range .Vars}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}{{end}}{{end}}
+{{$.Gemini .Doc}}{{end}}{{end}}
 
 {{- if .Funcs}}
 ## Functions
 {{range .Funcs}}
 ### func {{.Name}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}
+{{$.Gemini .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}{{end}}
 
@@ -60,36 +60,36 @@ import "{{.ImportPath}}"
 {{range $t := .Types}}
 ### type {{.Name}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}
+{{$.Gemini .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- range .Consts}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}{{end}}
+{{$.Gemini .Doc}}{{end}}
 {{- range .Vars}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}
+{{$.Gemini .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}
 {{- range .Funcs}}
 ### func {{.Name}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}
+{{$.Gemini .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}
 {{- range .Methods}}
 ### func ({{.Recv}}) {{.Name}}
 ```
-{{.Decl.Text}}
+{{$.GeminiCode .Decl}}
 ```
-{{.Doc|comment}}
+{{$.Gemini .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}{{end}}{{end}}
 
@@ -100,30 +100,31 @@ import "{{.ImportPath}}"
 {{end}}
 {{- end}}
 
-{{- if .SubPackages}}
+{{- if $.SubPackages}}
 ## Directories
-{{range .SubPackages}}
+{{range $.SubPackages}}
 => /{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}} {{relativePath .ImportPath .ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
 ## Details
 
-{{- if .Version}}
-{{- if .Versions}}
-=> {{.View "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+{{- if $.Version}}
+{{- if $.Versions}}
+=> {{$.View "versions"}} Version: {{$.Version}}{{if eq $.Version $.LatestVersion}} (latest){{end}}
 {{- else}}
-* Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+* Version: {{$.Version}}{{if eq $.Version $.LatestVersion}} (latest){{end}}
 {{- end}}
 {{- end}}
-{{- if not .CommitTime.IsZero}}
-* Published: {{.CommitTime.Format "Jan 2, 2006"}}{{end}}
-=> {{.View "platforms"}} Platform: {{.Platform}}{{if .Cgo}} (Cgo){{end}}
+{{- if not $.CommitTime.IsZero}}
+* Published: {{$.CommitTime.Format "Jan 2, 2006"}}{{end}}
+=> {{$.View "platforms"}} Platform: {{$.Platform}}{{if $.Cgo}} (Cgo){{end}}
 {{- if .Imports}}
-=> {{.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
-{{- if not .Updated.IsZero}}
-* Last checked: {{humanize .Updated}}
-=> /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now{{end}}
+=> {{$.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
+{{- if not $.Updated.IsZero}}
+* Last checked: {{humanize $.Updated}}
+=> /-/refresh?import_path={{.ImportPath}}&platform={{$.Platform}} Refresh now{{end}}
 
 => / Back to home
 => /-/search Search
+{{end -}}

@@ -27,7 +27,7 @@ CREATE TABLE packages (
 	synopsis text NOT NULL,
 	score float NOT NULL,
 	imports text[],
-	documentation bytea NOT NULL,
+	encoded bytea NOT NULL,
 	searchtext tsvector GENERATED ALWAYS AS (
 		to_tsvector('english', "name") ||
 		to_tsvector('english', coalesce(synopsis, '')) ||

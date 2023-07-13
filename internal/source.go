@@ -2,16 +2,16 @@ package internal
 
 import (
 	"bytes"
+	"encoding/gob"
 	"errors"
-	"go/build"
-	"io"
+	"fmt"
+	"go/ast"
+	"go/token"
 	"io/fs"
 	"os"
-	"path"
-	"sort"
-	"strings"
 	"time"
 
+	"git.sr.ht/~sircmpwn/gddo/internal/codec"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
@@ -136,120 +136,87 @@ type Package struct {
 
 // Directory represents a package directory.
 type Directory struct {
-	Path  string
-	Files []File
+	Files []*File
+	fset  *token.FileSet
+}
+
+func NewDirectory() *Directory {
+	return &Directory{
+		fset: token.NewFileSet(),
+	}
+}
+
+func (d *Directory) FileSet() *token.FileSet {
+	return d.fset
 }
 
 // File represents a source file.
 type File struct {
-	Name     string
-	Contents []byte
+	Name string
+	AST  *ast.File
 }
 
-// BuildContext transforms the provided build context into one suitable
-// for use with this directory.
-func (dir *Directory) BuildContext(ctx *build.Context) *build.Context {
-	safeCopy := *ctx
-	ctx = &safeCopy
-	ctx.JoinPath = path.Join
-	ctx.IsAbsPath = path.IsAbs
-	ctx.OpenFile = dir.openFile
-	return ctx
-}
-
-func (dir *Directory) openFile(path string) (io.ReadCloser, error) {
-	name := strings.TrimPrefix(path, "./")
-	for _, f := range dir.Files {
-		if f.Name == name {
-			return io.NopCloser(bytes.NewReader(f.Contents)), nil
-		}
+func (d *Directory) FastEncode() ([]byte, error) {
+	enc := codec.NewEncoder()
+	fsb, err := fsetToBytes(d.fset)
+	if err != nil {
+		return nil, err
 	}
-	return nil, os.ErrNotExist
-}
-
-// ParseDirectories parses package directories from the given filesystem.
-func ParseDirectories(fsys fs.FS) ([]Directory, error) {
-	dirsMap := map[string]*Directory{}
-	fs.WalkDir(fsys, ".", func(fpath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			// Skip ignored directories
-			if ignoredByGoTool(fpath) || isVendored(fpath) {
-				return fs.SkipDir
-			}
-			// Add the directory to the map
-			dirsMap[fpath] = &Directory{
-				Path: fpath,
-			}
-			return nil
-		}
-
-		// Skip ignored files
-		if ignoredByGoTool(fpath) || !strings.HasSuffix(fpath, ".go") {
-			return nil
-		}
-
-		// Add file
-		b, err := fs.ReadFile(fsys, fpath)
-		if err != nil {
-			return err
-		}
-		dir := dirsMap[path.Dir(fpath)]
-		dir.Files = append(dir.Files, File{
-			Name:     d.Name(),
-			Contents: b,
-		})
-
-		return nil
-	})
-
-	// Sort directories by path
-	var dirs []Directory
-	for _, dir := range dirsMap {
-		dirs = append(dirs, *dir)
+	if err := enc.Encode(d); err != nil {
+		return nil, err
 	}
-	sort.Sort(byPath(dirs))
-
-	return dirs, nil
-}
-
-type byPath []Directory
-
-func (s byPath) Len() int           { return len(s) }
-func (s byPath) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s byPath) Less(i, j int) bool { return s[i].Path < s[j].Path }
-
-// ignoredByGoTool reports whether the given import path corresponds
-// to a directory that would be ignored by the go tool.
-//
-// The logic of the go tool for ignoring directories is documented at
-// https://golang.org/cmd/go/#hdr-Package_lists_and_patterns:
-//
-//	Directory and file names that begin with "." or "_" are ignored
-//	by the go tool, as are directories named "testdata".
-//
-// However, even though `go list` and other commands that take package
-// wildcards will ignore these, they can still be imported and used in
-// working Go programs. We continue to ignore the "." and "testdata"
-// cases, but we've seen valid Go packages with "_", so we accept those.
-func ignoredByGoTool(importPath string) bool {
-	for _, el := range strings.Split(importPath, "/") {
-		if strings.HasPrefix(el, ".") && len(el) != 1 || el == "testdata" {
-			return true
-		}
+	if err := enc.Encode(fsb); err != nil {
+		return nil, err
 	}
-	return false
+	return enc.Bytes(), nil
 }
 
-// isVendored reports whether the given import path corresponds
-// to a Go package that is inside a vendor directory.
-//
-// The logic for what is considered a vendor directory is documented at
-// https://golang.org/cmd/go/#hdr-Vendor_Directories.
-func isVendored(importPath string) bool {
-	return strings.HasPrefix(importPath, "vendor/") ||
-		strings.Contains(importPath, "/vendor/")
+func FastDecodeDirectory(data []byte) (*Directory, error) {
+	dec := codec.NewDecoder(data)
+	x, err := dec.Decode()
+	if err != nil {
+		return nil, err
+	}
+	dir, ok := x.(*Directory)
+	if !ok {
+		return nil, fmt.Errorf("first decoded value is %T, wanted *Directory", dir)
+	}
+	if dir == nil {
+		// An empty directory may be encoded as nil.
+		dir = &Directory{}
+	}
+	x, err = dec.Decode()
+	if err != nil {
+		return nil, err
+	}
+	fsetBytes, ok := x.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("second decoded value is %T, wanted []byte", fsetBytes)
+	}
+	fset, err := fsetFromBytes(fsetBytes)
+	if err != nil {
+		return nil, err
+	}
+	dir.fset = fset
+	return dir, nil
+}
+
+// token.FileSet uses some unexported types in its encoding, so we can't use our
+// own codec from it. Instead we use gob and encode the resulting bytes.
+func fsetToBytes(fset *token.FileSet) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := fset.Write(enc.Encode); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func fsetFromBytes(data []byte) (*token.FileSet, error) {
+	dec := gob.NewDecoder(bytes.NewReader(data))
+	fset := token.NewFileSet()
+	if err := fset.Read(dec.Decode); err != nil {
+		return nil, err
+	}
+	return fset, nil
 }

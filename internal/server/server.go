@@ -4,7 +4,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"go/build"
 	"net/http"
 	"os"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/modcache"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"github.com/prometheus/client_golang/prometheus"
@@ -179,24 +177,6 @@ func parseImportPath(q string) (string, error) {
 		return "", internal.ErrInvalidPath
 	}
 	return q, nil
-}
-
-// buildContext parses platform and returns the corresponding build context.
-func buildContext(platform string) (*build.Context, error) {
-	if !platforms.Valid(platform) {
-		return nil, ErrInvalidPlatform
-	}
-	cut := strings.Index(platform, "/")
-	if cut == -1 {
-		return nil, ErrInvalidPlatform
-	}
-	goos, goarch := platform[:cut], platform[cut+1:]
-	return &build.Context{
-		GOOS:        goos,
-		GOARCH:      goarch,
-		CgoEnabled:  true,
-		ReleaseTags: build.Default.ReleaseTags,
-	}, nil
 }
 
 func (s *Server) search(ctx context.Context, platform, q string) ([]internal.Package, error) {

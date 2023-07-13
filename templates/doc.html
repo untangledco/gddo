@@ -1,51 +1,50 @@
 {{define "Head"}}
-  <title>{{.PageName}} - {{config.BrandName}}</title>
-  {{if .Synopsis}}
-    <meta property="og:title" content="{{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.PageName}}">
-    <meta name="description" content="{{.Synopsis}}">
-    <meta property="og:description" content="{{.Synopsis}}">
+{{with .Doc}}
+  <title>{{$.PageName}} - {{config.BrandName}}</title>
+  {{if $.Synopsis}}
+    <meta property="og:title" content="{{if $.IsCommand}}Command {{else if .Name}}Package {{end}}{{$.PageName}}">
+    <meta name="description" content="{{$.Synopsis}}">
+    <meta property="og:description" content="{{$.Synopsis}}">
   {{end}}
+{{end}}
 {{end}}
 
 {{define "Body"}}
+{{with .Doc}}
   {{template "ProjectNav" $}}
 
-  {{if .Deprecated}}
-    <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
+  {{if $.Deprecated}}
+    <div class="alert alert-warning"><strong>Deprecated:</strong> {{$.Deprecated}}</div>
   {{end}}
 
   {{if .Name}}
-    <h2 id="pkg-overview">{{if .IsCommand}}Command{{else}}package{{end}} {{.PageName}}</h2>
-    {{if not .IsCommand}}<p><code>import "{{.ImportPath}}"</code>{{end}}
-    {{.Doc|comment}}
+    <h2 id="pkg-overview">{{if $.IsCommand}}Command{{else}}package{{end}} {{$.PageName}}</h2>
+    {{if not $.IsCommand}}<p><code>import "{{.ImportPath}}"</code>{{end}}
+    {{$.HTML .Doc}}
   {{end}}
 
-  {{template "Examples" .PackageExamples}}
+  {{template "Examples" $.PackageExamples}}
 
-  {{if not .IsCommand}}
+  {{if not $.IsCommand}}
     {{if .Name}}
       <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-    {{end}}
-
-    {{if .Truncated}}
-      <div class="alert alert-warning">The documentation displayed here is incomplete. Use the godoc command to read the complete documentation.</div>
     {{end}}
 
     <ul class="list-unstyled">
       {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
       {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
-      {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
+      {{range .Funcs}}<li><a href="#{{.Name}}">{{$.Function .Decl}}</a></li>{{end}}
       {{range $t := .Types}}
         <li><a href="#{{.Name}}">type {{.Name}}</a></li>
         {{if or .Funcs .Methods}}<ul>{{end}}
-        {{range .Funcs}}<li><a href="#{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
-        {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{.Decl.Text}}</a></li>{{end}}
+        {{range .Funcs}}<li><a href="#{{.Name}}">{{$.Function .Decl}}</a></li>{{end}}
+        {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{$.Function .Decl}}</a></li>{{end}}
         {{if or .Funcs .Methods}}</ul>{{end}}
       {{end}}
       {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
     </ul>
 
-    {{with .AllExamples}}
+    {{with $.AllExamples}}
       <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
       <ul class="list-unstyled">
         {{range .}}<li><a href="#example-{{.ID}}">{{.Label}}</a></li>{{end}}
@@ -63,36 +62,36 @@
 
     {{if .Consts}}
       <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
-      {{range .Consts}}<div class="decl" data-kind="constant">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      {{range .Consts}}<div class="decl" data-kind="constant">{{$.SourceLink .Decl.TokPos "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}{{end}}
     {{end}}
 
     {{if .Vars}}
       <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
-      {{range .Vars}}<div class="decl" data-kind="variable">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      {{range .Vars}}<div class="decl" data-kind="variable">{{$.SourceLink .Decl.TokPos "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}{{end}}
     {{end}}
 
     {{range .Funcs}}
-      <h3 id="{{.Name}}" data-kind="function">func {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="funcdecl decl">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
+      <h3 id="{{.Name}}" data-kind="function">func {{$.SourceLink .Decl.Type.Func .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+      <div class="funcdecl decl">{{$.SourceLink .Decl.Type.Func "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}
       {{template "Examples" .|$.ObjExamples}}
     {{end}}
 
     {{range $t := .Types}}
-      <h3 id="{{.Name}}" data-kind="type">type {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="decl" data-kind="{{if isInterface $t}}method{{else}}field{{end}}">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl $t}}</div>{{.Doc|comment}}
-      {{range .Consts}}<div class="decl" data-kind="constant">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
-      {{range .Vars}}<div class="decl" data-kind="variable">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}{{end}}
+      <h3 id="{{.Name}}" data-kind="type">type {{$.SourceLink .Decl.TokPos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+      <div class="decl" data-kind="{{if isInterface $t}}method{{else}}field{{end}}">{{$.SourceLink .Decl.TokPos "\u2756" false}}{{$.Code .Decl $t}}</div>{{$.HTML .Doc}}
+      {{range .Consts}}<div class="decl" data-kind="constant">{{$.SourceLink .Decl.TokPos "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}{{end}}
+      {{range .Vars}}<div class="decl" data-kind="variable">{{$.SourceLink .Decl.TokPos "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}{{end}}
       {{template "Examples" .|$.ObjExamples}}
 
       {{range .Funcs}}
-        <h4 id="{{.Name}}" data-kind="function">func {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
+        <h4 id="{{.Name}}" data-kind="function">func {{$.SourceLink .Decl.Type.Func .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+        <div class="funcdecl decl">{{$.SourceLink .Decl.Type.Func "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
 
       {{range .Methods}}
-        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{$.SourceLink .Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{$.SourceLink .Pos "\u2756" false}}{{code .Decl nil}}</div>{{.Doc|comment}}
+        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{$.SourceLink .Decl.Type.Func .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+        <div class="funcdecl decl">{{$.SourceLink .Decl.Type.Func "\u2756" false}}{{$.Code .Decl nil}}</div>{{$.HTML .Doc}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
     {{end}}
@@ -111,37 +110,37 @@
 
   <div id="x-pkginfo">
     <dl>
-{{- if .Version}}
+{{- if $.Version}}
       <dt>Version</dt>
-      <dd>{{if .Versions}}<a href="{{.View "versions"}}">{{.Version}}</a>{{else}}{{.Version}}{{end}}{{if eq .Version .LatestVersion}} (latest){{end}}</dd>
+      <dd>{{if $.Versions}}<a href="{{$.View "versions"}}">{{$.Version}}</a>{{else}}{{$.Version}}{{end}}{{if eq $.Version $.LatestVersion}} (latest){{end}}</dd>
 {{- end}}
-{{- if not .CommitTime.IsZero}}
+{{- if not $.CommitTime.IsZero}}
       <dt>Published</dt>
-      <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
+      <dd><span title="{{$.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{$.CommitTime.Format "Jan 2, 2006"}}</span></dd>
 {{- end}}
       <dt>Platform</dt>
-      <dd><a href="{{.View "platforms"}}">{{.Platform}}</a>{{if .Cgo}} (Cgo){{end}}</dd>
+      <dd><a href="{{$.View "platforms"}}">{{$.Platform}}</a>{{if $.Cgo}} (Cgo){{end}}</dd>
 {{- if .Imports}}
       <dt>Imports</dt>
-      <dd><a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>)</dd>
+      <dd><a href="{{$.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{$.View "import-graph"}}">graph</a>)</dd>
 {{- end}}
-{{- if not .Updated.IsZero}}
+{{- if not $.Updated.IsZero}}
       <dt>Last checked</dt>
       <dd>
-        <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
+        <span title="{{$.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize $.Updated}}</span>
         &ndash;
         <form class="inline-form" method="POST" action="/-/refresh">
           <input type="hidden" name="import_path" value="{{.ImportPath}}">
-          <input type="hidden" name="platform" value="{{.Platform}}">
+          <input type="hidden" name="platform" value="{{$.Platform}}">
           <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>
         </form>
       </dd>
 {{- end}}
     </dl>
-    <p><a href="{{.View "tools"}}">Tools</a> for package owners.</p>
+    <p><a href="{{$.View "tools"}}">Tools</a> for package owners.</p>
   </div>
 
-{{if and .Name (not .IsCommand)}}
+{{if and .Name (not $.IsCommand)}}
   <div id="x-jump" tabindex="-1" class="modal">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -159,6 +158,7 @@
   </div>
 {{end}}
 {{end}}
+{{end}}
 
 {{define "Examples"}}
 {{if .}}
@@ -167,9 +167,9 @@
     <details class="panel panel-default">
       <summary id="example-{{.ID}}" class="panel-heading">Example{{with .Example.Name}} ({{.}}){{end}}<a class="permalink" href="#example-{{.ID}}">¶</a></summary>
       <div class="panel-collapse"><div class="panel-body">
-        {{with .Example.Doc}}<p>{{.|comment}}{{end}}
+        {{if .Example.Doc}}<p>{{.HTML .Example.Doc}}{{end}}
         <p>Code:{{if .Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
-        {{code .Example.Code nil}}
+        {{.Code}}
         {{with .Example.Output}}<p>Output:<pre>{{.}}</pre>{{end}}
       </div></div>
     </details>

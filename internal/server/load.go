@@ -3,11 +3,12 @@ package server
 import (
 	"context"
 	"errors"
+	"go/doc"
+	"go/token"
 	"path"
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
@@ -25,7 +26,7 @@ const (
 // Package contains package information and documentation for use in templates.
 type Package struct {
 	internal.Package
-	doc.Documentation
+	Doc           *doc.Package
 	Project       *meta.Project
 	Platform      string
 	Dir           string
@@ -34,10 +35,11 @@ type Package struct {
 	Message       string
 	platformParam bool
 	allExamples   []*texample
+	fset          *token.FileSet
 }
 
 // load loads a package.
-func (s *Server) load(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
+func (s *Server) load(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
 	if s.db == nil {
 		// Load the package directly from the source
 		return s.loadPackageDirect(ctx, platform, importPath, version, mode)
@@ -45,25 +47,26 @@ func (s *Server) load(ctx context.Context, platform, importPath, version string,
 	return s.loadPackage(ctx, platform, importPath, version, mode)
 }
 
-func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
-	var pkg Package
+func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
 	dpkg, ok, err := s.db.Package(ctx, platform, importPath, version)
 	if err != nil {
-		return Package{}, err
+		return nil, err
 	}
 	if !ok {
 		err := s.fetch(ctx, platform, importPath, version)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
 		dpkg, ok, err = s.db.Package(ctx, platform, importPath, version)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
 		if !ok {
-			return Package{}, internal.ErrNotFound
+			return nil, internal.ErrNotFound
 		}
 	}
+
+	var pkg Package
 	pkg.Package = dpkg
 	pkg.Platform = platform
 	// Platform parameters are only needed when not on the default platform
@@ -73,17 +76,22 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	pkg.Dir = strings.TrimPrefix(pkg.Dir, "/")
 
 	if mode&NeedDocumentation != 0 {
-		doc, err := s.db.Documentation(ctx, platform, pkg.ImportPath, pkg.Version)
+		dir, err := s.db.Directory(ctx, platform, pkg.ImportPath, pkg.Version)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
-		pkg.Documentation = doc
+		pdoc, err := buildDoc(pkg.ImportPath, dir)
+		if err != nil {
+			return nil, err
+		}
+		pkg.Doc = pdoc
+		pkg.fset = dir.FileSet()
 	}
 
 	if mode&NeedSubPackages != 0 {
 		subpkgs, err := s.db.SubPackages(ctx, platform, pkg.ModulePath, pkg.Version, pkg.ImportPath)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
 		pkg.SubPackages = subpkgs
 	}
@@ -91,7 +99,7 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	if mode&NeedImports != 0 {
 		imports, err := s.db.Packages(ctx, platform, pkg.Imports)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
 		pkg.Imported = imports
 	}
@@ -99,17 +107,17 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	if mode&NeedProject != 0 {
 		project, ok, err := s.db.Project(ctx, pkg.SeriesPath)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
 		if ok {
 			pkg.Project = &project
 		}
 	}
 
-	return pkg, nil
+	return &pkg, nil
 }
 
-func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, version string, mode LoadMode) (Package, error) {
+func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
 	// Loop through potential module paths
 	var source internal.Source
 	var mod *internal.Module
@@ -117,7 +125,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		var err error
 		source, mod, err = s.sources.FindModule(stdlib.ModulePath, version)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
 	} else {
 		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
@@ -128,13 +136,13 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 					// Try parent path
 					continue
 				}
-				return Package{}, err
+				return nil, err
 			}
 			break
 		}
 	}
 	if mod == nil {
-		return Package{}, internal.ErrNotFound
+		return nil, internal.ErrNotFound
 	}
 
 	var pkg Package
@@ -150,43 +158,31 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 	if mode&NeedDocumentation != 0 {
 		fsys, err := source.Files(mod)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
-		dirs, err := internal.ParseDirectories(fsys)
+		dirs, err := parseDirs(platform, fsys)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
-		var dir *internal.Directory
 		relPath := strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
 		relPath = strings.TrimPrefix(relPath, "/")
 		relPath = path.Clean(relPath)
-		for _, d := range dirs {
-			if d.Path == relPath {
-				dir = &d
-				break
-			}
-		}
+		dir := dirs[relPath]
 		if dir == nil {
-			return Package{}, internal.ErrNotFound
+			return nil, internal.ErrNotFound
 		}
-		bctx, err := buildContext(platform)
+		pdoc, err := buildDoc(pkg.ImportPath, dir)
 		if err != nil {
-			return Package{}, err
+			return nil, err
 		}
-		pdoc, err := doc.New(mod.ModulePath, dir, dir.BuildContext(bctx))
-		if err != nil {
-			return Package{}, err
-		}
-		pkg.Documentation = pdoc.Documentation
-		pkg.Name = pdoc.Name
-		pkg.Synopsis = pdoc.Synopsis
-		pkg.Imports = pdoc.Imports
+		pkg.Doc = pdoc
+		pkg.fset = dir.FileSet()
 
 		isModule := mod.ModulePath == importPath
 
 		if mode&NeedSubPackages != 0 {
-			for _, d := range dirs {
-				subPath := moduleImportPath(pkg.ModulePath, d.Path)
+			for dPath := range dirs {
+				subPath := moduleImportPath(pkg.ModulePath, dPath)
 				if (!isModule && !strings.HasPrefix(subPath, pkg.ImportPath+"/")) ||
 					subPath == pkg.ImportPath {
 					continue
@@ -210,5 +206,5 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		pkg.Imported = imports
 	}
 
-	return pkg, nil
+	return &pkg, nil
 }

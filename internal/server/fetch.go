@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
@@ -131,7 +130,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	if err != nil {
 		return err
 	}
-	dirs, err := internal.ParseDirectories(fsys)
+	dirs, err := parseDirs(platform, fsys)
 	if err != nil {
 		return err
 	}
@@ -165,65 +164,29 @@ func moduleImportPath(modulePath, dir string) string {
 
 // putModule puts a module and its associated packages in the database.
 // project may be nil.
-func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, dirs []internal.Directory, project *meta.Project) error {
-	bctx, err := buildContext(platform)
-	if err != nil {
-		return err
-	}
-
+func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, dirs map[string]*internal.Directory, project *meta.Project) error {
 	if err := s.db.PutModule(tx, mod); err != nil {
 		return err
 	}
 
-	dirsMap := map[string]bool{}
-
 	// Add packages to the database
-	for _, dir := range dirs {
-		importPath := moduleImportPath(mod.ModulePath, dir.Path)
-		doc, err := doc.New(mod.ModulePath, &dir, bctx)
+	for dirPath, dir := range dirs {
+		// Encode package directory before rendering documentation, since
+		// doc.New overwrites the AST.
+		encoded, err := dir.FastEncode()
+		if err != nil {
+			return err
+		}
+
+		// TODO: Truncate large documents?
+
+		importPath := moduleImportPath(mod.ModulePath, dirPath)
+		pkg, err := buildDoc(importPath, dir)
 		if err != nil {
 			log.Printf("Failed to build documentation for %s: %v", importPath, err)
 			continue
 		}
-		if doc.Name == "" {
-			// No documentation
-			continue
-		}
-		pkg := internal.Package{
-			Module:     *mod,
-			ImportPath: importPath,
-			Name:       doc.Name,
-			Synopsis:   doc.Synopsis,
-			Imports:    doc.Imports,
-		}
-		if err := s.db.PutPackage(tx, platform, pkg, &doc.Documentation); err != nil {
-			return err
-		}
-
-		// Populate directory map
-		dir := dir.Path
-		dirsMap[dir] = false
-		for dir != "." {
-			dir = path.Dir(dir)
-			_, ok := dirsMap[dir]
-			if ok {
-				break
-			}
-			dirsMap[dir] = true
-		}
-	}
-
-	// Add directories to the database
-	for dir, isDir := range dirsMap {
-		if !isDir {
-			continue
-		}
-		importPath := moduleImportPath(mod.ModulePath, dir)
-		pkg := internal.Package{
-			Module:     *mod,
-			ImportPath: importPath,
-		}
-		if err := s.db.PutPackage(tx, platform, pkg, nil); err != nil {
+		if err := s.db.PutPackage(tx, platform, mod, pkg, encoded); err != nil {
 			return err
 		}
 	}

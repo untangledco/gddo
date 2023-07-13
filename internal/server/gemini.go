@@ -126,19 +126,19 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 
 	switch r.URL.Query().Get("view") {
 	case "versions":
-		s.templates.Execute(w, "versions.gmi", &pkg)
+		s.templates.Execute(w, "versions.gmi", pkg)
 
 	case "platforms":
 		s.templates.Execute(w, "platforms.gmi", &struct {
 			Package
 			Platforms []string
-		}{pkg, platforms.Platforms()})
+		}{*pkg, platforms.Platforms()})
 
 	case "imports":
-		s.templates.Execute(w, "imports.gmi", &pkg)
+		s.templates.Execute(w, "imports.gmi", pkg)
 
 	default:
-		s.templates.Execute(w, "doc.gmi", &pkg)
+		s.templates.Execute(w, "doc.gmi", pkg)
 	}
 	return nil
 }

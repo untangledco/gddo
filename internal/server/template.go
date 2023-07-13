@@ -9,7 +9,10 @@ package server
 import (
 	"bytes"
 	"fmt"
-	godoc "go/doc"
+	"go/ast"
+	"go/doc"
+	goprinter "go/printer"
+	"go/token"
 	htemp "html/template"
 	"io"
 	"net/http"
@@ -17,7 +20,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,20 +27,36 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/doc"
+	"git.sr.ht/~sircmpwn/gddo/internal/gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
+	"git.sr.ht/~sircmpwn/gddo/internal/printer"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
-type texample struct {
-	ID      string
-	Label   string
-	Example *doc.Example
-	Play    bool
-	obj     interface{}
+func (p *Package) IsCommand() bool {
+	return p.Name == "main"
 }
 
-func (pkg *Package) View(view string) string {
+func (p *Package) PageName() string {
+	if p.ImportPath == stdlib.ModulePath {
+		return "Standard library"
+	}
+	if p.Name != "" && p.Name != "main" {
+		return p.Name
+	}
+	return path.Base(p.ImportPath)
+}
+
+func (p *Package) Cgo() bool {
+	for i := range p.Imports {
+		if p.Imports[i] == "C" {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Package) View(view string) string {
 	var b strings.Builder
 	b.WriteByte('?')
 	amp := false
@@ -47,62 +65,96 @@ func (pkg *Package) View(view string) string {
 		b.WriteString(view)
 		amp = true
 	}
-	if pkg.platformParam {
+	if p.platformParam {
 		if amp {
 			b.WriteByte('&')
 		}
 		b.WriteString("platform=")
-		b.WriteString(url.QueryEscape(pkg.Platform))
+		b.WriteString(url.QueryEscape(p.Platform))
 	}
 	return b.String()
 }
 
-func (pkg *Package) PlatformParam() string {
-	if !pkg.platformParam {
+func (p *Package) PlatformParam() string {
+	if !p.platformParam {
 		return ""
 	}
 	var b strings.Builder
 	b.WriteString("?platform=")
-	b.WriteString(url.QueryEscape(pkg.Platform))
+	b.WriteString(url.QueryEscape(p.Platform))
 	return b.String()
 }
 
-func (pkg *Package) VersionParam() string {
-	if pkg.Version == pkg.LatestVersion {
+func (p *Package) VersionParam() string {
+	if p.Version == p.LatestVersion {
 		return ""
 	}
-	return "@" + pkg.Version
+	return "@" + p.Version
 }
 
-func (pkg *Package) SourceLink(pos doc.Pos, text string, textOnlyOK bool) htemp.HTML {
-	if pkg.Reference == "" || pos.Line == 0 || pkg.Project == nil {
+func (p *Package) SourceLink(pos token.Pos, text string, textOnlyOK bool) htemp.HTML {
+	position := p.fset.Position(pos)
+	if p.Reference == "" || position.Line == 0 || p.Project == nil {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
 		return ""
 	}
-	link := pkg.Project.Line(pkg.Reference, pkg.Dir, pkg.Filenames[pos.File],
-		strconv.Itoa(int(pos.Line)))
+	link := p.Project.Line(p.Reference, p.Dir, position.Filename,
+		strconv.Itoa(position.Line))
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
 		htemp.HTMLEscapeString(link),
 		htemp.HTMLEscapeString(text)))
 }
 
-func (pkg *Package) PageName() string {
-	if pkg.ImportPath == stdlib.ModulePath {
-		return "Standard library"
-	}
-	if pkg.Name != "" && pkg.Name != "main" {
-		return pkg.Name
-	}
-	return path.Base(pkg.ImportPath)
+// HTML returns formatted HTML for the doc comment text.
+func (p *Package) HTML(text string) htemp.HTML {
+	return htemp.HTML(p.Doc.HTML(text))
 }
 
-func (pkg *Package) IsCommand() bool {
-	return pkg.Name == "main"
+// Gemini returns formatted Gemini content for the doc comment text.
+func (p *Package) Gemini(text string) string {
+	return string(gemini.Print(p.Doc.Parser().Parse(text)))
 }
 
-func (pkg *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
+// Function formats a function declaration into a single line.
+func (p *Package) Function(decl *ast.FuncDecl) string {
+	var out strings.Builder
+	config := goprinter.Config{
+		Mode:     goprinter.UseSpaces,
+		Tabwidth: 4,
+	}
+	config.Fprint(&out, p.fset, decl)
+	return out.String()
+}
+
+type texample struct {
+	ID      string
+	Label   string
+	Example *doc.Example
+	Play    bool
+	obj     interface{}
+	pkg     *Package
+}
+
+func (t *texample) HTML(text string) htemp.HTML {
+	return t.pkg.HTML(text)
+}
+
+func (t *texample) Gemini(text string) string {
+	return t.pkg.Gemini(text)
+}
+
+func (t *texample) Code() htemp.HTML {
+	c := printer.PrintExample(t.pkg.fset, t.Example)
+	return t.pkg.code(c, nil)
+}
+
+func (t *texample) GeminiCode() string {
+	return t.pkg.GeminiCode(t.Example.Code)
+}
+
+func (p *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
 	label := export
 	id := export
 	if method != "" {
@@ -115,8 +167,9 @@ func (pkg *Package) addExamples(obj interface{}, export, method string, examples
 			ID:      id,
 			Example: e,
 			obj:     obj,
+			pkg:     p,
 			// Only show play links for packages within the standard library.
-			Play: e.Play != "" && stdlib.Contains(pkg.ImportPath),
+			Play: e.Play != nil && stdlib.Contains(p.ImportPath),
 		}
 		if e.Name != "" {
 			te.Label += " (" + e.Name + ")"
@@ -125,7 +178,7 @@ func (pkg *Package) addExamples(obj interface{}, export, method string, examples
 			}
 			te.ID += "-" + e.Name
 		}
-		pkg.allExamples = append(pkg.allExamples, te)
+		p.allExamples = append(p.allExamples, te)
 	}
 }
 
@@ -135,40 +188,40 @@ func (e byExampleID) Len() int           { return len(e) }
 func (e byExampleID) Less(i, j int) bool { return e[i].ID < e[j].ID }
 func (e byExampleID) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
 
-func (pkg *Package) AllExamples() []*texample {
-	if pkg.allExamples != nil {
-		return pkg.allExamples
+func (p *Package) AllExamples() []*texample {
+	if p.allExamples != nil {
+		return p.allExamples
 	}
-	pkg.allExamples = make([]*texample, 0)
-	pkg.addExamples(pkg, "package", "", pkg.Examples)
-	for _, f := range pkg.Funcs {
-		pkg.addExamples(f, f.Name, "", f.Examples)
+	p.allExamples = make([]*texample, 0)
+	p.addExamples(p, "package", "", p.Doc.Examples)
+	for _, f := range p.Doc.Funcs {
+		p.addExamples(f, f.Name, "", f.Examples)
 	}
-	for _, t := range pkg.Types {
-		pkg.addExamples(t, t.Name, "", t.Examples)
+	for _, t := range p.Doc.Types {
+		p.addExamples(t, t.Name, "", t.Examples)
 		for _, f := range t.Funcs {
-			pkg.addExamples(f, f.Name, "", f.Examples)
+			p.addExamples(f, f.Name, "", f.Examples)
 		}
 		for _, m := range t.Methods {
 			if len(m.Examples) > 0 {
-				pkg.addExamples(m, t.Name, m.Name, m.Examples)
+				p.addExamples(m, t.Name, m.Name, m.Examples)
 			}
 		}
 	}
-	sort.Sort(byExampleID(pkg.allExamples))
-	return pkg.allExamples
+	sort.Sort(byExampleID(p.allExamples))
+	return p.allExamples
 }
 
-func (pkg *Package) PackageExamples() []*texample {
-	if pkg.allExamples == nil {
-		pkg.AllExamples()
+func (p *Package) PackageExamples() []*texample {
+	if p.allExamples == nil {
+		p.AllExamples()
 	}
-	return pkg.ObjExamples(pkg)
+	return p.ObjExamples(p)
 }
 
-func (pkg *Package) ObjExamples(obj interface{}) []*texample {
+func (p *Package) ObjExamples(obj interface{}) []*texample {
 	var examples []*texample
-	for _, e := range pkg.allExamples {
+	for _, e := range p.allExamples {
 		if e.obj == obj {
 			examples = append(examples, e)
 		}
@@ -176,65 +229,56 @@ func (pkg *Package) ObjExamples(obj interface{}) []*texample {
 	return examples
 }
 
-func (pkg *Package) Breadcrumbs(templateName string) htemp.HTML {
-	modulePath := pkg.ModulePath
-	if pkg.ImportPath == stdlib.ModulePath {
+func (p *Package) Breadcrumbs(templateName string) htemp.HTML {
+	modulePath := p.ModulePath
+	if p.ImportPath == stdlib.ModulePath {
 		return htemp.HTML(`<span class="text-muted">Standard library</span>`)
 	}
-	if !strings.HasPrefix(pkg.ImportPath, pkg.ModulePath) {
+	if !strings.HasPrefix(p.ImportPath, p.ModulePath) {
 		// This is the case for stdlib packages
-		modulePath = strings.SplitN(pkg.ImportPath, "/", 2)[0]
+		modulePath = strings.SplitN(p.ImportPath, "/", 2)[0]
 	}
 	var buf bytes.Buffer
 	i := 0
 	j := len(modulePath)
 	if j == 0 {
-		j = strings.IndexRune(pkg.ImportPath, '/')
+		j = strings.IndexRune(p.ImportPath, '/')
 		if j < 0 {
-			j = len(pkg.ImportPath)
+			j = len(p.ImportPath)
 		}
 	}
 	for {
 		if i != 0 {
 			buf.WriteString(`<span class="text-muted">/</span>`)
 		}
-		link := j < len(pkg.ImportPath) || templateName != "doc.html"
+		link := j < len(p.ImportPath) || templateName != "doc.html"
 		if link {
 			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(pkg.ImportPath[:j], ""))
-			buf.WriteString(pkg.VersionParam())
-			buf.WriteString(pkg.PlatformParam())
+			buf.WriteString(formatPathFrag(p.ImportPath[:j], ""))
+			buf.WriteString(p.VersionParam())
+			buf.WriteString(p.PlatformParam())
 			buf.WriteString(`">`)
 		} else {
 			buf.WriteString(`<span class="text-muted">`)
 		}
-		buf.WriteString(htemp.HTMLEscapeString(pkg.ImportPath[i:j]))
+		buf.WriteString(htemp.HTMLEscapeString(p.ImportPath[i:j]))
 		if link {
 			buf.WriteString("</a>")
 		} else {
 			buf.WriteString("</span>")
 		}
 		i = j + 1
-		if i >= len(pkg.ImportPath) {
+		if i >= len(p.ImportPath) {
 			break
 		}
-		j = strings.IndexRune(pkg.ImportPath[i:], '/')
+		j = strings.IndexRune(p.ImportPath[i:], '/')
 		if j < 0 {
-			j = len(pkg.ImportPath)
+			j = len(p.ImportPath)
 		} else {
 			j += i
 		}
 	}
 	return htemp.HTML(buf.String())
-}
-
-func (pkg *Package) Cgo() bool {
-	for i := range pkg.Imports {
-		if pkg.Imports[i] == "C" {
-			return true
-		}
-	}
-	return false
 }
 
 func formatPathFrag(path, fragment string) string {
@@ -253,64 +297,24 @@ func relativePathFn(path string, parentPath interface{}) string {
 	return path
 }
 
-var (
-	h3Pat  = regexp.MustCompile(`<h3 id="([^"]+)">([^<]+)</h3>`)
-	rfcPat = regexp.MustCompile(`RFC\s+(\d{3,4})(,?\s+[Ss]ection\s+(\d+(\.\d+)*))?`)
-)
-
-func replaceAll(src []byte, re *regexp.Regexp, replace func(out, src []byte, m []int) []byte) []byte {
-	var out []byte
-	for len(src) > 0 {
-		m := re.FindSubmatchIndex(src)
-		if m == nil {
-			break
-		}
-		out = append(out, src[:m[0]]...)
-		out = replace(out, src, m)
-		src = src[m[1]:]
-	}
-	if out == nil {
-		return src
-	}
-	return append(out, src...)
+func (p *Package) Code(decl ast.Decl, typ *doc.Type) htemp.HTML {
+	c := printer.PrintDecl(p.fset, decl)
+	return p.code(c, typ)
 }
 
-// commentFn formats a source code comment as HTML.
-func commentFn(v string) htemp.HTML {
-	var buf bytes.Buffer
-	godoc.ToHTML(&buf, v, nil)
-	p := buf.Bytes()
-	p = replaceAll(p, h3Pat, func(out, src []byte, m []int) []byte {
-		out = append(out, `<h4 id="`...)
-		out = append(out, src[m[2]:m[3]]...)
-		out = append(out, `">`...)
-		out = append(out, src[m[4]:m[5]]...)
-		out = append(out, ` <a class="permalink" href="#`...)
-		out = append(out, src[m[2]:m[3]]...)
-		out = append(out, `">&para</a></h4>`...)
-		return out
-	})
-	p = replaceAll(p, rfcPat, func(out, src []byte, m []int) []byte {
-		out = append(out, `<a href="https://tools.ietf.org/html/rfc`...)
-		out = append(out, src[m[2]:m[3]]...)
-
-		// If available, add section fragment
-		if m[4] != -1 {
-			out = append(out, `#section-`...)
-			out = append(out, src[m[6]:m[7]]...)
-		}
-
-		out = append(out, `">`...)
-		out = append(out, src[m[0]:m[1]]...)
-		out = append(out, `</a>`...)
-		return out
-	})
-	return htemp.HTML(p)
+func (p *Package) GeminiCode(node ast.Node) string {
+	var out strings.Builder
+	config := goprinter.Config{
+		Mode:     goprinter.UseSpaces,
+		Tabwidth: 4,
+	}
+	config.Fprint(&out, p.fset, node)
+	return out.String()
 }
 
 var period = []byte{'.'}
 
-func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
+func (p *Package) code(c printer.Code, typ *doc.Type) htemp.HTML {
 	var buf bytes.Buffer
 	last := 0
 	src := []byte(c.Text)
@@ -318,15 +322,15 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 	for _, a := range c.Annotations {
 		htemp.HTMLEscape(&buf, src[last:a.Pos])
 		switch a.Kind {
-		case doc.PackageLinkAnnotation:
+		case printer.PackageLinkAnnotation:
 			buf.WriteString(`<a href="`)
 			buf.WriteString(formatPathFrag(c.Paths[a.PathIndex], ""))
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
-		case doc.LinkAnnotation, doc.BuiltinAnnotation:
+		case printer.LinkAnnotation, printer.BuiltinAnnotation:
 			var p string
-			if a.Kind == doc.BuiltinAnnotation {
+			if a.Kind == printer.BuiltinAnnotation {
 				p = "builtin"
 			} else if a.PathIndex >= 0 {
 				p = c.Paths[a.PathIndex]
@@ -338,11 +342,11 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 			buf.WriteString(`">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</a>`)
-		case doc.CommentAnnotation:
+		case printer.CommentAnnotation:
 			buf.WriteString(`<span class="com">`)
 			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
 			buf.WriteString(`</span>`)
-		case doc.AnchorAnnotation:
+		case printer.AnchorAnnotation:
 			buf.WriteString(`<span id="`)
 			if typ != nil {
 				htemp.HTMLEscape(&buf, []byte(typ.Name))
@@ -362,10 +366,21 @@ func codeFn(c doc.Code, typ *doc.Type) htemp.HTML {
 	return htemp.HTML(buf.String())
 }
 
-var isInterfacePat = regexp.MustCompile(`^type [^ ]+ interface`)
-
 func isInterfaceFn(t *doc.Type) bool {
-	return isInterfacePat.MatchString(t.Decl.Text)
+	// TODO: Precompute this
+	if t.Decl.Tok != token.TYPE {
+		return false
+	}
+	isInterface := false
+	for _, spec := range t.Decl.Specs {
+		ts := spec.(*ast.TypeSpec)
+		if t.Name != ts.Name.Name {
+			continue
+		}
+		_, isInterface = ts.Type.(*ast.InterfaceType)
+		break
+	}
+	return isInterface
 }
 
 type TemplateMap map[string]interface {
@@ -441,8 +456,6 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 		{"graph.html", "common.html"},
 	}
 	funcs := htemp.FuncMap{
-		"code":         codeFn,
-		"comment":      commentFn,
 		"equal":        reflect.DeepEqual,
 		"isInterface":  isInterfaceFn,
 		"relativePath": relativePathFn,
@@ -477,11 +490,6 @@ func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
 		{"imports.gmi"},
 	}
 	funcs := ttemp.FuncMap{
-		"comment": func(s string) string {
-			var b strings.Builder
-			doc.ToGemini(&b, s)
-			return b.String()
-		},
 		"relativePath": relativePathFn,
 		"humanize":     humanize.Time,
 		"config":       func() *Config { return s.cfg },

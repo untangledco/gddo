@@ -1,19 +1,19 @@
+//go:generate go run gen_ast.go
+
 // Package database manages the storage of documentation.
 package database
 
 // See schema.sql for the database schema.
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/gob"
+	"go/doc"
 	"path"
 	"strings"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/doc"
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"github.com/lib/pq"
@@ -215,16 +215,16 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 	return pkg, ok, nil
 }
 
-const documentationQuery = `
-SELECT documentation FROM packages
+const encodedQuery = `
+SELECT encoded FROM packages
 WHERE platform = $1 AND import_path = $2 AND version = $3;
 `
 
-// Documentation retrieves the documentation for the given package.
-func (db *Database) Documentation(ctx context.Context, platform, importPath, version string) (doc.Documentation, error) {
-	var pkg doc.Documentation
+// Directory retrieves the directory of files for the given package.
+func (db *Database) Directory(ctx context.Context, platform, importPath, version string) (*internal.Directory, error) {
+	var encoded []byte
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, documentationQuery,
+		rows, err := tx.QueryContext(ctx, encodedQuery,
 			platform, importPath, version)
 		if err != nil {
 			return err
@@ -232,24 +232,16 @@ func (db *Database) Documentation(ctx context.Context, platform, importPath, ver
 		defer rows.Close()
 
 		if rows.Next() {
-			var p []byte
-			if err := rows.Scan(&p); err != nil {
-				return err
-			}
-			if len(p) == 0 {
-				// No documentation
-				return nil
-			}
-			if err := gob.NewDecoder(bytes.NewReader(p)).Decode(&pkg); err != nil {
+			if err := rows.Scan(&encoded); err != nil {
 				return err
 			}
 		}
 		return rows.Err()
 	})
 	if err != nil {
-		return doc.Documentation{}, err
+		return nil, err
 	}
-	return pkg, nil
+	return internal.FastDecodeDirectory(encoded)
 }
 
 const insertPackage = `
@@ -262,38 +254,14 @@ INSERT INTO packages (
 `
 
 // PutPackage stores the package in the database. doc may be nil.
-func (db *Database) PutPackage(tx *sql.Tx, platform string, pkg internal.Package,
-	doc *doc.Documentation) error {
-	var documentation []byte
-	var score float64
-	if doc != nil {
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(doc); err != nil {
-			return err
-		}
-
-		// Truncate large documents.
-		if len(buf.Bytes()) > 1200000 {
-			doc.Truncated = true
-			doc.Consts = nil
-			doc.Types = nil
-			doc.Vars = nil
-			doc.Funcs = nil
-			doc.Examples = nil
-			buf.Reset()
-			if err := gob.NewEncoder(&buf).Encode(doc); err != nil {
-				return err
-			}
-		}
-
-		documentation = buf.Bytes()
-		score = searchScore(pkg.ImportPath, pkg.Name, doc)
-	}
+func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module, pkg *doc.Package, encoded []byte) error {
+	synopsis := pkg.Synopsis(pkg.Doc)
+	score := searchScore(pkg)
 
 	_, err := tx.Exec(insertPackage,
-		platform, pkg.ImportPath, pkg.ModulePath, pkg.SeriesPath, pkg.Version,
-		pkg.Reference, pkg.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
-		pkg.Synopsis, score, documentation)
+		platform, pkg.ImportPath, mod.ModulePath, mod.SeriesPath, mod.Version,
+		mod.Reference, mod.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
+		synopsis, score, encoded)
 	if err != nil {
 		return err
 	}
@@ -301,30 +269,30 @@ func (db *Database) PutPackage(tx *sql.Tx, platform string, pkg internal.Package
 }
 
 // searchScore calculates the search score for the provided package documentation.
-func searchScore(importPath, name string, doc *doc.Documentation) float64 {
+func searchScore(pkg *doc.Package) float64 {
 	// Ignore internal packages
-	if name == "" ||
-		strings.HasSuffix(importPath, "/internal") ||
-		strings.Contains(importPath, "/internal/") {
+	if pkg.Name == "" ||
+		strings.HasSuffix(pkg.ImportPath, "/internal") ||
+		strings.Contains(pkg.ImportPath, "/internal/") {
 		return 0
 	}
 
 	r := 1.0
-	if name == "main" {
-		if doc.Doc == "" {
+	if pkg.Name == "main" {
+		if pkg.Doc == "" {
 			// Do not include command in index if it does not have documentation.
 			return 0
 		}
 	} else {
-		if len(doc.Consts) == 0 &&
-			len(doc.Vars) == 0 &&
-			len(doc.Funcs) == 0 &&
-			len(doc.Types) == 0 &&
-			len(doc.Examples) == 0 {
+		if len(pkg.Consts) == 0 &&
+			len(pkg.Vars) == 0 &&
+			len(pkg.Funcs) == 0 &&
+			len(pkg.Types) == 0 &&
+			len(pkg.Examples) == 0 {
 			// Do not include package in index if it does not have exports.
 			return 0
 		}
-		if doc.Doc == "" {
+		if pkg.Doc == "" {
 			// Penalty for no documentation.
 			r *= 0.95
 		}

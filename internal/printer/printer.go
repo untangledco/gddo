@@ -4,73 +4,20 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd.
 
-package doc
+// Package printer implements annotated rendering of Go code.
+package printer
 
 import (
 	"bytes"
 	"fmt"
 	"go/ast"
 	"go/doc"
+	"go/format"
 	"go/printer"
 	"go/scanner"
 	"go/token"
-	"math"
 	"strconv"
 )
-
-const (
-	notPredeclared = iota
-	predeclaredType
-	predeclaredConstant
-	predeclaredFunction
-)
-
-// predeclared represents the set of all predeclared identifiers.
-var predeclared = map[string]int{
-	"any":        predeclaredType,
-	"bool":       predeclaredType,
-	"byte":       predeclaredType,
-	"comparable": predeclaredType,
-	"complex128": predeclaredType,
-	"complex64":  predeclaredType,
-	"error":      predeclaredType,
-	"float32":    predeclaredType,
-	"float64":    predeclaredType,
-	"int16":      predeclaredType,
-	"int32":      predeclaredType,
-	"int64":      predeclaredType,
-	"int8":       predeclaredType,
-	"int":        predeclaredType,
-	"rune":       predeclaredType,
-	"string":     predeclaredType,
-	"uint16":     predeclaredType,
-	"uint32":     predeclaredType,
-	"uint64":     predeclaredType,
-	"uint8":      predeclaredType,
-	"uint":       predeclaredType,
-	"uintptr":    predeclaredType,
-
-	"true":  predeclaredConstant,
-	"false": predeclaredConstant,
-	"iota":  predeclaredConstant,
-	"nil":   predeclaredConstant,
-
-	"append":  predeclaredFunction,
-	"cap":     predeclaredFunction,
-	"close":   predeclaredFunction,
-	"complex": predeclaredFunction,
-	"copy":    predeclaredFunction,
-	"delete":  predeclaredFunction,
-	"imag":    predeclaredFunction,
-	"len":     predeclaredFunction,
-	"make":    predeclaredFunction,
-	"new":     predeclaredFunction,
-	"panic":   predeclaredFunction,
-	"print":   predeclaredFunction,
-	"println": predeclaredFunction,
-	"real":    predeclaredFunction,
-	"recover": predeclaredFunction,
-}
 
 type AnnotationKind int16
 
@@ -179,7 +126,7 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 		}
 	case *ast.Ident:
 		switch {
-		case n.Obj == nil && predeclared[n.Name] != notPredeclared:
+		case n.Obj == nil && doc.IsPredeclared(n.Name):
 			v.add(BuiltinAnnotation, "")
 		case n.Obj != nil && ast.IsExported(n.Name):
 			if _, ok := n.Obj.Decl.(*ast.TypeSpec); ok {
@@ -239,23 +186,31 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 	return nil
 }
 
-func (b *builder) printDecl(decl ast.Decl) (d Code) {
+func newScanner(src []byte) (*scanner.Scanner, *token.File) {
+	fset := token.NewFileSet()
+	file := fset.AddFile("", fset.Base(), len(src))
+	s := &scanner.Scanner{}
+	s.Init(file, src, nil, scanner.ScanComments)
+	return s, file
+}
+
+// PrintDecl prints and annotates the given decl.
+func PrintDecl(fset *token.FileSet, decl ast.Decl) Code {
 	v := &declVisitor{pathIndex: make(map[string]int)}
 	ast.Walk(v, decl)
-	b.buf = b.buf[:0]
-	err := (&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(
-		sliceWriter{&b.buf},
-		b.fset,
-		&printer.CommentedNode{Node: decl, Comments: v.comments})
-	if err != nil {
+
+	node := &printer.CommentedNode{
+		Node:     decl,
+		Comments: v.comments,
+	}
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, node); err != nil {
 		return Code{Text: err.Error()}
 	}
 
-	var annotations []Annotation
-	var s scanner.Scanner
-	fset := token.NewFileSet()
-	file := fset.AddFile("", fset.Base(), len(b.buf))
-	s.Init(file, b.buf, nil, scanner.ScanComments)
+	src := buf.Bytes()
+	s, file := newScanner(src)
+	annotations := []Annotation{}
 	prevTok := token.ILLEGAL
 loop:
 	for {
@@ -289,62 +244,28 @@ loop:
 		}
 		prevTok = tok
 	}
-	return Code{Text: string(b.buf), Annotations: annotations, Paths: v.paths}
+	return Code{Text: string(src), Annotations: annotations, Paths: v.paths}
 }
 
-func (b *builder) position(n ast.Node) Pos {
-	var position Pos
-	pos := b.fset.Position(n.Pos())
-	src := b.files[pos.Filename]
-	if src != nil {
-		position.File = int16(src.Index)
-		position.Line = int32(pos.Line)
-		end := b.fset.Position(n.End())
-		if src == b.files[end.Filename] {
-			n := end.Line - pos.Line
-			if n >= 0 && n <= math.MaxUint16 {
-				position.N = uint16(n)
-			}
+// PrintExample prints and annotates the given example.
+func PrintExample(fset *token.FileSet, e *doc.Example) Code {
+	var node interface{}
+	if e.Play != nil {
+		node = e.Play
+	} else {
+		node = &printer.CommentedNode{
+			Node:     e.Code,
+			Comments: e.Comments,
 		}
 	}
-	return position
-}
-
-func (b *builder) printExample(e *doc.Example) (code Code, output string) {
-	output = e.Output
-
-	b.buf = b.buf[:0]
-	var n interface{}
-	if _, ok := e.Code.(*ast.File); ok {
-		n = e.Play
-	} else {
-		n = &printer.CommentedNode{Node: e.Code, Comments: e.Comments}
-	}
-	err := (&printer.Config{Mode: printer.UseSpaces, Tabwidth: 4}).Fprint(sliceWriter{&b.buf}, b.fset, n)
-	if err != nil {
-		return Code{Text: err.Error()}, output
-	}
-
-	// additional formatting if this is a function body
-	if i := len(b.buf); i >= 2 && b.buf[0] == '{' && b.buf[i-1] == '}' {
-		// remove surrounding braces
-		b.buf = b.buf[1 : i-1]
-		// unindent
-		b.buf = bytes.Replace(b.buf, []byte("\n    "), []byte("\n"), -1)
-		// remove output comment
-		if j := exampleOutputRx.FindIndex(b.buf); j != nil {
-			b.buf = bytes.TrimSpace(b.buf[:j[0]])
-		}
-	} else {
-		// drop output, as the output comment will appear in the code
-		output = ""
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, node); err != nil {
+		return Code{Text: err.Error()}
 	}
 
 	var annotations []Annotation
-	var s scanner.Scanner
-	fset := token.NewFileSet()
-	file := fset.AddFile("", fset.Base(), len(b.buf))
-	s.Init(file, b.buf, nil, scanner.ScanComments)
+	src := buf.Bytes()
+	s, file := newScanner(src)
 	prevTok := token.ILLEGAL
 scanLoop:
 	for {
@@ -364,5 +285,5 @@ scanLoop:
 		prevTok = tok
 	}
 
-	return Code{Text: string(b.buf), Annotations: annotations}, output
+	return Code{Text: string(src), Annotations: annotations}
 }

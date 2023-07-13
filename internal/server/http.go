@@ -154,23 +154,23 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 
 	switch req.Form.Get("view") {
 	case "versions":
-		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, &pkg)
+		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, pkg)
 
 	case "platforms":
 		return s.templates.ExecuteHTML(resp, "platforms.html", http.StatusOK, &struct {
 			Package
 			Platforms []string
-		}{pkg, platforms.Platforms()})
+		}{*pkg, platforms.Platforms()})
 
 	case "imports":
-		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, &pkg)
+		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, pkg)
 
 	case "tools":
 		uri := fmt.Sprintf("%s/%s", getRootURL(req), importPath)
 		return s.templates.ExecuteHTML(resp, "tools.html", http.StatusOK, &struct {
 			Package
 			URI string
-		}{pkg, uri})
+		}{*pkg, uri})
 
 	case "import-graph":
 		// Throttle import-graph requests.
@@ -204,11 +204,11 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			Package
 			SVG  template.HTML
 			Hide database.DepLevel
-		}{pkg, template.HTML(b), hide})
+		}{*pkg, template.HTML(b), hide})
 
 	default:
 		if play := req.Form.Get("play"); play != "" {
-			u, err := s.playURL(ctx, &pkg.Documentation, req.Form.Get("play"))
+			u, err := s.playURL(ctx, pkg, req.Form.Get("play"))
 			if err != nil {
 				return err
 			}
@@ -223,7 +223,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 
 		resp.Header().Set("Etag", etag)
-		return s.templates.ExecuteHTML(resp, "doc.html", status, &pkg)
+		return s.templates.ExecuteHTML(resp, "doc.html", status, pkg)
 	}
 }
 
