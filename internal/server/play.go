@@ -15,10 +15,11 @@ import (
 	"go/format"
 	"io"
 	"net/http"
-	"regexp"
+	"strings"
 )
 
-func findExamples(pkg *doc.Package, export, method string) []*doc.Example {
+func findExamples(pkg *doc.Package, symbol string) []*doc.Example {
+	export, method, _ := strings.Cut(symbol, ".")
 	if export == "package" {
 		return pkg.Examples
 	}
@@ -48,45 +49,44 @@ func findExamples(pkg *doc.Package, export, method string) []*doc.Example {
 	return nil
 }
 
-func findExample(pkg *doc.Package, export, method, name string) *doc.Example {
-	for _, e := range findExamples(pkg, export, method) {
-		if name == e.Name {
-			return e
+func findExample(pkg *doc.Package, symbol, suffix string) *doc.Example {
+	for _, ex := range findExamples(pkg, symbol) {
+		if ex.Suffix == suffix {
+			return ex
 		}
 	}
 	return nil
 }
 
-var exampleIDPat = regexp.MustCompile(`([^-]+)(?:-([^-]*)(?:-(.*))?)?`)
-
 func (s *Server) playURL(ctx context.Context, pkg *Package, id string) (string, error) {
-	if m := exampleIDPat.FindStringSubmatch(id); m != nil {
-		if e := findExample(pkg.Doc, m[1], m[2], m[3]); e != nil && e.Play != nil {
-			var buf bytes.Buffer
-			if err := format.Node(&buf, pkg.fset, e.Play); err != nil {
-				return "", err
-			}
-
-			req, err := http.NewRequestWithContext(ctx, "POST", "https://play.golang.org/share", &buf)
-			if err != nil {
-				return "", err
-			}
-			req.Header.Set("Content-Type", "text/plain")
-			req.Header.Set("User-Agent", s.cfg.UserAgent)
-			resp, err := s.httpClient.Do(req)
-			if err != nil {
-				return "", err
-			}
-			defer resp.Body.Close()
-			p, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return "", err
-			}
-			if resp.StatusCode > 399 {
-				return "", fmt.Errorf("Error from play.golang.org: %s", p)
-			}
-			return fmt.Sprintf("https://play.golang.org/p/%s", p), nil
-		}
+	symbol, suffix, _ := strings.Cut(id, "-")
+	ex := findExample(pkg.Doc, symbol, suffix)
+	if ex == nil || ex.Play == nil {
+		return "", errors.New("example not found")
 	}
-	return "", errors.New("example not found")
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, pkg.fset, ex.Play); err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://play.golang.org/share", &buf)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("User-Agent", s.cfg.UserAgent)
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	p, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode > 399 {
+		return "", fmt.Errorf("Error from play.golang.org: %s", p)
+	}
+	return fmt.Sprintf("https://play.golang.org/p/%s", p), nil
 }

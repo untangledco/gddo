@@ -34,7 +34,7 @@ type Package struct {
 	SubPackages   []internal.Package
 	Message       string
 	platformParam bool
-	allExamples   []*texample
+	examples      []*Example
 	fset          *token.FileSet
 }
 

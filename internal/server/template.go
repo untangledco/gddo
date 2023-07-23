@@ -128,100 +128,110 @@ func (p *Package) Function(decl *ast.FuncDecl) string {
 	return out.String()
 }
 
-type texample struct {
-	ID      string
-	Label   string
-	Example *doc.Example
-	Play    bool
-	obj     interface{}
-	pkg     *Package
+type Example struct {
+	*doc.Example
+	ID     string
+	Symbol string
+	Suffix string
+	Play   bool
+	obj    interface{}
+	pkg    *Package
 }
 
-func (t *texample) HTML(text string) htemp.HTML {
-	return t.pkg.HTML(text)
+func (e *Example) PlayID() string {
+	return e.Symbol + "-" + e.Example.Suffix
 }
 
-func (t *texample) Gemini(text string) string {
-	return t.pkg.Gemini(text)
+func (e *Example) HTML(text string) htemp.HTML {
+	return e.pkg.HTML(text)
 }
 
-func (t *texample) Code() htemp.HTML {
-	c := printer.PrintExample(t.pkg.fset, t.Example)
-	return t.pkg.code(c, nil)
+func (e *Example) Gemini(text string) string {
+	return e.pkg.Gemini(text)
 }
 
-func (t *texample) GeminiCode() string {
-	return t.pkg.GeminiCode(t.Example.Code)
+func (e *Example) Code() htemp.HTML {
+	c := printer.PrintExample(e.pkg.fset, e.Example)
+	return e.pkg.code(c, nil)
 }
 
-func (p *Package) addExamples(obj interface{}, export, method string, examples []*doc.Example) {
-	label := export
-	id := export
-	if method != "" {
-		label += "." + method
-		id += "-" + method
-	}
-	for _, e := range examples {
-		te := &texample{
-			Label:   label,
-			ID:      id,
-			Example: e,
+func (e *Example) GeminiCode() string {
+	return e.pkg.GeminiCode(e.Example.Code)
+}
+
+func (p *Package) addExamples(obj interface{}, symbol string, examples []*doc.Example) {
+	for _, example := range examples {
+		suffix := strings.Title(example.Suffix)
+		ex := &Example{
+			Example: example,
+			ID:      exampleID(symbol, suffix),
+			Symbol:  symbol,
+			Suffix:  suffix,
 			obj:     obj,
 			pkg:     p,
 			// Only show play links for packages within the standard library.
-			Play: e.Play != nil && stdlib.Contains(p.ImportPath),
+			// TODO: Always show play links
+			Play: example.Play != nil && stdlib.Contains(p.ImportPath),
 		}
-		if e.Name != "" {
-			te.Label += " (" + e.Name + ")"
-			if method == "" {
-				te.ID += "-"
-			}
-			te.ID += "-" + e.Name
-		}
-		p.allExamples = append(p.allExamples, te)
+		p.examples = append(p.examples, ex)
 	}
 }
 
-type byExampleID []*texample
-
-func (e byExampleID) Len() int           { return len(e) }
-func (e byExampleID) Less(i, j int) bool { return e[i].ID < e[j].ID }
-func (e byExampleID) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-
-func (p *Package) AllExamples() []*texample {
-	if p.allExamples != nil {
-		return p.allExamples
+func exampleID(symbol, suffix string) string {
+	switch {
+	case symbol == "" && suffix == "":
+		return "example-package"
+	case symbol == "" && suffix != "":
+		return "example-package-" + suffix
+	case symbol != "" && suffix == "":
+		return "example-" + symbol
+	case symbol != "" && suffix != "":
+		return "example-" + symbol + "-" + suffix
+	default:
+		panic("unreachable")
 	}
-	p.allExamples = make([]*texample, 0)
-	p.addExamples(p, "package", "", p.Doc.Examples)
+}
+
+type byExampleSymbol []*Example
+
+func (e byExampleSymbol) Len() int           { return len(e) }
+func (e byExampleSymbol) Less(i, j int) bool { return e[i].Symbol < e[j].Symbol }
+func (e byExampleSymbol) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
+
+func (p *Package) AllExamples() []*Example {
+	if p.examples != nil {
+		return p.examples
+	}
+	p.examples = make([]*Example, 0)
+	p.addExamples(p, "", p.Doc.Examples)
 	for _, f := range p.Doc.Funcs {
-		p.addExamples(f, f.Name, "", f.Examples)
+		p.addExamples(f, f.Name, f.Examples)
 	}
 	for _, t := range p.Doc.Types {
-		p.addExamples(t, t.Name, "", t.Examples)
+		p.addExamples(t, t.Name, t.Examples)
 		for _, f := range t.Funcs {
-			p.addExamples(f, f.Name, "", f.Examples)
+			p.addExamples(f, f.Name, f.Examples)
 		}
 		for _, m := range t.Methods {
 			if len(m.Examples) > 0 {
-				p.addExamples(m, t.Name, m.Name, m.Examples)
+				p.addExamples(m, t.Name+"."+m.Name, m.Examples)
 			}
 		}
 	}
-	sort.Sort(byExampleID(p.allExamples))
-	return p.allExamples
+	sort.Stable(byExampleSymbol(p.examples))
+	return p.examples
 }
 
-func (p *Package) PackageExamples() []*texample {
-	if p.allExamples == nil {
+func (p *Package) PackageExamples() []*Example {
+	if p.examples == nil {
 		p.AllExamples()
 	}
 	return p.ObjExamples(p)
 }
 
-func (p *Package) ObjExamples(obj interface{}) []*texample {
-	var examples []*texample
-	for _, e := range p.allExamples {
+func (p *Package) ObjExamples(obj interface{}) []*Example {
+	var examples []*Example
+	for _, e := range p.examples {
 		if e.obj == obj {
 			examples = append(examples, e)
 		}

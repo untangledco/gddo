@@ -47,7 +47,7 @@
     {{with $.AllExamples}}
       <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
       <ul class="list-unstyled">
-        {{range .}}<li><a href="#example-{{.ID}}">{{.Label}}</a></li>{{end}}
+        {{range .}}<li><a href="#{{.ID}}">{{or .Symbol "package"}}{{with .Suffix}} ({{.}}){{end}}</a></li>{{end}}
       </ul>
     {{end}}
 
@@ -165,12 +165,12 @@
   <div class="panel-group">
   {{range .}}
     <details class="panel panel-default">
-      <summary id="example-{{.ID}}" class="panel-heading">Example{{with .Example.Name}} ({{.}}){{end}}<a class="permalink" href="#example-{{.ID}}">¶</a></summary>
+      <summary id="{{.ID}}" class="panel-heading">Example{{with .Suffix}} ({{.}}){{end}}<a class="permalink" href="#{{.ID}}">¶</a></summary>
       <div class="panel-collapse"><div class="panel-body">
-        {{if .Example.Doc}}<p>{{.HTML .Example.Doc}}{{end}}
-        <p>Code:{{if .Play}}<span class="pull-right"><a href="?play={{.ID}}">play</a>&nbsp;</span>{{end}}
+        {{if .Doc}}<p>{{.HTML .Doc}}{{end}}
+        <p>Code:{{if .Play}}<span class="pull-right"><a href="?play={{.PlayID}}">play</a>&nbsp;</span>{{end}}
         {{.Code}}
-        {{with .Example.Output}}<p>Output:<pre>{{.}}</pre>{{end}}
+        {{with .Output}}<p>Output:<pre>{{.}}</pre>{{end}}
       </div></div>
     </details>
   {{end}}

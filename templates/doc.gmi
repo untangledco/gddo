@@ -1,9 +1,9 @@
 {{define "Examples"}}
 {{- range . }}
 
-Example{{with .Example.Name}} ({{.}}){{end}}
-{{if .Example.Doc}}
-{{.Gemini .Example.Doc}}{{end}}
+Example{{with .Suffix}} ({{.}}){{end}}
+{{if .Doc}}
+{{.Gemini .Doc}}{{end}}
 Code:
 ```
 {{.GeminiCode}}
