@@ -247,7 +247,7 @@ func (db *Database) Directory(ctx context.Context, platform, importPath, version
 const insertPackage = `
 INSERT INTO packages (
 	platform, import_path, module_path, series_path, version, reference,
-	commit_time, imports, name, synopsis, score, documentation
+	commit_time, imports, name, synopsis, score, encoded
 ) VALUES (
 	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 );
