@@ -3500,9 +3500,9 @@ func init() {
 		})
 }
 
-// Fields of internal_Directory: Files
+// Fields of internal_Package: Files
 
-func encode_internal_Directory(e *codec.Encoder, x *internal.Directory) {
+func encode_internal_Package(e *codec.Encoder, x *internal.Package) {
 	if !e.StartStruct(x == nil, x) {
 		return
 	}
@@ -3513,16 +3513,16 @@ func encode_internal_Directory(e *codec.Encoder, x *internal.Directory) {
 	e.EndStruct()
 }
 
-func decode_internal_Directory(d *codec.Decoder, p **internal.Directory) {
+func decode_internal_Package(d *codec.Decoder, p **internal.Package) {
 	proceed, ref := d.StartStruct()
 	if !proceed {
 		return
 	}
 	if ref != nil {
-		*p = ref.(*internal.Directory)
+		*p = ref.(*internal.Package)
 		return
 	}
-	var x internal.Directory
+	var x internal.Package
 	d.StoreRef(&x)
 	for {
 		n := d.NextStructField()
@@ -3533,18 +3533,18 @@ func decode_internal_Directory(d *codec.Decoder, p **internal.Directory) {
 		case 0:
 			decode_slice_internal_File(d, &x.Files)
 		default:
-			d.UnknownField("internal.Directory", n)
+			d.UnknownField("internal.Package", n)
 		}
 		*p = &x
 	}
 }
 
 func init() {
-	codec.Register(&internal.Directory{},
-		func(e *codec.Encoder, x any) { encode_internal_Directory(e, x.(*internal.Directory)) },
+	codec.Register(&internal.Package{},
+		func(e *codec.Encoder, x any) { encode_internal_Package(e, x.(*internal.Package)) },
 		func(d *codec.Decoder) any {
-			var x *internal.Directory
-			decode_internal_Directory(d, &x)
+			var x *internal.Package
+			decode_internal_Package(d, &x)
 			return x
 		})
 }

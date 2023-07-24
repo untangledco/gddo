@@ -84,8 +84,8 @@ func setFlashMessage(resp http.ResponseWriter, message string) {
 
 // httpEtag returns the package entity tag used in HTTP transactions.
 func (s *Server) httpEtag(
-	pkg internal.Package,
-	subpkgs []internal.Package,
+	pkg database.Package,
+	subpkgs []database.Package,
 	msg string,
 ) string {
 	b := make([]byte, 0, 128)
@@ -290,7 +290,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	// TODO: UI to choose which platform to use for searches
 	return s.templates.ExecuteHTML(resp, "search.html", http.StatusOK, struct {
 		Query   string
-		Results []internal.Package
+		Results []database.Package
 		Message string
 	}{q, pkgs, msg})
 }

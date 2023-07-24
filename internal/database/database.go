@@ -21,6 +21,16 @@ import (
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
 )
 
+// Package contains package information.
+type Package struct {
+	internal.Module
+	ImportPath string
+	Imports    []string
+	Name       string
+	Synopsis   string
+	Updated    time.Time
+}
+
 // Database stores package documentation.
 type Database struct {
 	pg *sql.DB
@@ -123,8 +133,8 @@ LIMIT 20;
 `
 
 // Search performs a search with the provided query string.
-func (db *Database) Search(ctx context.Context, platform, query string) ([]internal.Package, error) {
-	var packages []internal.Package
+func (db *Database) Search(ctx context.Context, platform, query string) ([]Package, error) {
+	var packages []Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, searchQuery, platform, query)
 		if err != nil {
@@ -133,7 +143,7 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]inter
 		defer rows.Close()
 
 		for rows.Next() {
-			var pkg internal.Package
+			var pkg Package
 			if err := rows.Scan(&pkg.ImportPath, &pkg.ModulePath, &pkg.SeriesPath,
 				&pkg.Version, &pkg.Reference, &pkg.CommitTime, &pkg.Name,
 				&pkg.Synopsis); err != nil {
@@ -167,8 +177,8 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 `
 
 // Package returns information about the given package.
-func (db *Database) Package(ctx context.Context, platform, importPath, version string) (internal.Package, bool, error) {
-	var pkg internal.Package
+func (db *Database) Package(ctx context.Context, platform, importPath, version string) (Package, bool, error) {
+	var pkg Package
 	ok := false
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		var rows *sql.Rows
@@ -210,21 +220,21 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 		return rows.Err()
 	})
 	if err != nil {
-		return internal.Package{}, false, err
+		return Package{}, false, err
 	}
 	return pkg, ok, nil
 }
 
-const encodedQuery = `
-SELECT encoded FROM packages
+const sourceQuery = `
+SELECT source FROM packages
 WHERE platform = $1 AND import_path = $2 AND version = $3;
 `
 
-// Directory retrieves the directory of files for the given package.
-func (db *Database) Directory(ctx context.Context, platform, importPath, version string) (*internal.Directory, error) {
-	var encoded []byte
+// Source retrieves the Go source files for the given package.
+func (db *Database) Source(ctx context.Context, platform, importPath, version string) (*internal.Package, error) {
+	var source []byte
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, encodedQuery,
+		rows, err := tx.QueryContext(ctx, sourceQuery,
 			platform, importPath, version)
 		if err != nil {
 			return err
@@ -232,7 +242,7 @@ func (db *Database) Directory(ctx context.Context, platform, importPath, version
 		defer rows.Close()
 
 		if rows.Next() {
-			if err := rows.Scan(&encoded); err != nil {
+			if err := rows.Scan(&source); err != nil {
 				return err
 			}
 		}
@@ -241,27 +251,27 @@ func (db *Database) Directory(ctx context.Context, platform, importPath, version
 	if err != nil {
 		return nil, err
 	}
-	return internal.FastDecodeDirectory(encoded)
+	return internal.FastDecodePackage(source)
 }
 
 const insertPackage = `
 INSERT INTO packages (
 	platform, import_path, module_path, series_path, version, reference,
-	commit_time, imports, name, synopsis, score, encoded
+	commit_time, imports, name, synopsis, score, source
 ) VALUES (
 	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 );
 `
 
 // PutPackage stores the package in the database. doc may be nil.
-func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module, pkg *doc.Package, encoded []byte) error {
+func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module, pkg *doc.Package, source []byte) error {
 	synopsis := pkg.Synopsis(pkg.Doc)
 	score := searchScore(pkg)
 
 	_, err := tx.Exec(insertPackage,
 		platform, pkg.ImportPath, mod.ModulePath, mod.SeriesPath, mod.Version,
 		mod.Reference, mod.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
-		synopsis, score, encoded)
+		synopsis, score, source)
 	if err != nil {
 		return err
 	}
@@ -386,14 +396,14 @@ func (db *Database) synopsis(ctx context.Context, platform, importPath string) (
 
 // Packages returns a list of package information for the given import paths.
 // Only the ImportPath and Synopsis fields will be populated.
-func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]internal.Package, error) {
-	var packages []internal.Package
+func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]Package, error) {
+	var packages []Package
 	for _, importPath := range importPaths {
 		synopsis, err := db.synopsis(ctx, platform, importPath)
 		if err != nil {
 			return nil, err
 		}
-		packages = append(packages, internal.Package{
+		packages = append(packages, Package{
 			ImportPath: importPath,
 			Synopsis:   synopsis,
 		})
@@ -412,12 +422,12 @@ ORDER BY import_path;
 `
 
 // SubPackages returns the subpackages of the given package.
-func (db *Database) SubPackages(ctx context.Context, platform, modulePath, version, importPath string) ([]internal.Package, error) {
+func (db *Database) SubPackages(ctx context.Context, platform, modulePath, version, importPath string) ([]Package, error) {
 	isModule := modulePath == importPath
 	isInternal := importPath == "internal" ||
 		strings.HasSuffix(importPath, "/internal") ||
 		strings.Contains(importPath, "/internal/")
-	var packages []internal.Package
+	var packages []Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, subpackagesQuery,
 			platform, modulePath, version, isModule, importPath, isInternal)
@@ -427,7 +437,7 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 		defer rows.Close()
 
 		for rows.Next() {
-			var pkg internal.Package
+			var pkg Package
 			if err := rows.Scan(&pkg.ImportPath, &pkg.SeriesPath,
 				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
 				return err
@@ -480,34 +490,34 @@ FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path AND p.version = m.latest_version;
 `
 
-func (db *Database) importGraphPackage(tx *sql.Tx, platform, importPath string) (internal.Package, error) {
-	pkg := internal.Package{
+func (db *Database) importGraphPackage(tx *sql.Tx, platform, importPath string) (Package, error) {
+	pkg := Package{
 		ImportPath: importPath,
 	}
 
 	rows, err := tx.Query(importGraphPackageQuery, platform, importPath)
 	if err != nil {
-		return internal.Package{}, err
+		return Package{}, err
 	}
 	defer rows.Close()
 
 	if rows.Next() {
 		if err := rows.Scan(&pkg.Version, &pkg.Synopsis); err != nil {
-			return internal.Package{}, err
+			return Package{}, err
 		}
 	}
 	if rows.Err() != nil {
-		return internal.Package{}, err
+		return Package{}, err
 	}
 	return pkg, nil
 }
 
 // ImportGraph performs a breadth-first traversal of the package's dependencies.
-func (db *Database) ImportGraph(ctx context.Context, platform string, pkg internal.Package, level DepLevel) ([]internal.Package, [][2]int, error) {
+func (db *Database) ImportGraph(ctx context.Context, platform string, pkg Package, level DepLevel) ([]Package, [][2]int, error) {
 	opts := &sql.TxOptions{
 		ReadOnly: true,
 	}
-	var nodes []internal.Package
+	var nodes []Package
 	var edges [][2]int
 	err := db.WithTx(ctx, opts, func(tx *sql.Tx) error {
 		var err error
@@ -520,9 +530,9 @@ func (db *Database) ImportGraph(ctx context.Context, platform string, pkg intern
 	return nodes, edges, nil
 }
 
-func (db *Database) importGraph(tx *sql.Tx, platform string, pkg internal.Package, level DepLevel) ([]internal.Package, [][2]int, error) {
-	var queue []internal.Package
-	nodes := []internal.Package{{ImportPath: pkg.ImportPath, Synopsis: pkg.Synopsis}}
+func (db *Database) importGraph(tx *sql.Tx, platform string, pkg Package, level DepLevel) ([]Package, [][2]int, error) {
+	var queue []Package
+	nodes := []Package{{ImportPath: pkg.ImportPath, Synopsis: pkg.Synopsis}}
 	edges := [][2]int{}
 	index := map[string]int{pkg.ImportPath: 0}
 
@@ -547,7 +557,7 @@ func (db *Database) importGraph(tx *sql.Tx, platform string, pkg internal.Packag
 	}
 
 	for i := 1; i < len(nodes); i++ {
-		var pkg internal.Package
+		var pkg Package
 		pkg, queue = queue[0], queue[1:]
 		imports, err := db.imports(tx, platform, pkg.ImportPath, pkg.Version)
 		if err != nil {

@@ -1,17 +1,11 @@
 package internal
 
 import (
-	"bytes"
-	"encoding/gob"
 	"errors"
-	"fmt"
-	"go/ast"
-	"go/token"
 	"io/fs"
 	"os"
 	"time"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/codec"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
 )
@@ -122,101 +116,4 @@ type Module struct {
 	LatestVersion string
 	Versions      []string
 	Deprecated    string
-}
-
-// Package contains package information.
-type Package struct {
-	Module
-	ImportPath string
-	Imports    []string
-	Name       string
-	Synopsis   string
-	Updated    time.Time
-}
-
-// Directory represents a package directory.
-type Directory struct {
-	Files []*File
-	fset  *token.FileSet
-}
-
-func NewDirectory() *Directory {
-	return &Directory{
-		fset: token.NewFileSet(),
-	}
-}
-
-func (d *Directory) FileSet() *token.FileSet {
-	return d.fset
-}
-
-// File represents a source file.
-type File struct {
-	Name string
-	AST  *ast.File
-}
-
-func (d *Directory) FastEncode() ([]byte, error) {
-	enc := codec.NewEncoder()
-	fsb, err := fsetToBytes(d.fset)
-	if err != nil {
-		return nil, err
-	}
-	if err := enc.Encode(d); err != nil {
-		return nil, err
-	}
-	if err := enc.Encode(fsb); err != nil {
-		return nil, err
-	}
-	return enc.Bytes(), nil
-}
-
-func FastDecodeDirectory(data []byte) (*Directory, error) {
-	dec := codec.NewDecoder(data)
-	x, err := dec.Decode()
-	if err != nil {
-		return nil, err
-	}
-	dir, ok := x.(*Directory)
-	if !ok {
-		return nil, fmt.Errorf("first decoded value is %T, wanted *Directory", dir)
-	}
-	if dir == nil {
-		// An empty directory may be encoded as nil.
-		dir = &Directory{}
-	}
-	x, err = dec.Decode()
-	if err != nil {
-		return nil, err
-	}
-	fsetBytes, ok := x.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("second decoded value is %T, wanted []byte", fsetBytes)
-	}
-	fset, err := fsetFromBytes(fsetBytes)
-	if err != nil {
-		return nil, err
-	}
-	dir.fset = fset
-	return dir, nil
-}
-
-// token.FileSet uses some unexported types in its encoding, so we can't use our
-// own codec from it. Instead we use gob and encode the resulting bytes.
-func fsetToBytes(fset *token.FileSet) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	if err := fset.Write(enc.Encode); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func fsetFromBytes(data []byte) (*token.FileSet, error) {
-	dec := gob.NewDecoder(bytes.NewReader(data))
-	fset := token.NewFileSet()
-	if err := fset.Read(dec.Decode); err != nil {
-		return nil, err
-	}
-	return fset, nil
 }

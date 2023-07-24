@@ -12,6 +12,7 @@ import (
 
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 )
 
@@ -88,7 +89,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 
 	s.templates.Execute(w, "search.gmi", struct {
 		Query   string
-		Results []internal.Package
+		Results []database.Package
 	}{q, pkgs})
 	return nil
 }

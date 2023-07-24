@@ -73,7 +73,7 @@ func main() {
 		ast.TypeSwitchStmt{},
 		ast.UnaryExpr{},
 		ast.ValueSpec{},
-		internal.Directory{},
+		internal.Package{},
 	}
 	const filename = "encode_ast.gen.go"
 	if err := codec.GenerateFile(filename, "database", types...); err != nil {

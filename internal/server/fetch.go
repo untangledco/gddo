@@ -130,11 +130,11 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	if err != nil {
 		return err
 	}
-	dirs, err := parseDirs(platform, fsys)
+	pkgs, err := parsePackages(platform, fsys)
 	if err != nil {
 		return err
 	}
-	if len(dirs) == 0 {
+	if len(pkgs) == 0 {
 		// The module has no packages
 		return ErrNoPackages
 	}
@@ -151,7 +151,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	}
 
 	return s.db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		return s.putModule(tx, platform, mod, dirs, project)
+		return s.putModule(tx, platform, mod, pkgs, project)
 	})
 }
 
@@ -164,29 +164,29 @@ func moduleImportPath(modulePath, dir string) string {
 
 // putModule puts a module and its associated packages in the database.
 // project may be nil.
-func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, dirs map[string]*internal.Directory, project *meta.Project) error {
+func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package, project *meta.Project) error {
 	if err := s.db.PutModule(tx, mod); err != nil {
 		return err
 	}
 
 	// Add packages to the database
-	for dirPath, dir := range dirs {
-		// Encode package directory before rendering documentation, since
+	for pkgPath, pkg := range pkgs {
+		// Encode source files before rendering documentation, since
 		// doc.New overwrites the AST.
-		encoded, err := dir.FastEncode()
+		source, err := pkg.FastEncode()
 		if err != nil {
 			return err
 		}
 
-		// TODO: Truncate large documents?
+		// TODO: Truncate large packages?
 
-		importPath := moduleImportPath(mod.ModulePath, dirPath)
-		pkg, err := buildDoc(importPath, dir)
+		importPath := moduleImportPath(mod.ModulePath, pkgPath)
+		docPkg, err := buildDoc(importPath, pkg)
 		if err != nil {
 			log.Printf("Failed to build documentation for %s: %v", importPath, err)
 			continue
 		}
-		if err := s.db.PutPackage(tx, platform, mod, pkg, encoded); err != nil {
+		if err := s.db.PutPackage(tx, platform, mod, docPkg, source); err != nil {
 			return err
 		}
 	}

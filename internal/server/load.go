@@ -3,13 +3,11 @@ package server
 import (
 	"context"
 	"errors"
-	"go/doc"
-	"go/token"
 	"path"
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -22,21 +20,6 @@ const (
 	NeedImports
 	NeedProject
 )
-
-// Package contains package information and documentation for use in templates.
-type Package struct {
-	internal.Package
-	Doc           *doc.Package
-	Project       *meta.Project
-	Platform      string
-	Dir           string
-	Imported      []internal.Package
-	SubPackages   []internal.Package
-	Message       string
-	platformParam bool
-	examples      []*Example
-	fset          *token.FileSet
-}
 
 // load loads a package.
 func (s *Server) load(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
@@ -76,16 +59,16 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	pkg.Dir = strings.TrimPrefix(pkg.Dir, "/")
 
 	if mode&NeedDocumentation != 0 {
-		dir, err := s.db.Directory(ctx, platform, pkg.ImportPath, pkg.Version)
+		src, err := s.db.Source(ctx, platform, pkg.ImportPath, pkg.Version)
 		if err != nil {
 			return nil, err
 		}
-		pdoc, err := buildDoc(pkg.ImportPath, dir)
+		docPkg, err := buildDoc(pkg.ImportPath, src)
 		if err != nil {
 			return nil, err
 		}
-		pkg.Doc = pdoc
-		pkg.fset = dir.FileSet()
+		pkg.Doc = docPkg
+		pkg.fset = src.FileSet()
 	}
 
 	if mode&NeedSubPackages != 0 {
@@ -160,34 +143,34 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		if err != nil {
 			return nil, err
 		}
-		dirs, err := parseDirs(platform, fsys)
+		pkgs, err := parsePackages(platform, fsys)
 		if err != nil {
 			return nil, err
 		}
 		relPath := strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
 		relPath = strings.TrimPrefix(relPath, "/")
 		relPath = path.Clean(relPath)
-		dir := dirs[relPath]
-		if dir == nil {
+		src := pkgs[relPath]
+		if src == nil {
 			return nil, internal.ErrNotFound
 		}
-		pdoc, err := buildDoc(pkg.ImportPath, dir)
+		docPkg, err := buildDoc(pkg.ImportPath, src)
 		if err != nil {
 			return nil, err
 		}
-		pkg.Doc = pdoc
-		pkg.fset = dir.FileSet()
+		pkg.Doc = docPkg
+		pkg.fset = src.FileSet()
 
 		isModule := mod.ModulePath == importPath
 
 		if mode&NeedSubPackages != 0 {
-			for dPath := range dirs {
-				subPath := moduleImportPath(pkg.ModulePath, dPath)
+			for pkgPath := range pkgs {
+				subPath := moduleImportPath(pkg.ModulePath, pkgPath)
 				if (!isModule && !strings.HasPrefix(subPath, pkg.ImportPath+"/")) ||
 					subPath == pkg.ImportPath {
 					continue
 				}
-				pkg.SubPackages = append(pkg.SubPackages, internal.Package{
+				pkg.SubPackages = append(pkg.SubPackages, database.Package{
 					Module:     *mod,
 					ImportPath: subPath,
 				})
@@ -197,9 +180,9 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 
 	if mode&NeedImports != 0 {
 		// Populate import paths only
-		var imports []internal.Package
+		var imports []database.Package
 		for _, importPath := range pkg.Imports {
-			imports = append(imports, internal.Package{
+			imports = append(imports, database.Package{
 				ImportPath: importPath,
 			})
 		}

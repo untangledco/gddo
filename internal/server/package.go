@@ -6,6 +6,7 @@ import (
 	"go/build"
 	"go/doc"
 	"go/parser"
+	"go/token"
 	"io"
 	"io/fs"
 	"os"
@@ -14,11 +15,28 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
+	"git.sr.ht/~sircmpwn/gddo/internal/database"
+	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 )
 
-// parseDirs parses package directories from the given filesystem.
-func parseDirs(platform string, fsys fs.FS) (map[string]*internal.Directory, error) {
+// Package contains package information and documentation for use in templates.
+type Package struct {
+	database.Package
+	Doc           *doc.Package
+	Project       *meta.Project
+	Platform      string
+	Dir           string
+	Imported      []database.Package
+	SubPackages   []database.Package
+	Message       string
+	platformParam bool
+	examples      []*Example
+	fset          *token.FileSet
+}
+
+// parsePackages parses package source files from the given filesystem.
+func parsePackages(platform string, fsys fs.FS) (map[string]*internal.Package, error) {
 	if !platforms.Valid(platform) {
 		return nil, ErrInvalidPlatform
 	}
@@ -54,7 +72,7 @@ func parseDirs(platform string, fsys fs.FS) (map[string]*internal.Directory, err
 		ReadDir:       func(string) ([]os.FileInfo, error) { panic("internal error: unexpected call to ReadDir") },
 	}
 
-	dirs := map[string]*internal.Directory{}
+	pkgs := map[string]*internal.Package{}
 	err := fs.WalkDir(fsys, ".", func(pathname string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -64,8 +82,8 @@ func parseDirs(platform string, fsys fs.FS) (map[string]*internal.Directory, err
 			if ignoredByGoTool(pathname) || isVendored(pathname) {
 				return fs.SkipDir
 			}
-			// Add the directory to the map
-			dirs[pathname] = internal.NewDirectory()
+			// Add the package to the map
+			pkgs[pathname] = internal.NewPackage()
 			return nil
 		}
 		if ignoredByGoTool(pathname) {
@@ -90,12 +108,12 @@ func parseDirs(platform string, fsys fs.FS) (map[string]*internal.Directory, err
 			return nil
 		}
 
-		dir := dirs[path.Dir(pathname)]
-		ast, err := parser.ParseFile(dir.FileSet(), d.Name(), contents, parser.ParseComments)
+		pkg := pkgs[path.Dir(pathname)]
+		ast, err := parser.ParseFile(pkg.FileSet(), d.Name(), contents, parser.ParseComments)
 		if err != nil {
 			return err
 		}
-		dir.Files = append(dir.Files, &internal.File{
+		pkg.Files = append(pkg.Files, &internal.File{
 			Name: d.Name(),
 			AST:  ast,
 		})
@@ -105,7 +123,7 @@ func parseDirs(platform string, fsys fs.FS) (map[string]*internal.Directory, err
 	if err != nil {
 		return nil, err
 	}
-	return dirs, nil
+	return pkgs, nil
 }
 
 // ignoredByGoTool reports whether the given import path corresponds
@@ -140,10 +158,10 @@ func isVendored(importPath string) bool {
 		strings.Contains(importPath, "/vendor/")
 }
 
-// buildDoc computes documentation for the given package directory.
-func buildDoc(importPath string, dir *internal.Directory) (*doc.Package, error) {
+// buildDoc computes documentation for the given package.
+func buildDoc(importPath string, pkg *internal.Package) (*doc.Package, error) {
 	var files []*ast.File
-	for _, f := range dir.Files {
+	for _, f := range pkg.Files {
 		files = append(files, f.AST)
 	}
 
@@ -152,16 +170,16 @@ func buildDoc(importPath string, dir *internal.Directory) (*doc.Package, error) 
 		mode |= doc.AllDecls
 	}
 
-	pkg, err := doc.NewFromFiles(dir.FileSet(), files, importPath, mode)
+	docPkg, err := doc.NewFromFiles(pkg.FileSet(), files, importPath, mode)
 	if err != nil {
 		return nil, err
 	}
 
 	if importPath == "builtin" {
-		removeAssociations(pkg)
+		removeAssociations(docPkg)
 	}
 
-	return pkg, nil
+	return docPkg, nil
 }
 
 type byFuncName []*doc.Func
@@ -170,10 +188,10 @@ func (s byFuncName) Len() int           { return len(s) }
 func (s byFuncName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s byFuncName) Less(i, j int) bool { return s[i].Name < s[j].Name }
 
-func removeAssociations(dpkg *doc.Package) {
-	for _, t := range dpkg.Types {
-		dpkg.Funcs = append(dpkg.Funcs, t.Funcs...)
+func removeAssociations(pkg *doc.Package) {
+	for _, t := range pkg.Types {
+		pkg.Funcs = append(pkg.Funcs, t.Funcs...)
 		t.Funcs = nil
 	}
-	sort.Sort(byFuncName(dpkg.Funcs))
+	sort.Sort(byFuncName(pkg.Funcs))
 }

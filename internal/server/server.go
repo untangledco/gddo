@@ -179,7 +179,7 @@ func parseImportPath(q string) (string, error) {
 	return q, nil
 }
 
-func (s *Server) search(ctx context.Context, platform, q string) ([]internal.Package, error) {
+func (s *Server) search(ctx context.Context, platform, q string) ([]database.Package, error) {
 	if s.db == nil {
 		// Search requires a database
 		return nil, nil
@@ -187,7 +187,7 @@ func (s *Server) search(ctx context.Context, platform, q string) ([]internal.Pac
 	return s.db.Search(ctx, platform, q)
 }
 
-func (s *Server) importGraph(ctx context.Context, platform string, pkg internal.Package, level database.DepLevel) ([]internal.Package, [][2]int, error) {
+func (s *Server) importGraph(ctx context.Context, platform string, pkg database.Package, level database.DepLevel) ([]database.Package, [][2]int, error) {
 	if s.db == nil {
 		// Import graph requires a database
 		return nil, nil, nil
