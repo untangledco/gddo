@@ -130,7 +130,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	if err != nil {
 		return err
 	}
-	pkgs, err := parsePackages(platform, fsys)
+	pkgs, err := parsePackages(platform, mod.ModulePath, fsys)
 	if err != nil {
 		return err
 	}
@@ -155,13 +155,6 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	})
 }
 
-func moduleImportPath(modulePath, dir string) string {
-	if modulePath == stdlib.ModulePath && dir != "." {
-		return dir
-	}
-	return path.Join(modulePath, dir)
-}
-
 // putModule puts a module and its associated packages in the database.
 // project may be nil.
 func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package, project *meta.Project) error {
@@ -170,7 +163,7 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pk
 	}
 
 	// Add packages to the database
-	for pkgPath, pkg := range pkgs {
+	for importPath, pkg := range pkgs {
 		// Encode source files before rendering documentation, since
 		// doc.New overwrites the AST.
 		source, err := pkg.FastEncode()
@@ -180,7 +173,6 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pk
 
 		// TODO: Truncate large packages?
 
-		importPath := moduleImportPath(mod.ModulePath, pkgPath)
 		docPkg, err := buildDoc(importPath, pkg)
 		if err != nil {
 			log.Printf("Failed to build documentation for %s: %v", importPath, err)

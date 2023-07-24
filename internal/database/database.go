@@ -8,6 +8,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"go/doc"
 	"path"
 	"strings"
@@ -29,6 +30,7 @@ type Package struct {
 	Name       string
 	Synopsis   string
 	Updated    time.Time
+	Source     []byte
 }
 
 // Database stores package documentation.
@@ -77,7 +79,7 @@ func (db *Database) WithTx(ctx context.Context, opts *sql.TxOptions,
 func (db *Database) Modules(ctx context.Context) (int64, error) {
 	var count int64
 	if err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM modules;")
+		row := tx.QueryRow("SELECT COUNT(*) FROM modules;")
 		if err := row.Scan(&count); err != nil {
 			return err
 		}
@@ -136,7 +138,7 @@ LIMIT 20;
 func (db *Database) Search(ctx context.Context, platform, query string) ([]Package, error) {
 	var packages []Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, searchQuery, platform, query)
+		rows, err := tx.Query(searchQuery, platform, query)
 		if err != nil {
 			return err
 		}
@@ -170,88 +172,53 @@ const packageLatestQuery = `
 SELECT
 	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
 	m.latest_version, m.versions, m.deprecated, p.imports, p.name, p.synopsis,
-	m.updated
+	p.source, m.updated
 FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 	AND p.version = m.latest_version;
 `
 
-// Package returns information about the given package.
-func (db *Database) Package(ctx context.Context, platform, importPath, version string) (Package, bool, error) {
+// Package returns information about the given package. It may return nil if no such package was found.
+func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*Package, error) {
 	var pkg Package
-	ok := false
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		var rows *sql.Rows
-		var err error
+		var row *sql.Row
 		if version == internal.LatestVersion {
-			rows, err = tx.QueryContext(ctx, packageLatestQuery, platform, importPath)
+			row = tx.QueryRow(packageLatestQuery, platform, importPath)
 		} else {
-			rows, err = tx.QueryContext(ctx, packageQuery, platform, importPath, version)
+			row = tx.QueryRow(packageQuery, platform, importPath, version)
 		}
-		if err != nil {
+
+		if err := row.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
+			&pkg.Reference, &pkg.CommitTime, &pkg.LatestVersion,
+			(*pq.StringArray)(&pkg.Versions), &pkg.Deprecated,
+			(*pq.StringArray)(&pkg.Imports), &pkg.Name, &pkg.Synopsis,
+			&pkg.Source, &pkg.Updated); err != nil {
 			return err
 		}
-		defer rows.Close()
-
-		if rows.Next() {
-			if err := rows.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
-				&pkg.Reference, &pkg.CommitTime, &pkg.LatestVersion,
-				(*pq.StringArray)(&pkg.Versions), &pkg.Deprecated,
-				(*pq.StringArray)(&pkg.Imports), &pkg.Name, &pkg.Synopsis,
-				&pkg.Updated); err != nil {
-				return err
-			}
-			pkg.ImportPath = importPath
-			ok = true
-			if pkg.ImportPath != pkg.ModulePath {
-				i := 0
-				for j := 0; j < len(pkg.Versions); j++ {
-					if ok, err := db.HasPackage(ctx, platform, pkg.ImportPath, pkg.Versions[j]); err != nil {
-						return err
-					} else if !ok {
-						continue
-					}
-					pkg.Versions[i] = pkg.Versions[j]
-					i++
+		pkg.ImportPath = importPath
+		if pkg.ImportPath != pkg.ModulePath {
+			i := 0
+			for j := 0; j < len(pkg.Versions); j++ {
+				if ok, err := db.HasPackage(ctx, platform, pkg.ImportPath, pkg.Versions[j]); err != nil {
+					return err
+				} else if !ok {
+					continue
 				}
-				pkg.Versions = pkg.Versions[:i]
+				pkg.Versions[i] = pkg.Versions[j]
+				i++
 			}
+			pkg.Versions = pkg.Versions[:i]
 		}
-		return rows.Err()
+		return nil
 	})
-	if err != nil {
-		return Package{}, false, err
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-	return pkg, ok, nil
-}
-
-const sourceQuery = `
-SELECT source FROM packages
-WHERE platform = $1 AND import_path = $2 AND version = $3;
-`
-
-// Source retrieves the Go source files for the given package.
-func (db *Database) Source(ctx context.Context, platform, importPath, version string) (*internal.Package, error) {
-	var source []byte
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, sourceQuery,
-			platform, importPath, version)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-
-		if rows.Next() {
-			if err := rows.Scan(&source); err != nil {
-				return err
-			}
-		}
-		return rows.Err()
-	})
 	if err != nil {
 		return nil, err
 	}
-	return internal.FastDecodePackage(source)
+	return &pkg, nil
 }
 
 const insertPackage = `
@@ -314,7 +281,7 @@ func searchScore(pkg *doc.Package) float64 {
 func (db *Database) HasPackage(ctx context.Context, platform, importPath, version string) (bool, error) {
 	exists := false
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx,
+		rows, err := tx.Query(
 			`SELECT EXISTS (SELECT FROM packages WHERE platform = $1 AND import_path = $2 AND version = $3);`,
 			platform, importPath, version)
 		if err != nil {
@@ -343,7 +310,7 @@ func (db *Database) IsBlocked(ctx context.Context, importPath string) (bool, err
 		importPath = path.Join(importPath, part)
 		var blocked bool
 		err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-			rows, err := tx.QueryContext(ctx,
+			rows, err := tx.Query(
 				`SELECT EXISTS (SELECT FROM blocklist WHERE import_path = $1);`,
 				importPath)
 			if err != nil {
@@ -376,7 +343,7 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path A
 func (db *Database) synopsis(ctx context.Context, platform, importPath string) (string, error) {
 	var synopsis string
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, synopsisQuery, platform, importPath)
+		rows, err := tx.Query(synopsisQuery, platform, importPath)
 		if err != nil {
 			return err
 		}
@@ -429,7 +396,7 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 		strings.Contains(importPath, "/internal/")
 	var packages []Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, subpackagesQuery,
+		rows, err := tx.Query(subpackagesQuery,
 			platform, modulePath, version, isModule, importPath, isInternal)
 		if err != nil {
 			return err
@@ -593,7 +560,7 @@ WHERE module_path = $1;
 // Project returns information about the project associated with the given module.
 func (db *Database) Project(ctx context.Context, modulePath string) (project meta.Project, ok bool, err error) {
 	err = db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, projectQuery, modulePath)
+		rows, err := tx.Query(projectQuery, modulePath)
 		if err != nil {
 			return err
 		}
@@ -639,7 +606,7 @@ func (db *Database) Oldest(ctx context.Context) (string, time.Time, error) {
 	var modulePath string
 	var timestamp time.Time
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx,
+		rows, err := tx.Query(
 			`SELECT module_path, updated FROM modules ORDER BY updated LIMIT 1;`)
 		if err != nil {
 			return err

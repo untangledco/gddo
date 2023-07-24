@@ -105,7 +105,7 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		platform = s.cfg.Platform
 	}
 
-	mode := NeedDocumentation
+	mode := LoadMode(0)
 	switch r.URL.Query().Get("view") {
 	case "versions":
 	case "platforms":

@@ -18,6 +18,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 // Package contains package information and documentation for use in templates.
@@ -35,8 +36,75 @@ type Package struct {
 	fset          *token.FileSet
 }
 
+// newPackage returns a new package for use in templates.
+func (s *Server) newPackage(pkg *database.Package, platform string) *Package {
+	// Compute package directory (relative to module path)
+	dir := strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
+	dir = strings.TrimPrefix(dir, "/")
+
+	return &Package{
+		Package:  *pkg,
+		Platform: platform,
+		Dir:      dir,
+		// Platform parameters are only needed when not on the default platform
+		platformParam: platform != s.cfg.Platform,
+	}
+}
+
+// BuildDoc builds package documentation using the given source files.
+func (p *Package) BuildDoc(src *internal.Package) error {
+	docPkg, err := buildDoc(p.ImportPath, src)
+	if err != nil {
+		return err
+	}
+	p.Doc = docPkg
+	p.fset = src.FileSet()
+	return nil
+}
+
+// buildDoc builds documentation for the given package.
+func buildDoc(importPath string, src *internal.Package) (*doc.Package, error) {
+	var files []*ast.File
+	for _, f := range src.Files {
+		files = append(files, f.AST)
+	}
+	mode := doc.Mode(0)
+	if importPath == "builtin" {
+		mode |= doc.AllDecls
+	}
+	docPkg, err := doc.NewFromFiles(src.FileSet(), files, importPath, mode)
+	if err != nil {
+		return nil, err
+	}
+	if importPath == "builtin" {
+		removeAssociations(docPkg)
+	}
+	return docPkg, nil
+}
+
+type byFuncName []*doc.Func
+
+func (s byFuncName) Len() int           { return len(s) }
+func (s byFuncName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s byFuncName) Less(i, j int) bool { return s[i].Name < s[j].Name }
+
+func removeAssociations(pkg *doc.Package) {
+	for _, t := range pkg.Types {
+		pkg.Funcs = append(pkg.Funcs, t.Funcs...)
+		t.Funcs = nil
+	}
+	sort.Sort(byFuncName(pkg.Funcs))
+}
+
+func moduleImportPath(modulePath, dir string) string {
+	if modulePath == stdlib.ModulePath && dir != "." {
+		return dir
+	}
+	return path.Join(modulePath, dir)
+}
+
 // parsePackages parses package source files from the given filesystem.
-func parsePackages(platform string, fsys fs.FS) (map[string]*internal.Package, error) {
+func parsePackages(platform string, modulePath string, fsys fs.FS) (map[string]*internal.Package, error) {
 	if !platforms.Valid(platform) {
 		return nil, ErrInvalidPlatform
 	}
@@ -78,12 +146,13 @@ func parsePackages(platform string, fsys fs.FS) (map[string]*internal.Package, e
 			return err
 		}
 		if d.IsDir() {
+			importPath := moduleImportPath(modulePath, pathname)
 			// Skip ignored directories
-			if ignoredByGoTool(pathname) || isVendored(pathname) {
+			if ignoredByGoTool(importPath) || isVendored(importPath) {
 				return fs.SkipDir
 			}
 			// Add the package to the map
-			pkgs[pathname] = internal.NewPackage()
+			pkgs[importPath] = internal.NewPackage()
 			return nil
 		}
 		if ignoredByGoTool(pathname) {
@@ -108,7 +177,8 @@ func parsePackages(platform string, fsys fs.FS) (map[string]*internal.Package, e
 			return nil
 		}
 
-		pkg := pkgs[path.Dir(pathname)]
+		importPath := moduleImportPath(modulePath, path.Dir(pathname))
+		pkg := pkgs[importPath]
 		ast, err := parser.ParseFile(pkg.FileSet(), d.Name(), contents, parser.ParseComments)
 		if err != nil {
 			return err
@@ -117,7 +187,6 @@ func parsePackages(platform string, fsys fs.FS) (map[string]*internal.Package, e
 			Name: d.Name(),
 			AST:  ast,
 		})
-
 		return nil
 	})
 	if err != nil {
@@ -141,7 +210,7 @@ func parsePackages(platform string, fsys fs.FS) (map[string]*internal.Package, e
 // cases, but we've seen valid Go packages with "_", so we accept those.
 func ignoredByGoTool(importPath string) bool {
 	for _, el := range strings.Split(importPath, "/") {
-		if el != "." && strings.HasPrefix(el, ".") || el == "testdata" {
+		if strings.HasPrefix(el, ".") || el == "testdata" {
 			return true
 		}
 	}
@@ -156,42 +225,4 @@ func ignoredByGoTool(importPath string) bool {
 func isVendored(importPath string) bool {
 	return strings.HasPrefix(importPath, "vendor/") ||
 		strings.Contains(importPath, "/vendor/")
-}
-
-// buildDoc computes documentation for the given package.
-func buildDoc(importPath string, pkg *internal.Package) (*doc.Package, error) {
-	var files []*ast.File
-	for _, f := range pkg.Files {
-		files = append(files, f.AST)
-	}
-
-	mode := doc.Mode(0)
-	if importPath == "builtin" {
-		mode |= doc.AllDecls
-	}
-
-	docPkg, err := doc.NewFromFiles(pkg.FileSet(), files, importPath, mode)
-	if err != nil {
-		return nil, err
-	}
-
-	if importPath == "builtin" {
-		removeAssociations(docPkg)
-	}
-
-	return docPkg, nil
-}
-
-type byFuncName []*doc.Func
-
-func (s byFuncName) Len() int           { return len(s) }
-func (s byFuncName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s byFuncName) Less(i, j int) bool { return s[i].Name < s[j].Name }
-
-func removeAssociations(pkg *doc.Package) {
-	for _, t := range pkg.Types {
-		pkg.Funcs = append(pkg.Funcs, t.Funcs...)
-		t.Funcs = nil
-	}
-	sort.Sort(byFuncName(pkg.Funcs))
 }

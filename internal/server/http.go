@@ -128,7 +128,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		platform = s.cfg.Platform
 	}
 
-	mode := NeedDocumentation | NeedProject
+	mode := NeedProject
 	switch req.Form.Get("view") {
 	case "versions":
 	case "platforms":
