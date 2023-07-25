@@ -109,12 +109,12 @@ func (p *Package) SourceLink(pos token.Pos, text string, textOnlyOK bool) htemp.
 
 // HTML returns formatted HTML for the doc comment text.
 func (p *Package) HTML(text string) htemp.HTML {
-	return htemp.HTML(p.Doc.HTML(text))
+	return htemp.HTML(p.Package.HTML(text))
 }
 
 // Gemini returns formatted Gemini content for the doc comment text.
 func (p *Package) Gemini(text string) string {
-	return string(gemini.Print(p.Doc.Parser().Parse(text)))
+	return string(gemini.Print(p.Parser().Parse(text)))
 }
 
 // Function formats a function declaration into a single line.
@@ -203,11 +203,11 @@ func (p *Package) AllExamples() []*Example {
 		return p.examples
 	}
 	p.examples = make([]*Example, 0)
-	p.addExamples(p, "", p.Doc.Examples)
-	for _, f := range p.Doc.Funcs {
+	p.addExamples(p, "", p.Examples)
+	for _, f := range p.Funcs {
 		p.addExamples(f, f.Name, f.Examples)
 	}
-	for _, t := range p.Doc.Types {
+	for _, t := range p.Types {
 		p.addExamples(t, t.Name, t.Examples)
 		for _, f := range t.Funcs {
 			p.addExamples(f, f.Name, f.Examples)

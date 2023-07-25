@@ -14,7 +14,6 @@ Output:
 {{.}}```
 {{end}}{{end}}{{end -}}
 
-{{- with .Doc -}}
 # {{if $.IsCommand}}Command {{else if .Name}}Package {{end}}{{$.PageName}} - {{config.BrandName}}
 {{if and .Name (not $.IsCommand)}}
 ```
@@ -127,4 +126,3 @@ import "{{.ImportPath}}"
 
 => / Back to home
 => /-/search Search
-{{end -}}

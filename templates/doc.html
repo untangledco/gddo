@@ -1,5 +1,4 @@
 {{define "Head"}}
-{{with .Doc}}
   <title>{{$.PageName}} - {{config.BrandName}}</title>
   {{if $.Synopsis}}
     <meta property="og:title" content="{{if $.IsCommand}}Command {{else if .Name}}Package {{end}}{{$.PageName}}">
@@ -7,10 +6,8 @@
     <meta property="og:description" content="{{$.Synopsis}}">
   {{end}}
 {{end}}
-{{end}}
 
 {{define "Body"}}
-{{with .Doc}}
   {{template "ProjectNav" $}}
 
   {{if $.Deprecated}}
@@ -156,7 +153,6 @@
       </div>
     </div>
   </div>
-{{end}}
 {{end}}
 {{end}}
 

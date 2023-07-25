@@ -16,7 +16,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 )
 
-func renderGraph(pkg database.Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {
+func renderGraph(pkg *Package, pkgs []database.Package, edges [][2]int) ([]byte, error) {
 	var in, out bytes.Buffer
 
 	fmt.Fprintf(&in, "digraph %s { \n", pkg.Name)

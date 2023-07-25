@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-func findExamples(pkg *doc.Package, symbol string) []*doc.Example {
+func findExamples(pkg *Package, symbol string) []*doc.Example {
 	export, method, _ := strings.Cut(symbol, ".")
 	if export == "package" {
 		return pkg.Examples
@@ -49,7 +49,7 @@ func findExamples(pkg *doc.Package, symbol string) []*doc.Example {
 	return nil
 }
 
-func findExample(pkg *doc.Package, symbol, suffix string) *doc.Example {
+func findExample(pkg *Package, symbol, suffix string) *doc.Example {
 	for _, ex := range findExamples(pkg, symbol) {
 		if ex.Suffix == suffix {
 			return ex
@@ -60,7 +60,7 @@ func findExample(pkg *doc.Package, symbol, suffix string) *doc.Example {
 
 func (s *Server) playURL(ctx context.Context, pkg *Package, id string) (string, error) {
 	symbol, suffix, _ := strings.Cut(id, "-")
-	ex := findExample(pkg.Doc, symbol, suffix)
+	ex := findExample(pkg, symbol, suffix)
 	if ex == nil || ex.Play == nil {
 		return "", errors.New("example not found")
 	}

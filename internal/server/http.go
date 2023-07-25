@@ -84,7 +84,7 @@ func setFlashMessage(resp http.ResponseWriter, message string) {
 
 // httpEtag returns the package entity tag used in HTTP transactions.
 func (s *Server) httpEtag(
-	pkg database.Package,
+	pkg *Package,
 	subpkgs []database.Package,
 	msg string,
 ) string {
@@ -192,11 +192,16 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		case "2":
 			hide = database.HideStandardAll
 		}
-		pkgs, edges, err := s.importGraph(ctx, platform, pkg.Package, hide)
+
+		dpkg := database.Package{
+			ImportPath: pkg.ImportPath,
+			Synopsis:   pkg.Synopsis,
+		}
+		pkgs, edges, err := s.importGraph(ctx, platform, dpkg, hide)
 		if err != nil {
 			return err
 		}
-		b, err := renderGraph(pkg.Package, pkgs, edges)
+		b, err := renderGraph(pkg, pkgs, edges)
 		if err != nil {
 			return err
 		}
@@ -216,7 +221,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return nil
 		}
 
-		etag := s.httpEtag(pkg.Package, pkg.SubPackages, pkg.Message)
+		etag := s.httpEtag(pkg, pkg.SubPackages, pkg.Message)
 		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
 			status = http.StatusNotModified

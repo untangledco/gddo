@@ -29,8 +29,6 @@ type Package struct {
 	Imports    []string
 	Name       string
 	Synopsis   string
-	Updated    time.Time
-	Source     []byte
 }
 
 // Database stores package documentation.
@@ -78,13 +76,14 @@ func (db *Database) WithTx(ctx context.Context, opts *sql.TxOptions,
 // Modules returns the number of modules in the database.
 func (db *Database) Modules(ctx context.Context) (int64, error) {
 	var count int64
-	if err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		row := tx.QueryRow("SELECT COUNT(*) FROM modules;")
 		if err := row.Scan(&count); err != nil {
 			return err
 		}
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -171,16 +170,16 @@ WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3
 const packageLatestQuery = `
 SELECT
 	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
-	m.latest_version, m.versions, m.deprecated, p.imports, p.name, p.synopsis,
-	p.source, m.updated
+	m.latest_version, m.versions, m.deprecated, m.updated, p.source
 FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 	AND p.version = m.latest_version;
 `
 
-// Package returns information about the given package. It may return nil if no such package was found.
-func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*Package, error) {
-	var pkg Package
+// Package returns information for the given package. It may return nil if no such package was found.
+func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, *internal.Package, error) {
+	var mod internal.Module
+	var source []byte
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		var row *sql.Row
 		if version == internal.LatestVersion {
@@ -189,36 +188,40 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 			row = tx.QueryRow(packageQuery, platform, importPath, version)
 		}
 
-		if err := row.Scan(&pkg.ModulePath, &pkg.SeriesPath, &pkg.Version,
-			&pkg.Reference, &pkg.CommitTime, &pkg.LatestVersion,
-			(*pq.StringArray)(&pkg.Versions), &pkg.Deprecated,
-			(*pq.StringArray)(&pkg.Imports), &pkg.Name, &pkg.Synopsis,
-			&pkg.Source, &pkg.Updated); err != nil {
+		if err := row.Scan(&mod.ModulePath, &mod.SeriesPath, &mod.Version,
+			&mod.Reference, &mod.CommitTime, &mod.LatestVersion,
+			(*pq.StringArray)(&mod.Versions), &mod.Deprecated, &mod.Updated,
+			&source); err != nil {
 			return err
 		}
-		pkg.ImportPath = importPath
-		if pkg.ImportPath != pkg.ModulePath {
+		if importPath != mod.ModulePath {
+			// Filter available versions
+			// TODO: Reuse tx
 			i := 0
-			for j := 0; j < len(pkg.Versions); j++ {
-				if ok, err := db.HasPackage(ctx, platform, pkg.ImportPath, pkg.Versions[j]); err != nil {
+			for j := 0; j < len(mod.Versions); j++ {
+				if ok, err := db.HasPackage(ctx, platform, importPath, mod.Versions[j]); err != nil {
 					return err
 				} else if !ok {
 					continue
 				}
-				pkg.Versions[i] = pkg.Versions[j]
+				mod.Versions[i] = mod.Versions[j]
 				i++
 			}
-			pkg.Versions = pkg.Versions[:i]
+			mod.Versions = mod.Versions[:i]
 		}
 		return nil
 	})
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &pkg, nil
+	pkg, err := internal.FastDecodePackage(source)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &mod, pkg, nil
 }
 
 const insertPackage = `
@@ -558,25 +561,25 @@ WHERE module_path = $1;
 `
 
 // Project returns information about the project associated with the given module.
-func (db *Database) Project(ctx context.Context, modulePath string) (project meta.Project, ok bool, err error) {
-	err = db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(projectQuery, modulePath)
-		if err != nil {
+// It may return nil if no project exists.
+func (db *Database) Project(ctx context.Context, modulePath string) (*meta.Project, error) {
+	var project meta.Project
+	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		row := tx.QueryRow(projectQuery, modulePath)
+		if err := row.Scan(&project.Name, &project.URL, &project.DirFmt,
+			&project.FileFmt, &project.LineFmt); err != nil {
 			return err
 		}
-		defer rows.Close()
-
-		if rows.Next() {
-			if err := rows.Scan(&project.Name, &project.URL, &project.DirFmt,
-				&project.FileFmt, &project.LineFmt); err != nil {
-				return err
-			}
-			project.ModulePath = modulePath
-			ok = true
-		}
-		return rows.Err()
+		project.ModulePath = modulePath
+		return nil
 	})
-	return
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &project, nil
 }
 
 const insertProject = `

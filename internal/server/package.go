@@ -23,13 +23,14 @@ import (
 
 // Package contains package information and documentation for use in templates.
 type Package struct {
-	database.Package
-	Doc           *doc.Package
-	Project       *meta.Project
+	*internal.Module
+	*doc.Package
+	Synopsis      string
 	Platform      string
 	Dir           string
-	Imported      []database.Package
 	SubPackages   []database.Package
+	Imported      []database.Package
+	Project       *meta.Project
 	Message       string
 	platformParam bool
 	examples      []*Example
@@ -37,29 +38,29 @@ type Package struct {
 }
 
 // newPackage returns a new package for use in templates.
-func (s *Server) newPackage(pkg *database.Package, platform string) *Package {
+func (s *Server) newPackage(mod *internal.Module, platform, importPath string, src *internal.Package) (*Package, error) {
+	// Build documentation
+	docPkg, err := buildDoc(importPath, src)
+	if err != nil {
+		return nil, err
+	}
+
 	// Compute package directory (relative to module path)
-	dir := strings.TrimPrefix(pkg.ImportPath, pkg.ModulePath)
+	dir := strings.TrimPrefix(importPath, mod.ModulePath)
 	dir = strings.TrimPrefix(dir, "/")
 
-	return &Package{
-		Package:  *pkg,
-		Platform: platform,
-		Dir:      dir,
-		// Platform parameters are only needed when not on the default platform
-		platformParam: platform != s.cfg.Platform,
-	}
-}
+	// Platform parameters are only needed when not on the default platform
+	platformParam := platform != s.cfg.Platform
 
-// BuildDoc builds package documentation using the given source files.
-func (p *Package) BuildDoc(src *internal.Package) error {
-	docPkg, err := buildDoc(p.ImportPath, src)
-	if err != nil {
-		return err
-	}
-	p.Doc = docPkg
-	p.fset = src.FileSet()
-	return nil
+	return &Package{
+		Module:        mod,
+		Package:       docPkg,
+		Synopsis:      docPkg.Synopsis(docPkg.Doc),
+		Platform:      platform,
+		Dir:           dir,
+		platformParam: platformParam,
+		fset:          src.FileSet(),
+	}, nil
 }
 
 // buildDoc builds documentation for the given package.

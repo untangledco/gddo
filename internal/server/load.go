@@ -30,36 +30,32 @@ func (s *Server) load(ctx context.Context, platform, importPath, version string,
 }
 
 func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
-	dpkg, err := s.db.Package(ctx, platform, importPath, version)
+	mod, src, err := s.db.Package(ctx, platform, importPath, version)
 	if err != nil {
 		return nil, err
 	}
-	if dpkg == nil {
+	if mod == nil {
 		// Try fetching the package
 		err := s.fetch(ctx, platform, importPath, version)
 		if err != nil {
 			return nil, err
 		}
-		dpkg, err = s.db.Package(ctx, platform, importPath, version)
+		mod, src, err = s.db.Package(ctx, platform, importPath, version)
 		if err != nil {
 			return nil, err
 		}
-		if dpkg == nil {
+		if mod == nil {
 			return nil, internal.ErrNotFound
 		}
 	}
 
-	pkg := s.newPackage(dpkg, platform)
-	src, err := internal.FastDecodePackage(dpkg.Source)
+	pkg, err := s.newPackage(mod, platform, importPath, src)
 	if err != nil {
-		return nil, err
-	}
-	if err := pkg.BuildDoc(src); err != nil {
 		return nil, err
 	}
 
 	if mode&NeedSubPackages != 0 {
-		subpkgs, err := s.db.SubPackages(ctx, platform, pkg.ModulePath, pkg.Version, pkg.ImportPath)
+		subpkgs, err := s.db.SubPackages(ctx, platform, mod.ModulePath, mod.Version, importPath)
 		if err != nil {
 			return nil, err
 		}
@@ -75,13 +71,11 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	}
 
 	if mode&NeedProject != 0 {
-		project, ok, err := s.db.Project(ctx, pkg.SeriesPath)
+		project, err := s.db.Project(ctx, mod.SeriesPath)
 		if err != nil {
 			return nil, err
 		}
-		if ok {
-			pkg.Project = &project
-		}
+		pkg.Project = project
 	}
 
 	return pkg, nil
@@ -105,12 +99,8 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		return nil, internal.ErrNotFound
 	}
 
-	dpkg := &database.Package{
-		Module:     *mod,
-		ImportPath: importPath,
-	}
-	pkg := s.newPackage(dpkg, platform)
-	if err := pkg.BuildDoc(src); err != nil {
+	pkg, err := s.newPackage(mod, platform, importPath, src)
+	if err != nil {
 		return nil, err
 	}
 

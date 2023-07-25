@@ -26,6 +26,19 @@ var (
 	ErrBadModule = errors.New("bad module")
 )
 
+// Module contains module information.
+type Module struct {
+	ModulePath    string
+	SeriesPath    string
+	Version       string
+	Reference     string
+	CommitTime    time.Time
+	LatestVersion string
+	Versions      []string
+	Deprecated    string
+	Updated       time.Time
+}
+
 // Source represents a source of Go modules.
 type Source interface {
 	Module(modulePath, version string) (*Module, error)
@@ -104,16 +117,4 @@ func (s *ModuleSource) Module(modulePath, version string) (*Module, error) {
 
 func (s *ModuleSource) Files(mod *Module) (fs.FS, error) {
 	return s.FS, nil
-}
-
-// Module contains module information.
-type Module struct {
-	ModulePath    string
-	SeriesPath    string
-	Version       string
-	Reference     string
-	CommitTime    time.Time
-	LatestVersion string
-	Versions      []string
-	Deprecated    string
 }
