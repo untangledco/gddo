@@ -21,20 +21,23 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
-// Package contains package information and documentation for use in templates.
+// Package is a [doc.Package] with additional information for use in templates.
 type Package struct {
 	*internal.Module
 	*doc.Package
-	Synopsis      string
-	Platform      string
-	Dir           string
-	SubPackages   []database.Package
-	Imported      []database.Package
-	Project       *meta.Project
-	Message       string
-	platformParam bool
-	examples      []*Example
+
+	Synopsis    string
+	Platform    string
+	Dir         string
+	SubPackages []database.Package
+	Imported    []database.Package
+	Project     *meta.Project
+	Message     string
+
 	fset          *token.FileSet
+	examples      []*Example
+	examplesMap   map[any][]*Example
+	platformParam bool
 }
 
 // newPackage returns a new package for use in templates.
@@ -52,15 +55,17 @@ func (s *Server) newPackage(mod *internal.Module, platform, importPath string, s
 	// Platform parameters are only needed when not on the default platform
 	platformParam := platform != s.cfg.Platform
 
-	return &Package{
+	pkg := &Package{
 		Module:        mod,
 		Package:       docPkg,
 		Synopsis:      docPkg.Synopsis(docPkg.Doc),
 		Platform:      platform,
 		Dir:           dir,
-		platformParam: platformParam,
 		fset:          src.FileSet(),
-	}, nil
+		platformParam: platformParam,
+	}
+	pkg.collectExamples()
+	return pkg, nil
 }
 
 // buildDoc builds documentation for the given package.
@@ -73,28 +78,21 @@ func buildDoc(importPath string, src *internal.Package) (*doc.Package, error) {
 	if importPath == "builtin" {
 		mode |= doc.AllDecls
 	}
-	docPkg, err := doc.NewFromFiles(src.FileSet(), files, importPath, mode)
+	pkg, err := doc.NewFromFiles(src.FileSet(), files, importPath, mode)
 	if err != nil {
 		return nil, err
 	}
 	if importPath == "builtin" {
-		removeAssociations(docPkg)
+		// Remove type associations
+		for _, t := range pkg.Types {
+			pkg.Funcs = append(pkg.Funcs, t.Funcs...)
+			t.Funcs = nil
+		}
+		sort.Slice(pkg.Funcs, func(i, j int) bool {
+			return pkg.Funcs[i].Name < pkg.Funcs[j].Name
+		})
 	}
-	return docPkg, nil
-}
-
-type byFuncName []*doc.Func
-
-func (s byFuncName) Len() int           { return len(s) }
-func (s byFuncName) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-func (s byFuncName) Less(i, j int) bool { return s[i].Name < s[j].Name }
-
-func removeAssociations(pkg *doc.Package) {
-	for _, t := range pkg.Types {
-		pkg.Funcs = append(pkg.Funcs, t.Funcs...)
-		t.Funcs = nil
-	}
-	sort.Sort(byFuncName(pkg.Funcs))
+	return pkg, nil
 }
 
 func moduleImportPath(modulePath, dir string) string {
@@ -102,6 +100,114 @@ func moduleImportPath(modulePath, dir string) string {
 		return dir
 	}
 	return path.Join(modulePath, dir)
+}
+
+// Title returns a title for the package.
+func (p *Package) Title() string {
+	if p.ImportPath == stdlib.ModulePath {
+		return "Standard library"
+	}
+	if p.Name != "" && p.Name != "main" {
+		return p.Name
+	}
+	return path.Base(p.ImportPath)
+}
+
+// IsCommand reports whether p is a command package.
+func (p *Package) IsCommand() bool {
+	return p.Name == "main"
+}
+
+// Cgo reports whether the package uses Cgo.
+func (p *Package) Cgo() bool {
+	for i := range p.Imports {
+		if p.Imports[i] == "C" {
+			return true
+		}
+	}
+	return false
+}
+
+// Example is a [doc.Example] with additional information for use in templates.
+type Example struct {
+	*doc.Example
+	ID     string
+	Symbol string
+	Suffix string
+	Play   bool
+	pkg    *Package
+}
+
+// collectExamples extracts examples into the internal examples representation.
+func (p *Package) collectExamples() {
+	p.examplesMap = make(map[any][]*Example)
+	p.addExamples(p, "", p.Examples)
+	for _, f := range p.Funcs {
+		p.addExamples(f, f.Name, f.Examples)
+	}
+	for _, t := range p.Types {
+		p.addExamples(t, t.Name, t.Examples)
+		for _, f := range t.Funcs {
+			p.addExamples(f, f.Name, f.Examples)
+		}
+		for _, m := range t.Methods {
+			if len(m.Examples) > 0 {
+				p.addExamples(m, t.Name+"."+m.Name, m.Examples)
+			}
+		}
+	}
+	sort.SliceStable(p.examples, func(i, j int) bool {
+		return p.examples[i].Symbol < p.examples[j].Symbol
+	})
+}
+
+func (p *Package) addExamples(obj any, symbol string, examples []*doc.Example) {
+	for _, example := range examples {
+		suffix := strings.Title(example.Suffix)
+		ex := &Example{
+			Example: example,
+			ID:      exampleID(symbol, suffix),
+			Symbol:  symbol,
+			Suffix:  suffix,
+			pkg:     p,
+			// Only show play links for packages within the standard library.
+			// TODO: Always show play links
+			Play: example.Play != nil && stdlib.Contains(p.ImportPath),
+		}
+
+		p.examples = append(p.examples, ex)
+		p.examplesMap[obj] = append(p.examplesMap[obj], ex)
+	}
+}
+
+func exampleID(symbol, suffix string) string {
+	switch {
+	case symbol == "" && suffix == "":
+		return "example-package"
+	case symbol == "" && suffix != "":
+		return "example-package-" + suffix
+	case symbol != "" && suffix == "":
+		return "example-" + symbol
+	case symbol != "" && suffix != "":
+		return "example-" + symbol + "-" + suffix
+	default:
+		panic("unreachable")
+	}
+}
+
+// AllExamples returns a list of all examples.
+func (p *Package) AllExamples() []*Example {
+	return p.examples
+}
+
+// PackageExamples returns a list of examples associated with the package.
+func (p *Package) PackageExamples() []*Example {
+	return p.ObjExamples(p)
+}
+
+// ObjExamples returns a list of examples for the given object.
+func (p *Package) ObjExamples(obj any) []*Example {
+	return p.examplesMap[obj]
 }
 
 // parsePackages parses package source files from the given filesystem.

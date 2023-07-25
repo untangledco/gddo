@@ -1,28 +1,28 @@
 {{define "Head"}}
-  <title>{{$.PageName}} - {{config.BrandName}}</title>
-  {{if $.Synopsis}}
-    <meta property="og:title" content="{{if $.IsCommand}}Command {{else if .Name}}Package {{end}}{{$.PageName}}">
-    <meta name="description" content="{{$.Synopsis}}">
-    <meta property="og:description" content="{{$.Synopsis}}">
+  <title>{{.Title}} - {{config.BrandName}}</title>
+  {{if .Synopsis}}
+    <meta property="og:title" content="{{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.Title}}">
+    <meta name="description" content="{{.Synopsis}}">
+    <meta property="og:description" content="{{.Synopsis}}">
   {{end}}
 {{end}}
 
 {{define "Body"}}
-  {{template "ProjectNav" $}}
+  {{template "ProjectNav" .}}
 
-  {{if $.Deprecated}}
-    <div class="alert alert-warning"><strong>Deprecated:</strong> {{$.Deprecated}}</div>
+  {{if .Deprecated}}
+    <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
   {{end}}
 
   {{if .Name}}
-    <h2 id="pkg-overview">{{if $.IsCommand}}Command{{else}}package{{end}} {{$.PageName}}</h2>
-    {{if not $.IsCommand}}<p><code>import "{{.ImportPath}}"</code>{{end}}
-    {{$.HTML .Doc}}
+    <h2 id="pkg-overview">{{if .IsCommand}}Command{{else}}package{{end}} {{.Title}}</h2>
+    {{if not .IsCommand}}<p><code>import "{{.ImportPath}}"</code>{{end}}
+    {{.HTML .Doc}}
   {{end}}
 
-  {{template "Examples" $.PackageExamples}}
+  {{template "Examples" .Examples}}
 
-  {{if not $.IsCommand}}
+  {{if not .IsCommand}}
     {{if .Name}}
       <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
     {{end}}
@@ -41,7 +41,7 @@
       {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
     </ul>
 
-    {{with $.AllExamples}}
+    {{with .AllExamples}}
       <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
       <ul class="list-unstyled">
         {{range .}}<li><a href="#{{.ID}}">{{or .Symbol "package"}}{{with .Suffix}} ({{.}}){{end}}</a></li>{{end}}
@@ -50,7 +50,7 @@
 
     {{if .Filenames}}
       <h4 id="pkg-files">
-        {{if and $.Project $.Reference}}<a rel="noopener nofollow" href="{{$.Project.Dir $.Reference $.Dir}}">Package Files</a>{{else}}Package Files{{end}}
+        {{if and .Project .Reference}}<a rel="noopener nofollow" href="{{.Project.Dir .Reference .Dir}}">Package Files</a>{{else}}Package Files{{end}}
         <a class="permalink" href="#pkg-files">&para;</a>
       </h4>
 
@@ -98,46 +98,46 @@
     {{end}}{{end}}
   {{end}}
 
-  {{if $.SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
+  {{if .SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
     <table class="table table-condensed">
       <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-      <tbody>{{range $.SubPackages}}<tr><td><a href="/{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}}">{{relativePath .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
+      <tbody>{{range .SubPackages}}<tr><td><a href="/{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}}">{{relativePath .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
     </table>
   {{end}}
 
   <div id="x-pkginfo">
     <dl>
-{{- if $.Version}}
+{{- if .Version}}
       <dt>Version</dt>
-      <dd>{{if $.Versions}}<a href="{{$.View "versions"}}">{{$.Version}}</a>{{else}}{{$.Version}}{{end}}{{if eq $.Version $.LatestVersion}} (latest){{end}}</dd>
+      <dd>{{if .Versions}}<a href="{{.View "versions"}}">{{.Version}}</a>{{else}}{{.Version}}{{end}}{{if eq .Version .LatestVersion}} (latest){{end}}</dd>
 {{- end}}
-{{- if not $.CommitTime.IsZero}}
+{{- if not .CommitTime.IsZero}}
       <dt>Published</dt>
-      <dd><span title="{{$.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{$.CommitTime.Format "Jan 2, 2006"}}</span></dd>
+      <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
 {{- end}}
       <dt>Platform</dt>
-      <dd><a href="{{$.View "platforms"}}">{{$.Platform}}</a>{{if $.Cgo}} (Cgo){{end}}</dd>
+      <dd><a href="{{.View "platforms"}}">{{.Platform}}</a>{{if .Cgo}} (Cgo){{end}}</dd>
 {{- if .Imports}}
       <dt>Imports</dt>
-      <dd><a href="{{$.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{$.View "import-graph"}}">graph</a>)</dd>
+      <dd><a href="{{.View "imports"}}">{{.Imports|len}} packages</a> (<a href="{{.View "import-graph"}}">graph</a>)</dd>
 {{- end}}
-{{- if not $.Updated.IsZero}}
+{{- if not .Updated.IsZero}}
       <dt>Last checked</dt>
       <dd>
-        <span title="{{$.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize $.Updated}}</span>
+        <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
         &ndash;
         <form class="inline-form" method="POST" action="/-/refresh">
           <input type="hidden" name="import_path" value="{{.ImportPath}}">
-          <input type="hidden" name="platform" value="{{$.Platform}}">
+          <input type="hidden" name="platform" value="{{.Platform}}">
           <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>
         </form>
       </dd>
 {{- end}}
     </dl>
-    <p><a href="{{$.View "tools"}}">Tools</a> for package owners.</p>
+    <p><a href="{{.View "tools"}}">Tools</a> for package owners.</p>
   </div>
 
-{{if and .Name (not $.IsCommand)}}
+{{if and .Name (not .IsCommand)}}
   <div id="x-jump" tabindex="-1" class="modal">
     <div class="modal-dialog">
       <div class="modal-content">

@@ -14,18 +14,18 @@ Output:
 {{.}}```
 {{end}}{{end}}{{end -}}
 
-# {{if $.IsCommand}}Command {{else if .Name}}Package {{end}}{{$.PageName}} - {{config.BrandName}}
-{{if and .Name (not $.IsCommand)}}
+# {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.Title}} - {{config.BrandName}}
+{{if and .Name (not .IsCommand)}}
 ```
 import "{{.ImportPath}}"
 ```
 {{end}}
 
 {{- if .Doc}}
-{{$.Gemini .Doc}}{{end}}
-{{- template "Examples" $.PackageExamples}}
+{{.Gemini .Doc}}{{end}}
+{{- template "Examples" .PackageExamples}}
 
-{{- if not $.IsCommand}}
+{{- if not .IsCommand}}
 
 {{- if .Consts}}
 ## Constants
@@ -99,30 +99,30 @@ import "{{.ImportPath}}"
 {{end}}
 {{- end}}
 
-{{- if $.SubPackages}}
+{{- if .SubPackages}}
 ## Directories
-{{range $.SubPackages}}
+{{range .SubPackages}}
 => /{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}} {{relativePath .ImportPath .ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
 ## Details
 
-{{- if $.Version}}
-{{- if $.Versions}}
-=> {{$.View "versions"}} Version: {{$.Version}}{{if eq $.Version $.LatestVersion}} (latest){{end}}
+{{- if .Version}}
+{{- if .Versions}}
+=> {{.View "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 {{- else}}
-* Version: {{$.Version}}{{if eq $.Version $.LatestVersion}} (latest){{end}}
+* Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 {{- end}}
 {{- end}}
-{{- if not $.CommitTime.IsZero}}
-* Published: {{$.CommitTime.Format "Jan 2, 2006"}}{{end}}
-=> {{$.View "platforms"}} Platform: {{$.Platform}}{{if $.Cgo}} (Cgo){{end}}
+{{- if not .CommitTime.IsZero}}
+* Published: {{.CommitTime.Format "Jan 2, 2006"}}{{end}}
+=> {{.View "platforms"}} Platform: {{.Platform}}{{if .Cgo}} (Cgo){{end}}
 {{- if .Imports}}
-=> {{$.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
-{{- if not $.Updated.IsZero}}
-* Last checked: {{humanize $.Updated}}
-=> /-/refresh?import_path={{.ImportPath}}&platform={{$.Platform}} Refresh now{{end}}
+=> {{.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
+{{- if not .Updated.IsZero}}
+* Last checked: {{humanize .Updated}}
+=> /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now{{end}}
 
 => / Back to home
 => /-/search Search

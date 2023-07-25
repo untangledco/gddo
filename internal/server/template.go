@@ -17,10 +17,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 	ttemp "text/template"
@@ -32,29 +30,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/printer"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
-
-func (p *Package) IsCommand() bool {
-	return p.Name == "main"
-}
-
-func (p *Package) PageName() string {
-	if p.ImportPath == stdlib.ModulePath {
-		return "Standard library"
-	}
-	if p.Name != "" && p.Name != "main" {
-		return p.Name
-	}
-	return path.Base(p.ImportPath)
-}
-
-func (p *Package) Cgo() bool {
-	for i := range p.Imports {
-		if p.Imports[i] == "C" {
-			return true
-		}
-	}
-	return false
-}
 
 func (p *Package) View(view string) string {
 	var b strings.Builder
@@ -128,16 +103,6 @@ func (p *Package) Function(decl *ast.FuncDecl) string {
 	return out.String()
 }
 
-type Example struct {
-	*doc.Example
-	ID     string
-	Symbol string
-	Suffix string
-	Play   bool
-	obj    interface{}
-	pkg    *Package
-}
-
 func (e *Example) PlayID() string {
 	return e.Symbol + "-" + e.Example.Suffix
 }
@@ -157,86 +122,6 @@ func (e *Example) Code() htemp.HTML {
 
 func (e *Example) GeminiCode() string {
 	return e.pkg.GeminiCode(e.Example.Code)
-}
-
-func (p *Package) addExamples(obj interface{}, symbol string, examples []*doc.Example) {
-	for _, example := range examples {
-		suffix := strings.Title(example.Suffix)
-		ex := &Example{
-			Example: example,
-			ID:      exampleID(symbol, suffix),
-			Symbol:  symbol,
-			Suffix:  suffix,
-			obj:     obj,
-			pkg:     p,
-			// Only show play links for packages within the standard library.
-			// TODO: Always show play links
-			Play: example.Play != nil && stdlib.Contains(p.ImportPath),
-		}
-		p.examples = append(p.examples, ex)
-	}
-}
-
-func exampleID(symbol, suffix string) string {
-	switch {
-	case symbol == "" && suffix == "":
-		return "example-package"
-	case symbol == "" && suffix != "":
-		return "example-package-" + suffix
-	case symbol != "" && suffix == "":
-		return "example-" + symbol
-	case symbol != "" && suffix != "":
-		return "example-" + symbol + "-" + suffix
-	default:
-		panic("unreachable")
-	}
-}
-
-type byExampleSymbol []*Example
-
-func (e byExampleSymbol) Len() int           { return len(e) }
-func (e byExampleSymbol) Less(i, j int) bool { return e[i].Symbol < e[j].Symbol }
-func (e byExampleSymbol) Swap(i, j int)      { e[i], e[j] = e[j], e[i] }
-
-func (p *Package) AllExamples() []*Example {
-	if p.examples != nil {
-		return p.examples
-	}
-	p.examples = make([]*Example, 0)
-	p.addExamples(p, "", p.Examples)
-	for _, f := range p.Funcs {
-		p.addExamples(f, f.Name, f.Examples)
-	}
-	for _, t := range p.Types {
-		p.addExamples(t, t.Name, t.Examples)
-		for _, f := range t.Funcs {
-			p.addExamples(f, f.Name, f.Examples)
-		}
-		for _, m := range t.Methods {
-			if len(m.Examples) > 0 {
-				p.addExamples(m, t.Name+"."+m.Name, m.Examples)
-			}
-		}
-	}
-	sort.Stable(byExampleSymbol(p.examples))
-	return p.examples
-}
-
-func (p *Package) PackageExamples() []*Example {
-	if p.examples == nil {
-		p.AllExamples()
-	}
-	return p.ObjExamples(p)
-}
-
-func (p *Package) ObjExamples(obj interface{}) []*Example {
-	var examples []*Example
-	for _, e := range p.examples {
-		if e.obj == obj {
-			examples = append(examples, e)
-		}
-	}
-	return examples
 }
 
 func (p *Package) Breadcrumbs(templateName string) htemp.HTML {
