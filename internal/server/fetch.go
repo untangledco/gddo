@@ -118,7 +118,12 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 		}
 	}
 
-	// If the module documentation is already in the database, return
+	// Update the module information in the database
+	if err := s.db.PutModule(ctx, mod); err != nil {
+		return err
+	}
+
+	// If the packages are already in the database, return
 	if ok, err := s.db.HasPackage(ctx, platform, mod.ModulePath, mod.Version); err != nil {
 		return err
 	} else if ok {
@@ -158,10 +163,6 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 // putModule puts a module and its associated packages in the database.
 // project may be nil.
 func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package, project *meta.Project) error {
-	if err := s.db.PutModule(tx, mod); err != nil {
-		return err
-	}
-
 	// Add packages to the database
 	for importPath, pkg := range pkgs {
 		// Encode source files before rendering documentation, since
@@ -175,6 +176,7 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pk
 
 		docPkg, err := buildDoc(importPath, pkg)
 		if err != nil {
+			// TODO: Surface this error somewhere
 			log.Printf("Failed to build documentation for %s: %v", importPath, err)
 			continue
 		}

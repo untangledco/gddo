@@ -98,14 +98,16 @@ UPDATE SET series_path = $2, latest_version = $3, versions = $4, deprecated = $5
 `
 
 // PutModule stores the module in the database.
-func (db *Database) PutModule(tx *sql.Tx, mod *internal.Module) error {
-	_, err := tx.Exec(insertModule,
-		mod.ModulePath, mod.SeriesPath, mod.LatestVersion,
-		pq.StringArray(mod.Versions), mod.Deprecated)
-	if err != nil {
-		return err
-	}
-	return nil
+func (db *Database) PutModule(ctx context.Context, mod *internal.Module) error {
+	return db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		_, err := tx.Exec(insertModule,
+			mod.ModulePath, mod.SeriesPath, mod.LatestVersion,
+			pq.StringArray(mod.Versions), mod.Deprecated)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // TouchModule updates the module's updated timestamp.
