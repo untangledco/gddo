@@ -17,13 +17,14 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
+	"git.sr.ht/~sircmpwn/gddo/static"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func (s *Server) HTTPHandler() (http.Handler, error) {
 	staticServer := httputil.StaticServer{
-		Dir:    s.cfg.AssetsDir,
+		FS:     static.FS,
 		MaxAge: time.Hour,
 	}
 	s.statusSVG = staticServer.FileHandler("status.svg")
@@ -53,7 +54,7 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	mux.Handle("/", handler(s.serveHome))
 
 	cacheBusters := &httputil.CacheBusters{Handler: mux}
-	if err := s.parseHTMLTemplates(s.templates, s.cfg.TemplatesDir, cacheBusters); err != nil {
+	if err := s.parseHTMLTemplates(s.templates, cacheBusters); err != nil {
 		return nil, err
 	}
 	return mux, nil

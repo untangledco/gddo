@@ -11,11 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -25,8 +25,8 @@ import (
 
 // StaticServer serves static files.
 type StaticServer struct {
-	// Dir specifies the location of the directory containing the files to serve.
-	Dir string
+	// FS specifies the filesystem containing the files to serve.
+	FS fs.FS
 
 	// MaxAge specifies the maximum age for the cache control and expiration
 	// headers.
@@ -34,18 +34,6 @@ type StaticServer struct {
 
 	mu    sync.Mutex
 	etags map[string]string
-}
-
-func (ss *StaticServer) resolve(fname string) string {
-	if path.IsAbs(fname) {
-		panic("Absolute path not allowed when creating a StaticServer handler")
-	}
-	dir := ss.Dir
-	if dir == "" {
-		dir = "."
-	}
-	fname = filepath.FromSlash(fname)
-	return filepath.Join(dir, fname)
 }
 
 func (ss *StaticServer) mimeType(fname string) string {
@@ -61,7 +49,7 @@ func (ss *StaticServer) mimeType(fname string) string {
 }
 
 func (ss *StaticServer) openFile(fname string) (io.ReadCloser, int64, string, error) {
-	f, err := os.Open(fname)
+	f, err := ss.FS.Open(fname)
 	if err != nil {
 		return nil, 0, "", err
 	}
@@ -79,11 +67,10 @@ func (ss *StaticServer) openFile(fname string) (io.ReadCloser, int64, string, er
 }
 
 // FileHandler returns a handler that serves a single file. The file is
-// specified by a slash separated path relative to the static server's Dir
+// specified by a slash separated path relative to the static server's FS
 // field.
 func (ss *StaticServer) FileHandler(fileName string) http.Handler {
 	id := fileName
-	fileName = ss.resolve(fileName)
 	return &staticHandler{
 		ss:   ss,
 		id:   func(_ string) string { return id },

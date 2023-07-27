@@ -41,9 +41,6 @@
 // gddo supports rendering documentation for multiple platforms. To
 // configure the default platform, specify the --platform flag.
 //
-// gddo comes bundled with assets and templates. To use your own, you can
-// specify the --assets and --templates flags.
-//
 // gddo can run behind a TLS-terminating reverse proxy. In order to ensure
 // that badge URIs use the correct scheme, have the reverse proxy set the
 // X-Forwarded-Proto HTTP header to the desired protocol (e.g. https).
@@ -63,16 +60,10 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/server"
 )
 
-var (
-	ShareDir string
-)
-
 func main() {
 	ctx := context.Background()
 
-	cfg := &server.Config{
-		ShareDir: ShareDir,
-	}
+	cfg := &server.Config{}
 	flags := cfg.FlagSet()
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)

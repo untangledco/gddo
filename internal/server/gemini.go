@@ -6,28 +6,26 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
+	"git.sr.ht/~sircmpwn/gddo/static"
 )
 
 func (s *Server) GeminiHandler() (gemini.Handler, error) {
-	if err := s.parseGeminiTemplates(s.templates, s.cfg.TemplatesDir); err != nil {
+	if err := s.parseGeminiTemplates(s.templates); err != nil {
 		return nil, err
 	}
-	robotsTxt := filepath.Join(s.cfg.AssetsDir, "gemini-robots.txt")
 
 	mux := &gemini.Mux{}
 	mux.Handle("/-/about", geminiErrorHandler(s.serveGeminiAbout))
 	mux.Handle("/-/search", geminiErrorHandler(s.serveGeminiSearch))
 	mux.Handle("/-/refresh", geminiErrorHandler(s.serveGeminiRefresh))
 	mux.Handle("/-/", gemini.NotFoundHandler())
-	mux.Handle("/robots.txt", geminiFileHandler(robotsTxt, "text/plain"))
+	mux.Handle("/robots.txt", geminiFileHandler("gemini-robots.txt", "text/plain"))
 	mux.Handle("/C", gemini.StatusHandler(gemini.StatusPermanentRedirect, "/cmd/cgo"))
 	mux.Handle("/", geminiErrorHandler(s.serveGeminiHome))
 	return mux, nil
@@ -166,7 +164,7 @@ func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter
 func geminiFileHandler(path, mediatype string) gemini.HandlerFunc {
 	return func(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) {
 		w.SetMediaType(mediatype)
-		f, err := os.Open(path)
+		f, err := static.FS.Open(path)
 		if err != nil {
 			w.WriteHeader(gemini.StatusTemporaryFailure, "Internal server error.")
 			return

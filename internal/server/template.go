@@ -15,9 +15,9 @@ import (
 	"go/token"
 	htemp "html/template"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -29,6 +29,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 	"git.sr.ht/~sircmpwn/gddo/internal/printer"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/static"
 )
 
 func (p *Package) View(view string) string {
@@ -303,41 +304,38 @@ func (m TemplateMap) Execute(w io.Writer, name string, data interface{}) error {
 	return t.Execute(w, data)
 }
 
-func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, files ...string) error {
+func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, fsys fs.FS, patterns ...string) error {
 	t := htemp.New("").Funcs(funcs).Funcs(htemp.FuncMap{
 		"templateName": func() string { return name },
 	})
-	if _, err := t.ParseFiles(files...); err != nil {
+	if _, err := t.ParseFS(fsys, patterns...); err != nil {
 		return err
 	}
 	t = t.Lookup("ROOT")
 	if t == nil {
-		return fmt.Errorf("ROOT template not found in %v", files)
+		return fmt.Errorf("ROOT template not found in %v", patterns)
 	}
 	m[name] = t
 	return nil
 }
 
-func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, files ...string) error {
+func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, fsys fs.FS, patterns ...string) error {
 	t := ttemp.New(name).Funcs(funcs).Funcs(ttemp.FuncMap{
 		"templateName": func() string { return name },
 	})
-	if _, err := t.ParseFiles(files...); err != nil {
+	if _, err := t.ParseFS(fsys, patterns...); err != nil {
 		return err
 	}
 	m[name] = t
 	return nil
 }
 
-func joinTemplateDir(base string, files []string) []string {
-	result := make([]string, len(files))
-	for i := range files {
-		result[i] = filepath.Join(base, files[i])
+func (s *Server) parseHTMLTemplates(m TemplateMap, cb *httputil.CacheBusters) error {
+	fsys, err := fs.Sub(static.FS, "templates")
+	if err != nil {
+		return err
 	}
-	return result
-}
 
-func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.CacheBusters) error {
 	sets := [][]string{
 		{"about.html", "common.html", "layout.html"},
 		{"doc.html", "common.html", "layout.html"},
@@ -359,7 +357,7 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 		"config":       func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
-		err := m.ParseHTML(set[0], funcs, joinTemplateDir(dir, set)...)
+		err := m.ParseHTML(set[0], funcs, fsys, set...)
 		if err != nil {
 			return err
 		}
@@ -367,14 +365,19 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, dir string, cb *httputil.Cach
 	tfuncs := ttemp.FuncMap{
 		"config": func() *Config { return s.cfg },
 	}
-	err := m.ParseText("opensearch.xml", tfuncs, filepath.Join(dir, "opensearch.xml"))
+	err = m.ParseText("opensearch.xml", tfuncs, fsys, "opensearch.xml")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
+func (s *Server) parseGeminiTemplates(m TemplateMap) error {
+	fsys, err := fs.Sub(static.FS, "templates")
+	if err != nil {
+		return err
+	}
+
 	sets := [][]string{
 		{"index.gmi"},
 		{"about.gmi"},
@@ -390,7 +393,7 @@ func (s *Server) parseGeminiTemplates(m TemplateMap, dir string) error {
 		"config":       func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
-		err := m.ParseText(set[0], funcs, joinTemplateDir(dir, set)...)
+		err := m.ParseText(set[0], funcs, fsys, set...)
 		if err != nil {
 			return err
 		}

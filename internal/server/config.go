@@ -11,9 +11,6 @@ import (
 
 // Server configuration.
 type Config struct {
-	ShareDir        string
-	AssetsDir       string
-	TemplatesDir    string
 	BrandName       string
 	AdminName       string
 	AdminEmail      string
@@ -35,12 +32,8 @@ type Config struct {
 
 func (c *Config) FlagSet() *flag.FlagSet {
 	defaultPlatform := path.Join(runtime.GOOS, runtime.GOARCH)
-	assetsDir := path.Join(c.ShareDir, "assets")
-	templatesDir := path.Join(c.ShareDir, "templates")
 
 	flags := flag.NewFlagSet("default", flag.ExitOnError)
-	flags.StringVar(&c.AssetsDir, "assets", assetsDir, "Assets directory")
-	flags.StringVar(&c.TemplatesDir, "templates", templatesDir, "Templates directory")
 	flags.StringVar(&c.BrandName, "brand-name", "GoDoc", "Brand name to use in templates")
 	flags.StringVar(&c.AdminName, "admin-name", "", "Admin name to use in templates")
 	flags.StringVar(&c.AdminEmail, "admin-email", "", "Admin email address to use in templates")
