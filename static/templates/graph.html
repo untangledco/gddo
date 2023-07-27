@@ -7,7 +7,7 @@
     </head>
     <body>
       <div class="well-small">
-        Package <a href="/{{.ImportPath}}">{{.PageName}}</a>
+        Package <a href="/{{.ImportPath}}">{{.Title}}</a>
         {{if ne .ModulePath "std"}}<span class="text-muted">|</span>
           {{if .Hide}}
             <a href="{{.View "import-graph"}}">Show</a>

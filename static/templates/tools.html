@@ -1,9 +1,9 @@
-{{define "Head"}}<title>{{.PageName}} tools - {{config.BrandName}}</title>
+{{define "Head"}}<title>{{.Title}} tools - {{config.BrandName}}</title>
 <meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h2>Tools for {{$.PageName}}</h2>
+  <h2>Tools for {{$.Title}}</h2>
 
   <h3>Badge</h3>
 

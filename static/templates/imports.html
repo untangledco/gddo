@@ -3,7 +3,7 @@
 
 {{define "Body"}}
   {{template "ProjectNav" $}}
-  <h3>Packages imported by {{.PageName}}</h3>
+  <h3>Packages imported by {{.Title}}</h3>
   <table class="table table-condensed">
   <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
   <tbody>{{range .Imported}}<tr><td><a rel="noopener nofollow" href="/{{.ImportPath}}{{$.PlatformParam}}">{{.ImportPath}}</a></td><td>{{.Synopsis}}</td></tr>

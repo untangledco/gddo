@@ -195,6 +195,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 
 		dpkg := database.Package{
+			Module:     *pkg.Module,
 			ImportPath: pkg.ImportPath,
 			Synopsis:   pkg.Synopsis,
 		}
