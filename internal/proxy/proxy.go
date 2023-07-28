@@ -78,8 +78,12 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 
 	reference := info.Version
 	if module.IsPseudoVersion(reference) {
-		// The reference cannot be easily determined from the pseudo-version
-		reference = ""
+		// Use the pseudo-version rev
+		rev, err := module.PseudoVersionRev(reference)
+		if err != nil {
+			return nil, err
+		}
+		reference = rev
 	}
 
 	return &internal.Module{
