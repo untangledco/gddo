@@ -29,12 +29,12 @@ type Package struct {
 	FileSet     *token.FileSet
 	Synopsis    string
 	Platform    string
-	Dir         string
 	SubPackages []database.Package
 	Imported    []database.Package
 	Project     *meta.Project
 	Message     string
 
+	dir         string
 	examples    []*Example
 	examplesMap map[any][]*Example
 }
@@ -48,7 +48,6 @@ func (s *Server) newPackage(mod *internal.Module, platform, importPath string, s
 	}
 
 	// Compute package directory (relative to module path)
-	// TODO: Move this to renderer
 	dir := strings.TrimPrefix(importPath, mod.ModulePath)
 	dir = strings.TrimPrefix(dir, "/")
 
@@ -58,7 +57,7 @@ func (s *Server) newPackage(mod *internal.Module, platform, importPath string, s
 		FileSet:  src.FileSet(),
 		Synopsis: docPkg.Synopsis(docPkg.Doc),
 		Platform: platform,
-		Dir:      dir,
+		dir:      dir,
 	}
 	pkg.collectExamples()
 	return pkg, nil
@@ -122,6 +121,16 @@ func (p *Package) Cgo() bool {
 		}
 	}
 	return false
+}
+
+// DirURL returns the URL for the package directory.
+func (p *Package) DirURL() string {
+	return p.Project.Dir(p.Reference, p.dir)
+}
+
+// FileURL returns the URL for the given file.
+func (p *Package) FileURL(file string) string {
+	return p.Project.File(p.Reference, p.dir, file)
 }
 
 // Example is a [doc.Example] with additional information for use in templates.

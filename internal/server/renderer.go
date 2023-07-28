@@ -49,7 +49,7 @@ func NewRenderer(p *Package, cfg *Config) *Renderer {
 		printer: printer,
 		project: p.Project,
 		ref:     p.Reference,
-		dir:     p.Dir,
+		dir:     p.dir,
 
 		version:      p.Version,
 		platform:     p.Platform,
@@ -107,7 +107,7 @@ func (r *Renderer) GeminiFuncs() template.FuncMap {
 // SourceLink returns a source link for given node.
 func (r *Renderer) SourceLink(node ast.Node, text string, textOnlyOK bool) htemp.HTML {
 	pos := r.fset.Position(node.Pos())
-	if r.project == nil || r.ref == "" || pos.Line == 0 {
+	if r.project == nil || pos.Line == 0 {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
 		}
