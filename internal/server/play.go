@@ -16,6 +16,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 func findExamples(pkg *Package, symbol string) []*doc.Example {
@@ -68,6 +70,17 @@ func (s *Server) playURL(ctx context.Context, pkg *Package, id string) (string, 
 	var buf bytes.Buffer
 	if err := format.Node(&buf, pkg.FileSet, ex.Play); err != nil {
 		return "", err
+	}
+	if !stdlib.Contains(pkg.ModulePath) {
+		buf.WriteString(`
+-- go.mod --
+module play.ground
+
+require `)
+		buf.WriteString(pkg.ModulePath)
+		buf.WriteByte(' ')
+		buf.WriteString(pkg.Version)
+		buf.WriteByte('\n')
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://play.golang.org/share", &buf)

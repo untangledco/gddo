@@ -139,7 +139,6 @@ type Example struct {
 	ID     string
 	Symbol string
 	Suffix string
-	Play   bool
 	pkg    *Package
 }
 
@@ -175,9 +174,6 @@ func (p *Package) addExamples(obj any, symbol string, examples []*doc.Example) {
 			Symbol:  symbol,
 			Suffix:  suffix,
 			pkg:     p,
-			// Only show play links for packages within the standard library.
-			// TODO: Always show play links
-			Play: example.Play != nil && stdlib.Contains(p.ImportPath),
 		}
 
 		p.examples = append(p.examples, ex)
