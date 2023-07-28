@@ -26,6 +26,7 @@ type Package struct {
 	*internal.Module
 	*doc.Package
 
+	FileSet     *token.FileSet
 	Synopsis    string
 	Platform    string
 	Dir         string
@@ -34,10 +35,8 @@ type Package struct {
 	Project     *meta.Project
 	Message     string
 
-	fset          *token.FileSet
-	examples      []*Example
-	examplesMap   map[any][]*Example
-	platformParam bool
+	examples    []*Example
+	examplesMap map[any][]*Example
 }
 
 // newPackage returns a new package for use in templates.
@@ -49,20 +48,17 @@ func (s *Server) newPackage(mod *internal.Module, platform, importPath string, s
 	}
 
 	// Compute package directory (relative to module path)
+	// TODO: Move this to renderer
 	dir := strings.TrimPrefix(importPath, mod.ModulePath)
 	dir = strings.TrimPrefix(dir, "/")
 
-	// Platform parameters are only needed when not on the default platform
-	platformParam := platform != s.cfg.Platform
-
 	pkg := &Package{
-		Module:        mod,
-		Package:       docPkg,
-		Synopsis:      docPkg.Synopsis(docPkg.Doc),
-		Platform:      platform,
-		Dir:           dir,
-		fset:          src.FileSet(),
-		platformParam: platformParam,
+		Module:   mod,
+		Package:  docPkg,
+		FileSet:  src.FileSet(),
+		Synopsis: docPkg.Synopsis(docPkg.Doc),
+		Platform: platform,
+		Dir:      dir,
 	}
 	pkg.collectExamples()
 	return pkg, nil

@@ -2,17 +2,17 @@
     <head>
       <title>{{.Title}} graph - {{config.BrandName}}</title>
       <meta name="robots" content="NOINDEX, NOFOLLOW">
-      <link href="{{staticPath "/-/bootstrap.min.css"}}" rel="stylesheet">
-      <link href="{{staticPath "/-/site.css"}}" rel="stylesheet">
+      <link href="{{static_path "/-/bootstrap.min.css"}}" rel="stylesheet">
+      <link href="{{static_path "/-/site.css"}}" rel="stylesheet">
     </head>
     <body>
       <div class="well-small">
         Package <a href="/{{.ImportPath}}">{{.Title}}</a>
         {{if ne .ModulePath "std"}}<span class="text-muted">|</span>
           {{if .Hide}}
-            <a href="{{.View "import-graph"}}">Show</a>
+            <a href="{{view "" "import-graph"}}">Show</a>
           {{else}}
-            <a href="{{.View "import-graph"}}&hide=1">Hide</a> (<a href="{{.View "import-graph"}}&hide=2">all</a>)
+            <a href="{{view "" "import-graph"}}&hide=1">Hide</a> (<a href="{{view "" "import-graph"}}&hide=2">all</a>)
           {{end}}
           standard package dependencies.
         {{end}}

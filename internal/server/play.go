@@ -66,7 +66,7 @@ func (s *Server) playURL(ctx context.Context, pkg *Package, id string) (string, 
 	}
 
 	var buf bytes.Buffer
-	if err := format.Node(&buf, pkg.fset, ex.Play); err != nil {
+	if err := format.Node(&buf, pkg.FileSet, ex.Play); err != nil {
 		return "", err
 	}
 

@@ -3,10 +3,10 @@
 
 Example{{with .Suffix}} ({{.}}){{end}}
 {{if .Doc}}
-{{.Gemini .Doc}}{{end}}
+{{render_doc .Doc}}{{end}}
 Code:
 ```
-{{.GeminiCode}}
+{{render_code .Example}}
 ```
 {{with .Example.Output}}
 Output:
@@ -22,7 +22,7 @@ import "{{.ImportPath}}"
 {{end}}
 
 {{- if .Doc}}
-{{.Gemini .Doc}}{{end}}
+{{render_doc .Doc}}{{end}}
 {{- template "Examples" .PackageExamples}}
 
 {{- if not .IsCommand}}
@@ -31,26 +31,26 @@ import "{{.ImportPath}}"
 ## Constants
 {{range .Consts}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}{{end}}{{end}}
+{{render_doc .Doc}}{{end}}{{end}}
 
 {{- if .Vars}}
 ## Variables
 {{range .Vars}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}{{end}}{{end}}
+{{render_doc .Doc}}{{end}}{{end}}
 
 {{- if .Funcs}}
 ## Functions
 {{range .Funcs}}
 ### func {{.Name}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}
+{{render_doc .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}{{end}}
 
@@ -59,36 +59,36 @@ import "{{.ImportPath}}"
 {{range $t := .Types}}
 ### type {{.Name}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}
+{{render_doc .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- range .Consts}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}{{end}}
+{{render_doc .Doc}}{{end}}
 {{- range .Vars}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}
+{{render_doc .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}
 {{- range .Funcs}}
 ### func {{.Name}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}
+{{render_doc .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}
 {{- range .Methods}}
 ### func ({{.Recv}}) {{.Name}}
 ```
-{{$.GeminiCode .Decl}}
+{{render_decl .Decl}}
 ```
-{{$.Gemini .Doc}}
+{{render_doc .Doc}}
 {{- template "Examples" .|$.ObjExamples}}
 {{- end}}{{end}}{{end}}
 
@@ -102,7 +102,7 @@ import "{{.ImportPath}}"
 {{- if .SubPackages}}
 ## Directories
 {{range .SubPackages}}
-=> /{{.ImportPath}}{{$.VersionParam}}{{$.PlatformParam}} {{relativePath .ImportPath .ModulePath}}
+=> {{view .ImportPath ""}} {{relative_path .ImportPath .ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
@@ -110,16 +110,16 @@ import "{{.ImportPath}}"
 
 {{- if .Version}}
 {{- if .Versions}}
-=> {{.View "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
+=> {{view "" "versions"}} Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 {{- else}}
 * Version: {{.Version}}{{if eq .Version .LatestVersion}} (latest){{end}}
 {{- end}}
 {{- end}}
 {{- if not .CommitTime.IsZero}}
 * Published: {{.CommitTime.Format "Jan 2, 2006"}}{{end}}
-=> {{.View "platforms"}} Platform: {{.Platform}}{{if .Cgo}} (Cgo){{end}}
+=> {{view "" "platforms"}} Platform: {{.Platform}}{{if .Cgo}} (Cgo){{end}}
 {{- if .Imports}}
-=> {{.View "imports"}} Imports: {{.Imports|len}} packages{{end}}
+=> {{view "" "imports"}} Imports: {{.Imports|len}} packages{{end}}
 {{- if not .Updated.IsZero}}
 * Last checked: {{humanize .Updated}}
 => /-/refresh?import_path={{.ImportPath}}&platform={{.Platform}} Refresh now{{end}}

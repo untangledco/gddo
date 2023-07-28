@@ -16,7 +16,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/static"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -153,25 +152,24 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 
 	pkg.Message = getFlashMessage(resp, req)
 
+	renderer := NewRenderer(pkg, s.cfg)
+
 	switch req.Form.Get("view") {
 	case "versions":
-		return s.templates.ExecuteHTML(resp, "versions.html", http.StatusOK, pkg)
+		return renderer.ExecuteHTML(s.templates.HTML("versions.html"), resp, pkg)
 
 	case "platforms":
-		return s.templates.ExecuteHTML(resp, "platforms.html", http.StatusOK, &struct {
-			Package
-			Platforms []string
-		}{*pkg, platforms.Platforms()})
+		return renderer.ExecuteHTML(s.templates.HTML("platforms.html"), resp, pkg)
 
 	case "imports":
-		return s.templates.ExecuteHTML(resp, "imports.html", http.StatusOK, pkg)
+		return renderer.ExecuteHTML(s.templates.HTML("imports.html"), resp, pkg)
 
 	case "tools":
 		uri := fmt.Sprintf("%s/%s", getRootURL(req), importPath)
-		return s.templates.ExecuteHTML(resp, "tools.html", http.StatusOK, &struct {
-			Package
+		return renderer.ExecuteHTML(s.templates.HTML("tools.html"), resp, &struct {
+			*Package
 			URI string
-		}{*pkg, uri})
+		}{pkg, uri})
 
 	case "import-graph":
 		// Throttle import-graph requests.
@@ -207,11 +205,11 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		if err != nil {
 			return err
 		}
-		return s.templates.ExecuteHTML(resp, "graph.html", http.StatusOK, &struct {
-			Package
+		return renderer.ExecuteHTML(s.templates.HTML("graph.html"), resp, &struct {
+			*Package
 			SVG  template.HTML
 			Hide database.DepLevel
-		}{*pkg, template.HTML(b), hide})
+		}{pkg, template.HTML(b), hide})
 
 	default:
 		if play := req.Form.Get("play"); play != "" {
@@ -224,13 +222,12 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		}
 
 		etag := s.httpEtag(pkg, pkg.SubPackages, pkg.Message)
-		status := http.StatusOK
 		if req.Header.Get("If-None-Match") == etag {
-			status = http.StatusNotModified
+			resp.WriteHeader(http.StatusNotModified)
 		}
 
 		resp.Header().Set("Etag", etag)
-		return s.templates.ExecuteHTML(resp, "doc.html", status, pkg)
+		return renderer.ExecuteHTML(s.templates.HTML("doc.html"), resp, pkg)
 	}
 }
 
@@ -265,7 +262,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 			http.Redirect(resp, req, "/"+s.defaultModule, http.StatusTemporaryRedirect)
 			return nil
 		}
-		return s.templates.ExecuteHTML(resp, "index.html", http.StatusOK, nil)
+		return s.templates.ExecuteHTML(resp, "index.html", nil)
 	}
 
 	platform := req.Form.Get("platform")
@@ -295,7 +292,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	}
 
 	// TODO: UI to choose which platform to use for searches
-	return s.templates.ExecuteHTML(resp, "search.html", http.StatusOK, struct {
+	return s.templates.ExecuteHTML(resp, "search.html", &struct {
 		Query   string
 		Results []database.Package
 		Message string
@@ -304,7 +301,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 func (s *Server) serveAbout(resp http.ResponseWriter, req *http.Request) error {
 	uri := fmt.Sprintf("%s/%s", getRootURL(req), "archive/tar")
-	return s.templates.ExecuteHTML(resp, "about.html", http.StatusOK, &struct {
+	return s.templates.ExecuteHTML(resp, "about.html", &struct {
 		URI string
 	}{uri})
 }
@@ -323,7 +320,7 @@ func getRootURL(req *http.Request) string {
 func (s *Server) serveOpenSearch(resp http.ResponseWriter, req *http.Request) error {
 	resp.Header().Set("Content-Type", "application/opensearchdescription+xml")
 	root := getRootURL(req)
-	return s.templates.ExecuteHTTP(resp, "opensearch.xml", http.StatusOK, root)
+	return s.templates.Execute(resp, "opensearch.xml", root)
 }
 
 type requestCleaner struct {
@@ -361,11 +358,11 @@ func (s *Server) errorHandler(fn func(http.ResponseWriter, *http.Request) error)
 		}
 
 		msg, status := errorMessage(err)
-		s.templates.ExecuteHTML(resp, "notfound.html", status,
-			struct {
-				Status  int
-				Message string
-			}{status, msg})
+		resp.WriteHeader(status)
+		s.templates.ExecuteHTML(resp, "notfound.html", &struct {
+			Status  int
+			Message string
+		}{status, msg})
 		if status == http.StatusInternalServerError {
 			log.Printf("Error serving %s: %v", req.URL, err)
 		}

@@ -6,7 +6,7 @@
   <h3>Packages imported by {{.Title}}</h3>
   <table class="table table-condensed">
   <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-  <tbody>{{range .Imported}}<tr><td><a rel="noopener nofollow" href="/{{.ImportPath}}{{$.PlatformParam}}">{{.ImportPath}}</a></td><td>{{.Synopsis}}</td></tr>
+  <tbody>{{range .Imported}}<tr><td><a rel="noopener nofollow" href="/{{.ImportPath}}{{query}}">{{.ImportPath}}</a></td><td>{{.Synopsis}}</td></tr>
   {{end}}</tbody>
   </table>
 {{end}}

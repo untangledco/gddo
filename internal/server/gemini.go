@@ -11,7 +11,6 @@ import (
 	"git.sr.ht/~adnano/go-gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/static"
 )
 
@@ -123,21 +122,20 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		return err
 	}
 
+	renderer := NewRenderer(pkg, s.cfg)
+
 	switch r.URL.Query().Get("view") {
 	case "versions":
-		s.templates.Execute(w, "versions.gmi", pkg)
+		renderer.ExecuteGemini(s.templates.Text("versions.gmi"), w, pkg)
 
 	case "platforms":
-		s.templates.Execute(w, "platforms.gmi", &struct {
-			Package
-			Platforms []string
-		}{*pkg, platforms.Platforms()})
+		renderer.ExecuteGemini(s.templates.Text("platforms.gmi"), w, pkg)
 
 	case "imports":
-		s.templates.Execute(w, "imports.gmi", pkg)
+		renderer.ExecuteGemini(s.templates.Text("imports.gmi"), w, pkg)
 
 	default:
-		s.templates.Execute(w, "doc.gmi", pkg)
+		renderer.ExecuteGemini(s.templates.Text("doc.gmi"), w, pkg)
 	}
 	return nil
 }

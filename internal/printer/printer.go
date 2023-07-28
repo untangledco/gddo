@@ -248,24 +248,9 @@ loop:
 }
 
 // PrintExample prints and annotates the given example.
-func PrintExample(fset *token.FileSet, e *doc.Example) Code {
-	var node interface{}
-	if e.Play != nil {
-		node = e.Play
-	} else {
-		node = &printer.CommentedNode{
-			Node:     e.Code,
-			Comments: e.Comments,
-		}
-	}
-	var buf bytes.Buffer
-	if err := format.Node(&buf, fset, node); err != nil {
-		return Code{Text: err.Error()}
-	}
-
+func PrintExample(src string) Code {
 	var annotations []Annotation
-	src := buf.Bytes()
-	s, file := newScanner(src)
+	s, file := newScanner([]byte(src))
 	prevTok := token.ILLEGAL
 scanLoop:
 	for {

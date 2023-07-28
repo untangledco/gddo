@@ -7,292 +7,25 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"go/ast"
-	"go/doc"
-	goprinter "go/printer"
-	"go/token"
 	htemp "html/template"
 	"io"
 	"io/fs"
 	"net/http"
-	"net/url"
-	"reflect"
-	"strconv"
-	"strings"
 	ttemp "text/template"
 
 	"github.com/dustin/go-humanize"
 
-	"git.sr.ht/~sircmpwn/gddo/internal/gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
-	"git.sr.ht/~sircmpwn/gddo/internal/printer"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"git.sr.ht/~sircmpwn/gddo/static"
 )
-
-func (p *Package) View(view string) string {
-	var b strings.Builder
-	b.WriteByte('?')
-	amp := false
-	if len(view) != 0 {
-		b.WriteString("view=")
-		b.WriteString(view)
-		amp = true
-	}
-	if p.platformParam {
-		if amp {
-			b.WriteByte('&')
-		}
-		b.WriteString("platform=")
-		b.WriteString(url.QueryEscape(p.Platform))
-	}
-	return b.String()
-}
-
-func (p *Package) PlatformParam() string {
-	if !p.platformParam {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("?platform=")
-	b.WriteString(url.QueryEscape(p.Platform))
-	return b.String()
-}
-
-func (p *Package) VersionParam() string {
-	if p.Version == p.LatestVersion {
-		return ""
-	}
-	return "@" + p.Version
-}
-
-func (p *Package) SourceLink(pos token.Pos, text string, textOnlyOK bool) htemp.HTML {
-	position := p.fset.Position(pos)
-	if p.Reference == "" || position.Line == 0 || p.Project == nil {
-		if textOnlyOK {
-			return htemp.HTML(htemp.HTMLEscapeString(text))
-		}
-		return ""
-	}
-	link := p.Project.Line(p.Reference, p.Dir, position.Filename,
-		strconv.Itoa(position.Line))
-	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
-		htemp.HTMLEscapeString(link),
-		htemp.HTMLEscapeString(text)))
-}
-
-// HTML returns formatted HTML for the doc comment text.
-func (p *Package) HTML(text string) htemp.HTML {
-	return htemp.HTML(p.Package.HTML(text))
-}
-
-// Gemini returns formatted Gemini content for the doc comment text.
-func (p *Package) Gemini(text string) string {
-	return string(gemini.Print(p.Parser().Parse(text)))
-}
-
-// Function formats a function declaration into a single line.
-func (p *Package) Function(decl *ast.FuncDecl) string {
-	var out strings.Builder
-	config := goprinter.Config{
-		Mode:     goprinter.UseSpaces,
-		Tabwidth: 4,
-	}
-	config.Fprint(&out, p.fset, decl)
-	return out.String()
-}
-
-func (e *Example) PlayID() string {
-	return e.Symbol + "-" + e.Example.Suffix
-}
-
-func (e *Example) HTML(text string) htemp.HTML {
-	return e.pkg.HTML(text)
-}
-
-func (e *Example) Gemini(text string) string {
-	return e.pkg.Gemini(text)
-}
-
-func (e *Example) Code() htemp.HTML {
-	c := printer.PrintExample(e.pkg.fset, e.Example)
-	return e.pkg.code(c, nil)
-}
-
-func (e *Example) GeminiCode() string {
-	return e.pkg.GeminiCode(e.Example.Code)
-}
-
-func (p *Package) Breadcrumbs(templateName string) htemp.HTML {
-	modulePath := p.ModulePath
-	if p.ImportPath == stdlib.ModulePath {
-		return htemp.HTML(`<span class="text-muted">Standard library</span>`)
-	}
-	if !strings.HasPrefix(p.ImportPath, p.ModulePath) {
-		// This is the case for stdlib packages
-		modulePath = strings.SplitN(p.ImportPath, "/", 2)[0]
-	}
-	var buf bytes.Buffer
-	i := 0
-	j := len(modulePath)
-	if j == 0 {
-		j = strings.IndexRune(p.ImportPath, '/')
-		if j < 0 {
-			j = len(p.ImportPath)
-		}
-	}
-	for {
-		if i != 0 {
-			buf.WriteString(`<span class="text-muted">/</span>`)
-		}
-		link := j < len(p.ImportPath) || templateName != "doc.html"
-		if link {
-			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(p.ImportPath[:j], ""))
-			buf.WriteString(p.VersionParam())
-			buf.WriteString(p.PlatformParam())
-			buf.WriteString(`">`)
-		} else {
-			buf.WriteString(`<span class="text-muted">`)
-		}
-		buf.WriteString(htemp.HTMLEscapeString(p.ImportPath[i:j]))
-		if link {
-			buf.WriteString("</a>")
-		} else {
-			buf.WriteString("</span>")
-		}
-		i = j + 1
-		if i >= len(p.ImportPath) {
-			break
-		}
-		j = strings.IndexRune(p.ImportPath[i:], '/')
-		if j < 0 {
-			j = len(p.ImportPath)
-		} else {
-			j += i
-		}
-	}
-	return htemp.HTML(buf.String())
-}
-
-func formatPathFrag(path, fragment string) string {
-	if len(path) > 0 && path[0] != '/' {
-		path = "/" + path
-	}
-	u := url.URL{Path: path, Fragment: fragment}
-	return u.String()
-}
-
-// relativePathFn formats an import path as HTML.
-func relativePathFn(path string, parentPath interface{}) string {
-	if p, ok := parentPath.(string); ok && p != "" && strings.HasPrefix(path, p+"/") {
-		path = path[len(p)+1:]
-	}
-	return path
-}
-
-func (p *Package) Code(decl ast.Decl, typ *doc.Type) htemp.HTML {
-	c := printer.PrintDecl(p.fset, decl)
-	return p.code(c, typ)
-}
-
-func (p *Package) GeminiCode(node ast.Node) string {
-	var out strings.Builder
-	config := goprinter.Config{
-		Mode:     goprinter.UseSpaces,
-		Tabwidth: 4,
-	}
-	config.Fprint(&out, p.fset, node)
-	return out.String()
-}
-
-var period = []byte{'.'}
-
-func (p *Package) code(c printer.Code, typ *doc.Type) htemp.HTML {
-	var buf bytes.Buffer
-	last := 0
-	src := []byte(c.Text)
-	buf.WriteString("<pre>")
-	for _, a := range c.Annotations {
-		htemp.HTMLEscape(&buf, src[last:a.Pos])
-		switch a.Kind {
-		case printer.PackageLinkAnnotation:
-			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(c.Paths[a.PathIndex], ""))
-			buf.WriteString(`">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</a>`)
-		case printer.LinkAnnotation, printer.BuiltinAnnotation:
-			var p string
-			if a.Kind == printer.BuiltinAnnotation {
-				p = "builtin"
-			} else if a.PathIndex >= 0 {
-				p = c.Paths[a.PathIndex]
-			}
-			n := src[a.Pos:a.End]
-			n = n[bytes.LastIndex(n, period)+1:]
-			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(p, string(n)))
-			buf.WriteString(`">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</a>`)
-		case printer.CommentAnnotation:
-			buf.WriteString(`<span class="com">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</span>`)
-		case printer.AnchorAnnotation:
-			buf.WriteString(`<span id="`)
-			if typ != nil {
-				htemp.HTMLEscape(&buf, []byte(typ.Name))
-				buf.WriteByte('.')
-			}
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</span>`)
-		default:
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-		}
-		last = int(a.End)
-	}
-	htemp.HTMLEscape(&buf, src[last:])
-	buf.WriteString("</pre>")
-	return htemp.HTML(buf.String())
-}
-
-func isInterfaceFn(t *doc.Type) bool {
-	// TODO: Precompute this
-	if t.Decl.Tok != token.TYPE {
-		return false
-	}
-	isInterface := false
-	for _, spec := range t.Decl.Specs {
-		ts := spec.(*ast.TypeSpec)
-		if t.Name != ts.Name.Name {
-			continue
-		}
-		_, isInterface = ts.Type.(*ast.InterfaceType)
-		break
-	}
-	return isInterface
-}
 
 type TemplateMap map[string]interface {
 	Execute(io.Writer, interface{}) error
 }
 
-func (m TemplateMap) ExecuteHTML(resp http.ResponseWriter, name string, status int, data interface{}) error {
+func (m TemplateMap) ExecuteHTML(resp http.ResponseWriter, name string, data interface{}) error {
 	resp.Header().Set("Content-Type", "text/html; charset=utf-8")
-	return m.ExecuteHTTP(resp, name, status, data)
-}
-
-func (m TemplateMap) ExecuteHTTP(resp http.ResponseWriter, name string, status int, data interface{}) error {
-	resp.WriteHeader(status)
-	if status == http.StatusNotModified {
-		return nil
-	}
 	return m.Execute(resp, name, data)
 }
 
@@ -304,10 +37,19 @@ func (m TemplateMap) Execute(w io.Writer, name string, data interface{}) error {
 	return t.Execute(w, data)
 }
 
+func (m TemplateMap) HTML(name string) *htemp.Template {
+	return m[name].(*htemp.Template)
+}
+
+func (m TemplateMap) Text(name string) *ttemp.Template {
+	return m[name].(*ttemp.Template)
+}
+
 func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, fsys fs.FS, patterns ...string) error {
+	r := (*Renderer)(nil)
 	t := htemp.New("").Funcs(funcs).Funcs(htemp.FuncMap{
 		"templateName": func() string { return name },
-	})
+	}).Funcs(r.HTMLFuncs())
 	if _, err := t.ParseFS(fsys, patterns...); err != nil {
 		return err
 	}
@@ -320,9 +62,10 @@ func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, fsys fs.FS, pat
 }
 
 func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, fsys fs.FS, patterns ...string) error {
+	r := (*Renderer)(nil)
 	t := ttemp.New(name).Funcs(funcs).Funcs(ttemp.FuncMap{
 		"templateName": func() string { return name },
-	})
+	}).Funcs(r.GeminiFuncs())
 	if _, err := t.ParseFS(fsys, patterns...); err != nil {
 		return err
 	}
@@ -349,12 +92,9 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, cb *httputil.CacheBusters) er
 		{"graph.html", "common.html"},
 	}
 	funcs := htemp.FuncMap{
-		"equal":        reflect.DeepEqual,
-		"isInterface":  isInterfaceFn,
-		"relativePath": relativePathFn,
-		"staticPath":   func(p string) string { return cb.AppendQueryParam(p, "v") },
-		"humanize":     humanize.Time,
-		"config":       func() *Config { return s.cfg },
+		"static_path": func(p string) string { return cb.AppendQueryParam(p, "v") },
+		"humanize":    humanize.Time,
+		"config":      func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
 		err := m.ParseHTML(set[0], funcs, fsys, set...)
@@ -388,9 +128,8 @@ func (s *Server) parseGeminiTemplates(m TemplateMap) error {
 		{"imports.gmi"},
 	}
 	funcs := ttemp.FuncMap{
-		"relativePath": relativePathFn,
-		"humanize":     humanize.Time,
-		"config":       func() *Config { return s.cfg },
+		"humanize": humanize.Time,
+		"config":   func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
 		err := m.ParseText(set[0], funcs, fsys, set...)

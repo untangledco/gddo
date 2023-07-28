@@ -1,3 +1,4 @@
+// Package gemini provides support for printing Go doc comments as Gemini text.
 package gemini
 
 import (

@@ -1,6 +1,6 @@
 # {{.Title}} imports - {{config.BrandName}}
 {{if .Imported}}{{range .Imported}}
-=> /{{.ImportPath}}{{$.PlatformParam}} {{.ImportPath}}
+=> /{{.ImportPath}}{{query}} {{.ImportPath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{else}}
