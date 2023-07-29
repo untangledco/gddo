@@ -41,16 +41,12 @@ See `go help mod download` for more information.
 
 ## Using a database
 
-gddo can optionally be used with a PostgreSQL database. Note that the following
-features require a database:
-
-- Package search
-- Import graphs
+gddo can optionally be used with a PostgreSQL database. Note that package search
+requires a database.
 
 Install the runtime dependencies:
 
 - PostgreSQL 13
-- Graphviz (required for import graphs)
 
 Initialize the PostgreSQL database:
 

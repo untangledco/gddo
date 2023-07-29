@@ -13,10 +13,10 @@
 // automatically generate TLS certificates as needed and place them in the
 // directory specified with the --certs flag.
 //
-// Some of gddo's features (such as search results and import graphs)
-// require a PostgreSQL database to function. The database connection URL
-// can be specified with the --db flag. gddo also supports standalone
-// operation for viewing documentation locally.
+// Some of gddo's features (such as search results) require a PostgreSQL
+// database to function. The database connection URL can be specified with
+// the --db flag. gddo also supports standalone operation for viewing
+// documentation locally.
 //
 // If the --goproxy flag is present, gddo will fetch modules from the
 // provided Go module proxy. Otherwise, gddo will load modules from the

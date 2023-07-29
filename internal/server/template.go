@@ -89,7 +89,6 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, cb *httputil.CacheBusters) er
 		{"notfound.html", "common.html", "layout.html"},
 		{"search.html", "common.html", "layout.html"},
 		{"tools.html", "common.html", "layout.html"},
-		{"graph.html", "common.html"},
 	}
 	funcs := htemp.FuncMap{
 		"static_path": func(p string) string { return cb.AppendQueryParam(p, "v") },

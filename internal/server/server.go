@@ -37,17 +37,12 @@ type Server struct {
 	// A semaphore to limit concurrent module fetches.
 	moduleFetchSem chan struct{}
 
-	// A semaphore to limit concurrent ?import-graph requests.
-	importGraphSem chan struct{}
-
 	// Prometheus metrics
 	metrics struct {
-		modulesTotal       prometheus.CounterFunc
-		fetchesTotal       prometheus.Counter
-		fetchesActive      prometheus.Gauge
-		fetchErrorsTotal   prometheus.Counter
-		importGraphsTotal  prometheus.Counter
-		importGraphsActive prometheus.Gauge
+		modulesTotal     prometheus.CounterFunc
+		fetchesTotal     prometheus.Counter
+		fetchesActive    prometheus.Gauge
+		fetchErrorsTotal prometheus.Counter
 	}
 }
 
@@ -62,7 +57,6 @@ func New(cfg *Config) (*Server, error) {
 		httpClient:     httpClient,
 		templates:      make(TemplateMap),
 		moduleFetchSem: make(chan struct{}, 30),
-		importGraphSem: make(chan struct{}, 10),
 	}
 
 	if cfg.GoProxy != "" {
@@ -129,14 +123,6 @@ func New(cfg *Config) (*Server, error) {
 		Name: "gddo_fetch_errors_total",
 		Help: "Total number of module fetch errors",
 	})
-	s.metrics.importGraphsTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gddo_import_graphs_total",
-		Help: "Total number of import graph requests",
-	})
-	s.metrics.importGraphsActive = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "gddo_import_graphs_active",
-		Help: "Number of active import graph requests",
-	})
 
 	return s, nil
 }
@@ -185,12 +171,4 @@ func (s *Server) search(ctx context.Context, platform, q string) ([]database.Pac
 		return nil, nil
 	}
 	return s.db.Search(ctx, platform, q)
-}
-
-func (s *Server) importGraph(ctx context.Context, platform string, pkg database.Package, level database.DepLevel) ([]database.Package, [][2]int, error) {
-	if s.db == nil {
-		// Import graph requires a database
-		return nil, nil, nil
-	}
-	return s.db.ImportGraph(ctx, platform, pkg, level)
 }

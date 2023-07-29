@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -170,46 +169,6 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			*Package
 			URI string
 		}{pkg, uri})
-
-	case "import-graph":
-		// Throttle import-graph requests.
-		select {
-		case s.importGraphSem <- struct{}{}:
-		default:
-			return errors.New("too many import graph requests")
-		}
-		defer func() { <-s.importGraphSem }()
-
-		s.metrics.importGraphsTotal.Inc()
-		s.metrics.importGraphsActive.Inc()
-		defer s.metrics.importGraphsActive.Dec()
-
-		hide := database.ShowAllDeps
-		switch req.Form.Get("hide") {
-		case "1":
-			hide = database.HideStandardDeps
-		case "2":
-			hide = database.HideStandardAll
-		}
-
-		dpkg := database.Package{
-			Module:     *pkg.Module,
-			ImportPath: pkg.ImportPath,
-			Synopsis:   pkg.Synopsis,
-		}
-		pkgs, edges, err := s.importGraph(ctx, platform, dpkg, hide)
-		if err != nil {
-			return err
-		}
-		b, err := renderGraph(pkg, pkgs, edges)
-		if err != nil {
-			return err
-		}
-		return renderer.ExecuteHTML(s.templates.HTML("graph.html"), resp, &struct {
-			*Package
-			SVG  template.HTML
-			Hide database.DepLevel
-		}{pkg, template.HTML(b), hide})
 
 	default:
 		if play := req.Form.Get("play"); play != "" {

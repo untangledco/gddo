@@ -1,5 +1,5 @@
 User-agent: *
-Disallow: /*?view=imports*
-Disallow: /*?view=import-graph*
 Disallow: /*?view=versions*
+Disallow: /*?view=platforms*
+Disallow: /*?view=imports*
 Disallow: /*?view=tools*
