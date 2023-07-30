@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -78,32 +78,16 @@ func setFlashMessage(resp http.ResponseWriter, message string) {
 }
 
 // httpEtag returns the package entity tag used in HTTP transactions.
-func (s *Server) httpEtag(
-	pkg *Package,
-	subpkgs []database.Package,
-	msg string,
-) string {
+func httpEtag(pkg *Package) string {
 	b := make([]byte, 0, 128)
 	b = append(b, pkg.ImportPath...)
 	b = append(b, 0)
 	b = append(b, pkg.Version...)
 	b = append(b, 0)
 	b = append(b, pkg.LatestVersion...)
-
-	for _, subpkg := range subpkgs {
-		b = append(b, 0)
-		b = append(b, subpkg.ImportPath...)
-		b = append(b, 0)
-		b = append(b, subpkg.Synopsis...)
-	}
-
 	b = append(b, 0)
-	b = append(b, msg...)
-
-	h := md5.New()
-	h.Write(b)
-	b = h.Sum(b[:0])
-	return fmt.Sprintf("\"%x\"", b)
+	b = append(b, pkg.Message...)
+	return fmt.Sprintf(`"%x"`, sha1.Sum(b))
 }
 
 func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error {
@@ -176,7 +160,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return nil
 		}
 
-		etag := s.httpEtag(pkg, pkg.SubPackages, pkg.Message)
+		etag := httpEtag(pkg)
 		if req.Header.Get("If-None-Match") == etag {
 			resp.WriteHeader(http.StatusNotModified)
 		}
