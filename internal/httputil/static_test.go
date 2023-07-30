@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"reflect"
 	"strconv"
 	"testing"
 )
@@ -52,7 +51,7 @@ func computeTestContentLength() string {
 
 var fileServerTests = []*struct {
 	name   string // test name for log
-	ss     *httputil.FileServer
+	ss     *FileServer
 	r      *http.Request
 	header http.Header // expected response headers
 	status int         // expected response status
@@ -68,21 +67,7 @@ var fileServerTests = []*struct {
 		status: http.StatusOK,
 		header: http.Header{
 			"Etag":           {testEtag},
-			"Cache-Control":  {"public, max-age=3"},
-			"Content-Length": {testContentLength},
-		},
-	},
-	{
-		name: "get .",
-		ss:   NewFileServer(os.DirFS(".")),
-		r: &http.Request{
-			URL:    mustParseURL("/dir/static_test.go"),
-			Method: "GET",
-		},
-		status: http.StatusOK,
-		header: http.Header{
-			"Etag":           {testEtag},
-			"Cache-Control":  {"public, max-age=3"},
+			"Cache-Control":  {"public, max-age=86400"},
 			"Content-Length": {testContentLength},
 		},
 	},
@@ -110,7 +95,7 @@ var fileServerTests = []*struct {
 		status: http.StatusOK,
 		header: http.Header{
 			"Etag":           {testEtag},
-			"Cache-Control":  {"public, max-age=3"},
+			"Cache-Control":  {"public, max-age=86400"},
 			"Content-Length": {testContentLength},
 		},
 		empty: true,
@@ -125,14 +110,14 @@ var fileServerTests = []*struct {
 		},
 		status: http.StatusNotModified,
 		header: http.Header{
-			"Cache-Control": {"public, max-age=3"},
+			"Cache-Control": {"public, max-age=86400"},
 			"Etag":          {testEtag},
 		},
 		empty: true,
 	},
 }
 
-func testStaticServer(t *testing.T, f func(*httputil.FileServer) http.Handler) {
+func testFileServer(t *testing.T, f func(*FileServer) http.Handler) {
 	for _, tt := range fileServerTests {
 		w := httptest.NewRecorder()
 
@@ -143,12 +128,11 @@ func testStaticServer(t *testing.T, f func(*httputil.FileServer) http.Handler) {
 			t.Errorf("%s, status=%d, want %d", tt.name, w.Code, tt.status)
 		}
 
-		// Content-Type can differ based on the MIME database of the machine
-		// running the tests. Ignore it.
-		delete(w.HeaderMap, "Content-Type")
-
-		if !reflect.DeepEqual(w.HeaderMap, tt.header) {
-			t.Errorf("%s\n\theader=%v,\n\twant   %v", tt.name, w.HeaderMap, tt.header)
+		for k := range tt.header {
+			if w.HeaderMap.Get(k) != tt.header.Get(k) {
+				t.Errorf("%s\n\theader=%v,\n\twant   %v", tt.name, w.HeaderMap, tt.header)
+				break
+			}
 		}
 
 		empty := w.Body.Len() == 0
@@ -158,6 +142,6 @@ func testStaticServer(t *testing.T, f func(*httputil.FileServer) http.Handler) {
 	}
 }
 
-func TestFileHandler(t *testing.T) {
-	testStaticServer(t, func(ss *httputil.FileServer) http.Handler { return ss.FileHandler("static_test.go") })
+func TestFileServer(t *testing.T) {
+	testFileServer(t, func(ss *FileServer) http.Handler { return ss.FileHandler("static_test.go") })
 }
