@@ -73,7 +73,7 @@ func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, fsys fs.FS, pat
 	return nil
 }
 
-func (s *Server) parseHTMLTemplates(m TemplateMap, cb *httputil.CacheBusters) error {
+func (s *Server) parseHTMLTemplates(m TemplateMap, files *httputil.FileServer) error {
 	fsys, err := fs.Sub(static.FS, "templates")
 	if err != nil {
 		return err
@@ -91,9 +91,11 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, cb *httputil.CacheBusters) er
 		{"tools.html", "common.html", "layout.html"},
 	}
 	funcs := htemp.FuncMap{
-		"static_path": func(p string) string { return cb.AppendQueryParam(p, "v") },
-		"humanize":    humanize.Time,
-		"config":      func() *Config { return s.cfg },
+		"static_path": func(name string) string {
+			return "/-/" + name + files.QueryParam(name)
+		},
+		"humanize": humanize.Time,
+		"config":   func() *Config { return s.cfg },
 	}
 	for _, set := range sets {
 		err := m.ParseHTML(set[0], funcs, fsys, set...)

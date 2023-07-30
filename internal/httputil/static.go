@@ -8,174 +8,108 @@ package httputil
 
 import (
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
-	"mime"
 	"net/http"
-	"os"
 	"path"
-	"strconv"
-	"sync"
 	"time"
-
-	"git.sr.ht/~sircmpwn/gddo/internal/httputil/header"
 )
 
-// StaticServer serves static files.
-type StaticServer struct {
-	// FS specifies the filesystem containing the files to serve.
-	FS fs.FS
-
-	// MaxAge specifies the maximum age for the cache control and expiration
-	// headers.
-	MaxAge time.Duration
-
-	mu    sync.Mutex
-	etags map[string]string
+// FileServer serves static files.
+type FileServer struct {
+	fsys   fs.FS
+	hashes map[string]string
 }
 
-func (ss *StaticServer) mimeType(fname string) string {
-	ext := path.Ext(fname)
-	var mimeType string
-	if mimeType == "" {
-		mimeType = mime.TypeByExtension(ext)
+// NewFileServer returns a new FileServer which serves files from the given
+// filesystem.
+func NewFileServer(fsys fs.FS) *FileServer {
+	return &FileServer{
+		fsys:   fsys,
+		hashes: make(map[string]string),
 	}
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
-	}
-	return mimeType
-}
-
-func (ss *StaticServer) openFile(fname string) (io.ReadCloser, int64, string, error) {
-	f, err := ss.FS.Open(fname)
-	if err != nil {
-		return nil, 0, "", err
-	}
-	fi, err := f.Stat()
-	if err != nil {
-		f.Close()
-		return nil, 0, "", err
-	}
-	const modeType = os.ModeDir | os.ModeSymlink | os.ModeNamedPipe | os.ModeSocket | os.ModeDevice
-	if fi.Mode()&modeType != 0 {
-		f.Close()
-		return nil, 0, "", errors.New("not a regular file")
-	}
-	return f, fi.Size(), ss.mimeType(fname), nil
 }
 
 // FileHandler returns a handler that serves a single file. The file is
-// specified by a slash separated path relative to the static server's FS
-// field.
-func (ss *StaticServer) FileHandler(fileName string) http.Handler {
-	id := fileName
-	return &staticHandler{
-		ss:   ss,
-		id:   func(_ string) string { return id },
-		open: func(_ string) (io.ReadCloser, int64, string, error) { return ss.openFile(fileName) },
+// specified by a slash separated path relative to the static server's
+// filesystem.
+func (s *FileServer) FileHandler(filename string) http.Handler {
+	h, err := s.newFileHandler(filename)
+	if err != nil {
+		panic(err)
 	}
+	return h
 }
 
-type staticHandler struct {
-	id   func(fname string) string
-	open func(p string) (io.ReadCloser, int64, string, error)
-	ss   *StaticServer
+// QueryParam returns the hash for the given filename as a query parameter.
+func (s *FileServer) QueryParam(filename string) string {
+	hash := s.hashes[filename]
+	if hash == "" {
+		return ""
+	}
+	return "?v=" + hash
 }
 
-func (h *staticHandler) error(w http.ResponseWriter, r *http.Request, status int, err error) {
+func (s *FileServer) newFileHandler(filename string) (*fileHandler, error) {
+	f, err := s.fsys.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	w := sha1.New()
+	if _, err := io.Copy(w, f); err != nil {
+		return nil, err
+	}
+	hash := fmt.Sprintf("%x", w.Sum(nil))
+	s.hashes[filename] = hash
+
+	return &fileHandler{
+		fsys: s.fsys,
+		name: filename,
+		hash: hash,
+	}, nil
+}
+
+type fileHandler struct {
+	fsys fs.FS
+	name string
+	hash string
+}
+
+func (h *fileHandler) error(w http.ResponseWriter, r *http.Request, status int, err error) {
 	http.Error(w, http.StatusText(status), status)
 }
 
-func (h *staticHandler) etag(p string) (string, error) {
-	id := h.id(p)
-
-	h.ss.mu.Lock()
-	if h.ss.etags == nil {
-		h.ss.etags = make(map[string]string)
-	}
-	etag := h.ss.etags[id]
-	h.ss.mu.Unlock()
-
-	if etag != "" {
-		return etag, nil
-	}
-
-	// todo: if a concurrent goroutine is calculating the hash, then wait for
-	// it instead of computing it again here.
-
-	rc, _, _, err := h.open(p)
-	if err != nil {
-		return "", err
-	}
-
-	defer rc.Close()
-
-	w := sha1.New()
-	_, err = io.Copy(w, rc)
-	if err != nil {
-		return "", err
-	}
-
-	etag = fmt.Sprintf(`"%x"`, w.Sum(nil))
-
-	h.ss.mu.Lock()
-	h.ss.etags[id] = etag
-	h.ss.mu.Unlock()
-
-	return etag, nil
-}
-
-func (h *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := path.Clean(r.URL.Path)
 	if p != r.URL.Path {
 		http.Redirect(w, r, p, 301)
 		return
 	}
 
-	etag, err := h.etag(p)
+	f, err := h.fsys.Open(h.name)
+	if err != nil {
+		h.error(w, r, http.StatusNotFound, err)
+		return
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
 	if err != nil {
 		h.error(w, r, http.StatusNotFound, err)
 		return
 	}
 
-	maxAge := h.ss.MaxAge
-	if maxAge == 0 {
-		maxAge = 24 * time.Hour
-	}
+	maxAge := 24 * time.Hour
 	if r.FormValue("v") != "" {
 		maxAge = 365 * 24 * time.Hour
 	}
 
 	cacheControl := fmt.Sprintf("public, max-age=%d", maxAge/time.Second)
-
-	for _, e := range header.ParseList(r.Header, "If-None-Match") {
-		if e == etag {
-			w.Header().Set("Cache-Control", cacheControl)
-			w.Header().Set("Etag", etag)
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-	}
-
-	rc, cl, ct, err := h.open(p)
-	if err != nil {
-		h.error(w, r, http.StatusNotFound, err)
-		return
-	}
-	defer rc.Close()
-
 	w.Header().Set("Cache-Control", cacheControl)
-	w.Header().Set("Etag", etag)
-	if ct != "" {
-		w.Header().Set("Content-Type", ct)
-	}
-	if cl != 0 {
-		w.Header().Set("Content-Length", strconv.FormatInt(cl, 10))
-	}
-	w.WriteHeader(http.StatusOK)
-	if r.Method != "HEAD" {
-		io.Copy(w, rc)
-	}
+	w.Header().Set("Etag", fmt.Sprintf(`"%s"`, h.hash))
+
+	http.ServeContent(w, r, h.name, fi.ModTime(), f.(io.ReadSeeker))
 }

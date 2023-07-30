@@ -21,16 +21,13 @@ import (
 )
 
 func (s *Server) HTTPHandler() (http.Handler, error) {
-	staticServer := httputil.StaticServer{
-		FS:     static.FS,
-		MaxAge: time.Hour,
-	}
-	s.statusSVG = staticServer.FileHandler("status.svg")
+	files := httputil.NewFileServer(static.FS)
+	s.statusSVG = files.FileHandler("status.svg")
 
 	mux := http.NewServeMux()
-	mux.Handle("/-/site.js", staticServer.FileHandler("site.js"))
-	mux.Handle("/-/site.css", staticServer.FileHandler("site.css"))
-	mux.Handle("/-/bootstrap.min.css", staticServer.FileHandler("bootstrap.min.css"))
+	mux.Handle("/-/site.js", files.FileHandler("site.js"))
+	mux.Handle("/-/site.css", files.FileHandler("site.css"))
+	mux.Handle("/-/bootstrap.min.css", files.FileHandler("bootstrap.min.css"))
 	mux.Handle("/-/metrics", promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{
 		MaxRequestsInFlight: 10,
 		Timeout:             10 * time.Second,
@@ -46,13 +43,12 @@ func (s *Server) HTTPHandler() (http.Handler, error) {
 	mux.Handle("/-/about", handler(s.serveAbout))
 	mux.Handle("/-/opensearch.xml", handler(s.serveOpenSearch))
 	mux.Handle("/-/refresh", handler(s.serveRefresh))
-	mux.Handle("/favicon.ico", staticServer.FileHandler("favicon.ico"))
-	mux.Handle("/robots.txt", staticServer.FileHandler("robots.txt"))
+	mux.Handle("/favicon.ico", files.FileHandler("favicon.ico"))
+	mux.Handle("/robots.txt", files.FileHandler("robots.txt"))
 	mux.Handle("/C", http.RedirectHandler("/cmd/cgo", http.StatusMovedPermanently))
 	mux.Handle("/", handler(s.serveHome))
 
-	cacheBusters := &httputil.CacheBusters{Handler: mux}
-	if err := s.parseHTMLTemplates(s.templates, cacheBusters); err != nil {
+	if err := s.parseHTMLTemplates(s.templates, files); err != nil {
 		return nil, err
 	}
 	return mux, nil

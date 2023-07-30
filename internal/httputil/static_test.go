@@ -4,7 +4,7 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd.
 
-package httputil_test
+package httputil
 
 import (
 	"crypto/sha1"
@@ -16,9 +16,6 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
-	"time"
-
-	"git.sr.ht/~sircmpwn/gddo/internal/httputil"
 )
 
 var (
@@ -55,7 +52,7 @@ func computeTestContentLength() string {
 
 var fileServerTests = []*struct {
 	name   string // test name for log
-	ss     *httputil.StaticServer
+	ss     *httputil.FileServer
 	r      *http.Request
 	header http.Header // expected response headers
 	status int         // expected response status
@@ -63,7 +60,7 @@ var fileServerTests = []*struct {
 }{
 	{
 		name: "get",
-		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
+		ss:   NewFileServer(os.DirFS(".")),
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "GET",
@@ -77,7 +74,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "get .",
-		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
+		ss:   NewFileServer(os.DirFS(".")),
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "GET",
@@ -91,7 +88,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "get with ?v=",
-		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
+		ss:   NewFileServer(os.DirFS(".")),
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go?v=xxxxx"),
 			Method: "GET",
@@ -105,7 +102,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "head",
-		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
+		ss:   NewFileServer(os.DirFS(".")),
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "HEAD",
@@ -120,7 +117,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "if-none-match",
-		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
+		ss:   NewFileServer(os.DirFS(".")),
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "GET",
@@ -135,7 +132,7 @@ var fileServerTests = []*struct {
 	},
 }
 
-func testStaticServer(t *testing.T, f func(*httputil.StaticServer) http.Handler) {
+func testStaticServer(t *testing.T, f func(*httputil.FileServer) http.Handler) {
 	for _, tt := range fileServerTests {
 		w := httptest.NewRecorder()
 
@@ -162,5 +159,5 @@ func testStaticServer(t *testing.T, f func(*httputil.StaticServer) http.Handler)
 }
 
 func TestFileHandler(t *testing.T) {
-	testStaticServer(t, func(ss *httputil.StaticServer) http.Handler { return ss.FileHandler("static_test.go") })
+	testStaticServer(t, func(ss *httputil.FileServer) http.Handler { return ss.FileHandler("static_test.go") })
 }
