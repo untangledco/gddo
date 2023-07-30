@@ -276,7 +276,7 @@ func parsePackages(platform string, modulePath string, fsys fs.FS) (map[string]*
 		}
 		files[pathname] = contents
 
-		match, err := bctx.MatchFile(".", pathname)
+		match, err := bctx.MatchFile(path.Split(pathname))
 		if err != nil {
 			return err
 		}
