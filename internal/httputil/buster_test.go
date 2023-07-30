@@ -8,6 +8,7 @@ package httputil
 
 import (
 	"net/http"
+	"os"
 	"testing"
 )
 
@@ -19,7 +20,9 @@ func TestCacheBusters(t *testing.T) {
 		t.Errorf("could not extract token from http.FileServer")
 	}
 
-	var ss StaticServer
+	ss := StaticServer{
+		FS: os.DirFS("."),
+	}
 	cbs = &CacheBusters{Handler: ss.FileHandler("buster_test.go")}
 
 	token = cbs.Get("/xxx")

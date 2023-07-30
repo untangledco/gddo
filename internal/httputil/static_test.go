@@ -63,7 +63,7 @@ var fileServerTests = []*struct {
 }{
 	{
 		name: "get",
-		ss:   &httputil.StaticServer{MaxAge: 3 * time.Second},
+		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "GET",
@@ -77,7 +77,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "get .",
-		ss:   &httputil.StaticServer{Dir: ".", MaxAge: 3 * time.Second},
+		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "GET",
@@ -91,7 +91,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "get with ?v=",
-		ss:   &httputil.StaticServer{MaxAge: 3 * time.Second},
+		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go?v=xxxxx"),
 			Method: "GET",
@@ -105,7 +105,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "head",
-		ss:   &httputil.StaticServer{MaxAge: 3 * time.Second},
+		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "HEAD",
@@ -120,7 +120,7 @@ var fileServerTests = []*struct {
 	},
 	{
 		name: "if-none-match",
-		ss:   &httputil.StaticServer{MaxAge: 3 * time.Second},
+		ss:   &httputil.StaticServer{FS: os.DirFS("."), MaxAge: 3 * time.Second},
 		r: &http.Request{
 			URL:    mustParseURL("/dir/static_test.go"),
 			Method: "GET",
