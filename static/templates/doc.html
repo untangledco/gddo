@@ -59,42 +59,42 @@
 
     {{if .Consts}}
       <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
-      {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
+      {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
     {{end}}
 
     {{if .Vars}}
       <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
-      {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
+      {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
     {{end}}
 
     {{range .Funcs}}
-      <h3 id="{{.Name}}" data-kind="function">func {{source_link .Decl .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="funcdecl decl">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+      <h3 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+      <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
       {{template "Examples" .|$.ObjExamples}}
     {{end}}
 
     {{range $t := .Types}}
-      <h3 id="{{.Name}}" data-kind="type">type {{source_link .Decl .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
-      {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-      {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
+      <h3 id="{{.Name}}" data-kind="type">type {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+      <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+      {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
+      {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
       {{template "Examples" .|$.ObjExamples}}
 
       {{range .Funcs}}
-        <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+        <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+        <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
 
       {{range .Methods}}
-        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{source_link .Decl "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+        <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
     {{end}}
 
     {{with .Notes}}{{with .BUG}}
-      <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{source_link . "☞" true}} {{.Body}}{{end}}
+      <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{source_link .Pos "☞" true}} {{.Body}}{{end}}
     {{end}}{{end}}
   {{end}}
 

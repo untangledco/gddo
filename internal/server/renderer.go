@@ -105,8 +105,8 @@ func (r *Renderer) GeminiFuncs() template.FuncMap {
 }
 
 // SourceLink returns a source link for given node.
-func (r *Renderer) SourceLink(node ast.Node, text string, textOnlyOK bool) htemp.HTML {
-	pos := r.fset.Position(node.Pos())
+func (r *Renderer) SourceLink(p token.Pos, text string, textOnlyOK bool) htemp.HTML {
+	pos := r.fset.Position(p)
 	if r.project == nil || pos.Line == 0 {
 		if textOnlyOK {
 			return htemp.HTML(htemp.HTMLEscapeString(text))
