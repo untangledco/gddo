@@ -248,10 +248,10 @@ func formatPathFrag(path, fragment string) string {
 	return u.String()
 }
 
-// relativePath formats an import path as HTML.
-func relativePath(path string, parentPath interface{}) string {
-	if p, ok := parentPath.(string); ok && p != "" && strings.HasPrefix(path, p+"/") {
-		path = path[len(p)+1:]
+// relativePath returns a path relative to parentPath.
+func relativePath(path, parentPath string) string {
+	if parentPath != "" && strings.HasPrefix(path, parentPath+"/") {
+		path = path[len(parentPath)+1:]
 	}
 	return path
 }
