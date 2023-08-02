@@ -1,7 +1,7 @@
 {{define "ProjectNav"}}{{template "FlashMessage" .Message}}<div class="clearfix" id="x-projnav">
   {{with .SummaryURL}}<a rel="noopener nofollow" href="{{.}}"><strong>{{$.ModuleTitle}}</strong></a>
   {{else}}<strong class="text-muted">{{.ModuleTitle}}</strong>{{end}}
-  {{with breadcrumbs . templateName}}<span class="text-muted">&ndash;</span> {{.}}{{end}}
+  {{with breadcrumbs .}}<span class="text-muted">&ndash;</span> {{template "breadcrumbs" .}}{{end}}
   {{if eq templateName "doc.html"}}
   <span class="pull-right">
     {{if .IsPackage}}
@@ -16,6 +16,19 @@
   </span>
   {{end}}
 </div>{{end}}
+
+{{define "breadcrumbs"}}
+{{- range $i, $crumb := . -}}
+  {{- if ne $i 0 -}}
+    <span class="text-muted">/</span>
+  {{- end -}}
+  {{- if .Current -}}
+    <span class="text-muted">{{.Text}}</span>
+  {{- else -}}
+    <a href="/{{.ImportPath}}">{{.Text}}</a>
+  {{- end -}}
+{{- end -}}
+{{end}}
 
 {{define "FlashMessage"}}{{if .}}<div class="alert alert-warning">{{.}}</div>{{end}}{{end}}
 

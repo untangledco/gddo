@@ -12,6 +12,7 @@ import (
 	htemp "html/template"
 	"io"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"text/template"
@@ -202,55 +203,41 @@ func playID(ex *Example) string {
 	return ex.Symbol + "-" + ex.Example.Suffix
 }
 
-// Breadcrumbs renders breadcrumbs for the given package.
-func (r *Renderer) Breadcrumbs(p *Package, templateName string) htemp.HTML {
-	modulePath := p.ModulePath
+// Breadcrumb provides a link back to a previous page.
+type Breadcrumb struct {
+	Text       string
+	ImportPath string
+	Current    bool
+}
+
+// Breadcrumbs computes breadcrumbs for the given package.
+func (r *Renderer) Breadcrumbs(p *Package) []Breadcrumb {
 	if p.ImportPath == stdlib.ModulePath {
-		return ""
+		return nil
 	}
-	if !strings.HasPrefix(p.ImportPath, p.ModulePath) {
-		// This is the case for stdlib packages
-		modulePath = strings.SplitN(p.ImportPath, "/", 2)[0]
+
+	crumbs := []Breadcrumb{}
+	importPath := p.ModulePath
+	if p.ModulePath == stdlib.ModulePath {
+		importPath = ""
+	} else {
+		crumbs = append(crumbs, Breadcrumb{
+			Text:       p.ModulePath,
+			ImportPath: p.ModulePath,
+			Current:    p.ImportPath == p.ModulePath,
+		})
 	}
-	var buf bytes.Buffer
-	i := 0
-	j := len(modulePath)
-	if j == 0 {
-		j = strings.IndexRune(p.ImportPath, '/')
-		if j < 0 {
-			j = len(p.ImportPath)
-		}
-	}
-	for {
-		if i != 0 {
-			buf.WriteString(`<span class="text-muted">/</span>`)
-		}
-		link := j < len(p.ImportPath) || templateName != "doc.html"
-		if link {
-			buf.WriteString(`<a href="`)
-			buf.WriteString(r.View(p.ImportPath[:j], ""))
-			buf.WriteString(`">`)
-		} else {
-			buf.WriteString(`<span class="text-muted">`)
-		}
-		buf.WriteString(htemp.HTMLEscapeString(p.ImportPath[i:j]))
-		if link {
-			buf.WriteString("</a>")
-		} else {
-			buf.WriteString("</span>")
-		}
-		i = j + 1
-		if i >= len(p.ImportPath) {
-			break
-		}
-		j = strings.IndexRune(p.ImportPath[i:], '/')
-		if j < 0 {
-			j = len(p.ImportPath)
-		} else {
-			j += i
+	if p.dir != "" {
+		for _, part := range strings.Split(p.dir, "/") {
+			importPath = path.Join(importPath, part)
+			crumbs = append(crumbs, Breadcrumb{
+				Text:       part,
+				ImportPath: importPath,
+				Current:    p.ImportPath == importPath,
+			})
 		}
 	}
-	return htemp.HTML(buf.String())
+	return crumbs
 }
 
 func formatPathFrag(path, fragment string) string {
