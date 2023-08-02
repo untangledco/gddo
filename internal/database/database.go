@@ -33,16 +33,97 @@ type Package struct {
 // Database stores package documentation.
 type Database struct {
 	pg *sql.DB
+
+	countModules     *sql.Stmt
+	insertModule     *sql.Stmt
+	touchModule      *sql.Stmt
+	searchQuery      *sql.Stmt
+	packageQuery     *sql.Stmt
+	latestQuery      *sql.Stmt
+	insertPackage    *sql.Stmt
+	packageExists    *sql.Stmt
+	blockExists      *sql.Stmt
+	synopsisQuery    *sql.Stmt
+	subpackagesQuery *sql.Stmt
+	projectQuery     *sql.Stmt
+	insertProject    *sql.Stmt
+	oldestModule     *sql.Stmt
 }
 
 // New creates a new database. serverURI is the postgres URI.
 func New(serverURI string) (*Database, error) {
-	db, err := sql.Open("postgres", serverURI)
+	pg, err := sql.Open("postgres", serverURI)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(64)
-	return &Database{pg: db}, nil
+	pg.SetMaxOpenConns(64)
+
+	db := &Database{pg: pg}
+	if err := db.prepare(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func (db *Database) prepare() error {
+	var err error
+	db.countModules, err = db.pg.Prepare(countModules)
+	if err != nil {
+		return err
+	}
+	db.insertModule, err = db.pg.Prepare(insertModule)
+	if err != nil {
+		return err
+	}
+	db.touchModule, err = db.pg.Prepare(touchModule)
+	if err != nil {
+		return err
+	}
+	db.searchQuery, err = db.pg.Prepare(searchQuery)
+	if err != nil {
+		return err
+	}
+	db.packageQuery, err = db.pg.Prepare(packageQuery)
+	if err != nil {
+		return err
+	}
+	db.latestQuery, err = db.pg.Prepare(latestQuery)
+	if err != nil {
+		return err
+	}
+	db.insertPackage, err = db.pg.Prepare(insertPackage)
+	if err != nil {
+		return err
+	}
+	db.packageExists, err = db.pg.Prepare(packageExists)
+	if err != nil {
+		return err
+	}
+	db.blockExists, err = db.pg.Prepare(blockExists)
+	if err != nil {
+		return err
+	}
+	db.synopsisQuery, err = db.pg.Prepare(synopsisQuery)
+	if err != nil {
+		return err
+	}
+	db.subpackagesQuery, err = db.pg.Prepare(subpackagesQuery)
+	if err != nil {
+		return err
+	}
+	db.projectQuery, err = db.pg.Prepare(projectQuery)
+	if err != nil {
+		return err
+	}
+	db.insertProject, err = db.pg.Prepare(insertProject)
+	if err != nil {
+		return err
+	}
+	db.oldestModule, err = db.pg.Prepare(oldestModule)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *Database) RegisterMetrics(r prometheus.Registerer) error {
@@ -72,11 +153,13 @@ func (db *Database) WithTx(ctx context.Context, opts *sql.TxOptions,
 	return err
 }
 
+const countModules = `SELECT COUNT(*) FROM modules;`
+
 // Modules returns the number of modules in the database.
 func (db *Database) Modules(ctx context.Context) (int64, error) {
 	var count int64
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		row := tx.QueryRow("SELECT COUNT(*) FROM modules;")
+		row := tx.Stmt(db.countModules).QueryRow()
 		if err := row.Scan(&count); err != nil {
 			return err
 		}
@@ -99,7 +182,7 @@ UPDATE SET series_path = $2, latest_version = $3, versions = $4, deprecated = $5
 // PutModule stores the module in the database.
 func (db *Database) PutModule(ctx context.Context, mod *internal.Module) error {
 	return db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.Exec(insertModule,
+		_, err := tx.Stmt(db.insertModule).Exec(
 			mod.ModulePath, mod.SeriesPath, mod.LatestVersion,
 			pq.StringArray(mod.Versions), mod.Deprecated)
 		if err != nil {
@@ -109,11 +192,13 @@ func (db *Database) PutModule(ctx context.Context, mod *internal.Module) error {
 	})
 }
 
+const touchModule = `UPDATE modules SET updated = NOW() WHERE module_path = $1;`
+
 // TouchModule updates the module's updated timestamp.
 // If the module does not exist, TouchModule does nothing.
 func (db *Database) TouchModule(ctx context.Context, modulePath string) error {
 	return db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		_, err := tx.Exec(`UPDATE modules SET updated = NOW() WHERE module_path = $1;`, modulePath)
+		_, err := tx.Stmt(db.touchModule).Exec(modulePath)
 		if err != nil {
 			return err
 		}
@@ -138,7 +223,7 @@ LIMIT 20;
 func (db *Database) Search(ctx context.Context, platform, query string) ([]Package, error) {
 	var packages []Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(searchQuery, platform, query)
+		rows, err := tx.Stmt(db.searchQuery).Query(platform, query)
 		if err != nil {
 			return err
 		}
@@ -168,7 +253,7 @@ WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3
 	AND m.module_path = p.module_path;
 `
 
-const packageLatestQuery = `
+const latestQuery = `
 SELECT
 	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
 	m.latest_version, m.versions, m.deprecated, m.updated, p.source
@@ -184,9 +269,9 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		var row *sql.Row
 		if version == internal.LatestVersion {
-			row = tx.QueryRow(packageLatestQuery, platform, importPath)
+			row = tx.Stmt(db.latestQuery).QueryRow(platform, importPath)
 		} else {
-			row = tx.QueryRow(packageQuery, platform, importPath, version)
+			row = tx.Stmt(db.packageQuery).QueryRow(platform, importPath, version)
 		}
 
 		if err := row.Scan(&mod.ModulePath, &mod.SeriesPath, &mod.Version,
@@ -197,12 +282,15 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 		}
 		if importPath != mod.ModulePath {
 			// Filter available versions
-			// TODO: Reuse tx
+			stmt := tx.Stmt(db.packageExists)
 			i := 0
 			for j := 0; j < len(mod.Versions); j++ {
-				if ok, err := db.HasPackage(ctx, platform, importPath, mod.Versions[j]); err != nil {
+				exists := false
+				row := stmt.QueryRow(platform, importPath, mod.Versions[j])
+				if err := row.Scan(&exists); err != nil {
 					return err
-				} else if !ok {
+				}
+				if !exists {
 					continue
 				}
 				mod.Versions[i] = mod.Versions[j]
@@ -239,7 +327,7 @@ func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module
 	synopsis := pkg.Synopsis(pkg.Doc)
 	score := searchScore(pkg)
 
-	_, err := tx.Exec(insertPackage,
+	_, err := tx.Stmt(db.insertPackage).Exec(
 		platform, pkg.ImportPath, mod.ModulePath, mod.SeriesPath, mod.Version,
 		mod.Reference, mod.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
 		synopsis, score, source)
@@ -281,23 +369,17 @@ func searchScore(pkg *doc.Package) float64 {
 	return r
 }
 
+const packageExists = `SELECT EXISTS (SELECT FROM packages WHERE platform = $1 AND import_path = $2 AND version = $3);`
+
 // HasPackage reports whether the given package is present in the database.
 func (db *Database) HasPackage(ctx context.Context, platform, importPath, version string) (bool, error) {
 	exists := false
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(
-			`SELECT EXISTS (SELECT FROM packages WHERE platform = $1 AND import_path = $2 AND version = $3);`,
-			platform, importPath, version)
-		if err != nil {
+		row := tx.Stmt(db.packageExists).QueryRow(platform, importPath, version)
+		if err := row.Scan(&exists); err != nil {
 			return err
 		}
-		defer rows.Close()
-		if rows.Next() {
-			if err := rows.Scan(&exists); err != nil {
-				return err
-			}
-		}
-		return rows.Err()
+		return nil
 	})
 	if err != nil {
 		return false, err
@@ -305,37 +387,32 @@ func (db *Database) HasPackage(ctx context.Context, platform, importPath, versio
 	return exists, nil
 }
 
+const blockExists = `SELECT EXISTS (SELECT FROM blocklist WHERE import_path = $1);`
+
 // IsBlocked returns whether the package is blocked or belongs to a blocked
 // domain/repo.
 func (db *Database) IsBlocked(ctx context.Context, importPath string) (bool, error) {
 	parts := strings.Split(importPath, "/")
-	importPath = ""
-	for _, part := range parts {
-		importPath = path.Join(importPath, part)
-		var blocked bool
-		err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-			rows, err := tx.Query(
-				`SELECT EXISTS (SELECT FROM blocklist WHERE import_path = $1);`,
-				importPath)
-			if err != nil {
+	blocked := false
+	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		stmt := tx.Stmt(db.blockExists)
+		importPath := ""
+		for _, part := range parts {
+			importPath = path.Join(importPath, part)
+			row := stmt.QueryRow(importPath)
+			if err := row.Scan(&blocked); err != nil {
 				return err
 			}
-			defer rows.Close()
-			if rows.Next() {
-				if err := rows.Scan(&blocked); err != nil {
-					return err
-				}
+			if blocked {
+				break
 			}
-			return rows.Err()
-		})
-		if err != nil {
-			return false, err
 		}
-		if blocked {
-			return true, nil
-		}
+		return nil
+	})
+	if err != nil {
+		return false, err
 	}
-	return false, nil
+	return blocked, nil
 }
 
 const synopsisQuery = `
@@ -344,40 +421,28 @@ FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path AND p.version = m.latest_version;
 `
 
-func (db *Database) synopsis(ctx context.Context, platform, importPath string) (string, error) {
-	var synopsis string
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(synopsisQuery, platform, importPath)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		if rows.Next() {
-			if err := rows.Scan(&synopsis); err != nil {
-				return err
-			}
-		}
-		return rows.Err()
-	})
-	if err != nil {
-		return "", err
-	}
-	return synopsis, nil
-}
-
 // Packages returns a list of package information for the given import paths.
 // Only the ImportPath and Synopsis fields will be populated.
 func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]Package, error) {
 	var packages []Package
-	for _, importPath := range importPaths {
-		synopsis, err := db.synopsis(ctx, platform, importPath)
-		if err != nil {
-			return nil, err
+	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		stmt := tx.Stmt(db.synopsisQuery)
+		for _, importPath := range importPaths {
+			var synopsis string
+			row := stmt.QueryRow(platform, importPath)
+			err := row.Scan(&synopsis)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			packages = append(packages, Package{
+				ImportPath: importPath,
+				Synopsis:   synopsis,
+			})
 		}
-		packages = append(packages, Package{
-			ImportPath: importPath,
-			Synopsis:   synopsis,
-		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return packages, nil
 }
@@ -400,7 +465,7 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 		strings.Contains(importPath, "/internal/")
 	var packages []Package
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(subpackagesQuery,
+		rows, err := tx.Stmt(db.subpackagesQuery).Query(
 			platform, modulePath, version, isModule, importPath, isInternal)
 		if err != nil {
 			return err
@@ -436,7 +501,7 @@ WHERE module_path = $1;
 func (db *Database) Project(ctx context.Context, modulePath string) (*meta.Project, error) {
 	var project meta.Project
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		row := tx.QueryRow(projectQuery, modulePath)
+		row := tx.Stmt(db.projectQuery).QueryRow(modulePath)
 		if err := row.Scan(&project.Name, &project.URL, &project.DirFmt,
 			&project.FileFmt, &project.LineFmt); err != nil {
 			return err
@@ -465,7 +530,7 @@ dir_fmt = $4, file_fmt = $5, line_fmt = $6;
 
 // PutProject puts project information in the database.
 func (db *Database) PutProject(tx *sql.Tx, project meta.Project) error {
-	_, err := tx.Exec(insertProject,
+	_, err := tx.Stmt(db.insertProject).Exec(
 		project.ModulePath, project.Name, project.URL,
 		project.DirFmt, project.FileFmt, project.LineFmt)
 	if err != nil {
@@ -474,14 +539,15 @@ func (db *Database) PutProject(tx *sql.Tx, project meta.Project) error {
 	return nil
 }
 
+const oldestModule = `SELECT module_path, updated FROM modules ORDER BY updated LIMIT 1;`
+
 // Oldest returns the module path of the oldest module in the database
 // (i.e., the module with the smallest updated timestamp).
 func (db *Database) Oldest(ctx context.Context) (string, time.Time, error) {
 	var modulePath string
 	var timestamp time.Time
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		rows, err := tx.Query(
-			`SELECT module_path, updated FROM modules ORDER BY updated LIMIT 1;`)
+		rows, err := tx.Stmt(db.oldestModule).Query()
 		if err != nil {
 			return err
 		}
