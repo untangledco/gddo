@@ -206,7 +206,7 @@ func playID(ex *Example) string {
 func (r *Renderer) Breadcrumbs(p *Package, templateName string) htemp.HTML {
 	modulePath := p.ModulePath
 	if p.ImportPath == stdlib.ModulePath {
-		return htemp.HTML(`<span class="text-muted">Standard library</span>`)
+		return ""
 	}
 	if !strings.HasPrefix(p.ImportPath, p.ModulePath) {
 		// This is the case for stdlib packages
