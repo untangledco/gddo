@@ -102,10 +102,14 @@ func (p *Package) Title() string {
 	if p.ImportPath == stdlib.ModulePath {
 		return "Standard library"
 	}
-	if p.Name != "" && p.Name != "main" {
-		return p.Name
+	if p.IsPackage() {
+		return "package " + p.Name
 	}
-	return path.Base(p.ImportPath)
+	if p.IsCommand() {
+		return path.Base(p.ImportPath) + " command"
+	}
+	// Directory
+	return path.Base(p.ImportPath) + "/ directory"
 }
 
 // ModuleTitle returns a title for the module.
@@ -114,6 +118,11 @@ func (p *Package) ModuleTitle() string {
 		return "Standard library"
 	}
 	return path.Base(p.ModulePath)
+}
+
+// IsPackage reports whether p is a regular package.
+func (p *Package) IsPackage() bool {
+	return p.Name != "" && p.Name != "main"
 }
 
 // IsCommand reports whether p is a command package.

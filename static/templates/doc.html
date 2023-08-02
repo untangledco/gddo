@@ -1,7 +1,7 @@
 {{define "Head"}}
-  <title>{{.Title}} - {{config.BrandName}}</title>
+  <title>{{.Title}} - {{.ImportPath}} - {{config.BrandName}}</title>
   {{if .Synopsis}}
-    <meta property="og:title" content="{{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.Title}}">
+    <meta property="og:title" content="{{.Title}}">
     <meta name="description" content="{{.Synopsis}}">
     <meta property="og:description" content="{{.Synopsis}}">
   {{end}}
@@ -14,18 +14,16 @@
     <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
   {{end}}
 
-  {{if .Name}}
-    <h2 id="pkg-overview">{{if .IsCommand}}Command{{else}}package{{end}} {{.Title}}</h2>
-    {{if not .IsCommand}}<p><code>import "{{.ImportPath}}"</code>{{end}}
+  {{if or .IsPackage .IsCommand}}
+    <h2 id="pkg-overview">{{.Title}}</h2>
+    {{if .IsPackage}}<p><code>import "{{.ImportPath}}"</code></p>{{end}}
     {{render_doc .Doc}}
   {{end}}
 
-  {{template "Examples" .PackageExamples}}
+  {{if .IsPackage}}
+    {{template "Examples" .PackageExamples}}
 
-  {{if not .IsCommand}}
-    {{if .Name}}
-      <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-    {{end}}
+    <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
 
     <ul class="list-unstyled">
       {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
@@ -137,7 +135,7 @@
     <p><a href="{{view "" "tools"}}">Tools</a> for package owners.</p>
   </div>
 
-{{if and .Name (not .IsCommand)}}
+{{if .IsPackage}}
   <div id="x-jump" tabindex="-1" class="modal">
     <div class="modal-dialog">
       <div class="modal-content">
