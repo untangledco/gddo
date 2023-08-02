@@ -21,18 +21,19 @@
   {{if .IsPackage}}
     {{template "Examples" .PackageExamples}}
 
-    <h3 id="pkg-index" class="section-header">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-
+    <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
     <ul class="list-unstyled">
       {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
       {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
       {{range .Funcs}}<li><a href="#{{.Name}}">{{render_func $ .Decl}}</a></li>{{end}}
       {{range $t := .Types}}
         <li><a href="#{{.Name}}">type {{.Name}}</a></li>
-        {{if or .Funcs .Methods}}<ul>{{end}}
-        {{range .Funcs}}<li><a href="#{{.Name}}">{{render_func $ .Decl}}</a></li>{{end}}
-        {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{render_func $ .Decl}}</a></li>{{end}}
-        {{if or .Funcs .Methods}}</ul>{{end}}
+        {{if or .Funcs .Methods}}
+          <ul>
+            {{range .Funcs}}<li><a href="#{{.Name}}">{{render_func $ .Decl}}</a></li>{{end}}
+            {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{render_func $ .Decl}}</a></li>{{end}}
+          </ul>
+        {{end}}
       {{end}}
       {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
     </ul>
@@ -42,15 +43,6 @@
       <ul class="list-unstyled">
         {{range .}}<li><a href="#{{.ID}}">{{or .Symbol "package"}}{{with .Suffix}} ({{.}}){{end}}</a></li>{{end}}
       </ul>
-    {{end}}
-
-    {{if .Filenames}}
-      <h4 id="pkg-files">
-        {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
-        <a class="permalink" href="#pkg-files">&para;</a>
-      </h4>
-
-      <p>{{range $file := .Filenames}}{{with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}} {{end}}</p>
     {{end}}
 
     {{if .Consts}}
@@ -63,35 +55,52 @@
       {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
     {{end}}
 
-    {{range .Funcs}}
-      <h3 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
-      {{template "Examples" .|$.ObjExamples}}
-    {{end}}
-
-    {{range $t := .Types}}
-      <h3 id="{{.Name}}" data-kind="type">type {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-      <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
-      {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-      {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-      {{template "Examples" .|$.ObjExamples}}
-
+    {{if .Funcs}}
+      <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
       {{range .Funcs}}
         <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+        <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>
+        {{render_doc .Doc}}
         {{template "Examples" .|$.ObjExamples}}
       {{end}}
+    {{end}}
 
-      {{range .Methods}}
-        <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+    {{if .Types}}
+      <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
+      {{range $t := .Types}}
+        <h3 id="{{.Name}}" data-kind="type">type {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
+        <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+        {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
+        {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
         {{template "Examples" .|$.ObjExamples}}
+
+        {{range .Funcs}}
+          <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
+          <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+          {{template "Examples" .|$.ObjExamples}}
+        {{end}}
+
+        {{range .Methods}}
+          <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
+          <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+          {{template "Examples" .|$.ObjExamples}}
+        {{end}}
       {{end}}
     {{end}}
 
     {{with .Notes}}{{with .BUG}}
-      <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>{{range .}}<p>{{source_link .Pos "☞" true}} {{.Body}}{{end}}
+      <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>
+      {{range .}}<p>{{source_link .Pos "☞" true}} {{.Body}}{{end}}
     {{end}}{{end}}
+
+    {{if .Filenames}}
+      <h3 id="pkg-files">
+        {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
+        <a class="permalink" href="#pkg-files">&para;</a>
+      </h3>
+
+      <p>{{range $file := .Filenames}}{{with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}} {{end}}</p>
+    {{end}}
   {{end}}
 
   {{if .SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
