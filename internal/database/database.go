@@ -163,7 +163,9 @@ const countModules = `SELECT COUNT(*) FROM modules;`
 // Modules returns the number of modules in the database.
 func (db *Database) Modules(ctx context.Context) (int64, error) {
 	var count int64
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		row := tx.Stmt(db.countModules).QueryRow()
 		if err := row.Scan(&count); err != nil {
 			return err
@@ -228,7 +230,9 @@ LIMIT 20;
 // Search performs a search with the provided query string.
 func (db *Database) Search(ctx context.Context, platform, query string) ([]Package, error) {
 	var packages []Package
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		rows, err := tx.Stmt(db.searchQuery).Query(platform, query)
 		if err != nil {
 			return err
@@ -272,7 +276,9 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, *internal.Package, error) {
 	var mod internal.Module
 	var source []byte
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		var row *sql.Row
 		if version == internal.LatestVersion {
 			row = tx.Stmt(db.latestQuery).QueryRow(platform, importPath)
@@ -380,7 +386,9 @@ const packageExists = `SELECT EXISTS (SELECT FROM packages WHERE platform = $1 A
 // HasPackage reports whether the given package is present in the database.
 func (db *Database) HasPackage(ctx context.Context, platform, importPath, version string) (bool, error) {
 	exists := false
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		row := tx.Stmt(db.packageExists).QueryRow(platform, importPath, version)
 		if err := row.Scan(&exists); err != nil {
 			return err
@@ -400,7 +408,9 @@ const blockExists = `SELECT EXISTS (SELECT FROM blocklist WHERE import_path = $1
 func (db *Database) IsBlocked(ctx context.Context, importPath string) (bool, error) {
 	parts := strings.Split(importPath, "/")
 	blocked := false
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		stmt := tx.Stmt(db.blockExists)
 		importPath := ""
 		for _, part := range parts {
@@ -431,7 +441,9 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path A
 // Only the ImportPath and Synopsis fields will be populated.
 func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]Package, error) {
 	var packages []Package
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		stmt := tx.Stmt(db.synopsisQuery)
 		for _, importPath := range importPaths {
 			var synopsis string
@@ -470,7 +482,9 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 		strings.HasSuffix(importPath, "/internal") ||
 		strings.Contains(importPath, "/internal/")
 	var packages []Package
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		rows, err := tx.Stmt(db.subpackagesQuery).Query(
 			platform, modulePath, version, isModule, importPath, isInternal)
 		if err != nil {
@@ -504,7 +518,9 @@ SELECT summary, dir, file, rawfile, line FROM projects WHERE module_path = $1;
 // It may return nil if no project exists.
 func (db *Database) Project(ctx context.Context, modulePath string) (*autodiscovery.Project, error) {
 	var project autodiscovery.Project
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		row := tx.Stmt(db.projectQuery).QueryRow(modulePath)
 		if err := row.Scan(&project.Summary, &project.Dir, &project.File,
 			&project.RawFile, &project.Line); err != nil {
@@ -527,7 +543,9 @@ const projectUpdated = `SELECT updated FROM projects WHERE module_path = $1;`
 // If no project exists, it returns the zero timestamp.
 func (db *Database) ProjectUpdated(ctx context.Context, modulePath string) (time.Time, error) {
 	var updated time.Time
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		row := tx.Stmt(db.projectUpdated).QueryRow(modulePath)
 		if err := row.Scan(&updated); err != nil {
 			return err
@@ -576,7 +594,9 @@ const oldestModule = `SELECT module_path, updated FROM modules ORDER BY updated 
 func (db *Database) Oldest(ctx context.Context) (string, time.Time, error) {
 	var modulePath string
 	var timestamp time.Time
-	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+	err := db.WithTx(ctx, &sql.TxOptions{
+		ReadOnly: true,
+	}, func(tx *sql.Tx) error {
 		rows, err := tx.Stmt(db.oldestModule).Query()
 		if err != nil {
 			return err
