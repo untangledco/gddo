@@ -88,30 +88,20 @@ func Fetch(ctx context.Context, client *http.Client, seriesPath, userAgent strin
 		return githubProject(seriesPath), nil
 	}
 
-	uri := seriesPath
-	if !strings.Contains(uri, "/") {
-		// Add slash for root of domain.
-		uri += "/"
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+uri, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://"+seriesPath, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		if err == nil {
-			resp.Body.Close()
-		}
-		req.URL.Scheme = "http"
-		resp, err = client.Do(req)
-		if err != nil {
-			return nil, err
-		}
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil
+	}
 
 	// Parse body for forge meta tags
 	d := xml.NewDecoder(resp.Body)
