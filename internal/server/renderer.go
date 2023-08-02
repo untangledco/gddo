@@ -170,7 +170,9 @@ func (r *Renderer) View(importPath, view string) string {
 			b.WriteString(r.version)
 		}
 	}
-	b.WriteByte('?')
+	if view != "" || r.showPlatform {
+		b.WriteByte('?')
+	}
 	amp := false
 	if view != "" {
 		b.WriteString("view=")
