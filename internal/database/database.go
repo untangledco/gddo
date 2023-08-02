@@ -46,6 +46,7 @@ type Database struct {
 	synopsisQuery    *sql.Stmt
 	subpackagesQuery *sql.Stmt
 	projectQuery     *sql.Stmt
+	projectUpdated   *sql.Stmt
 	insertProject    *sql.Stmt
 	oldestModule     *sql.Stmt
 }
@@ -115,6 +116,10 @@ func (db *Database) prepare() error {
 	if err != nil {
 		return err
 	}
+	db.projectUpdated, err = db.pg.Prepare(projectUpdated)
+	if err != nil {
+		return err
+	}
 	db.insertProject, err = db.pg.Prepare(insertProject)
 	if err != nil {
 		return err
@@ -174,8 +179,9 @@ func (db *Database) Modules(ctx context.Context) (int64, error) {
 const insertModule = `
 INSERT INTO modules (
 	module_path, series_path, latest_version, versions, deprecated, updated
-) VALUES ( $1, $2, $3, $4, $5, NOW() )
-ON CONFLICT (module_path) DO
+) VALUES (
+	$1, $2, $3, $4, $5, NOW()
+) ON CONFLICT (module_path) DO
 UPDATE SET series_path = $2, latest_version = $3, versions = $4, deprecated = $5, updated = NOW();
 `
 
@@ -506,7 +512,6 @@ func (db *Database) Project(ctx context.Context, modulePath string) (*meta.Proje
 			&project.FileFmt, &project.LineFmt); err != nil {
 			return err
 		}
-		project.ModulePath = modulePath
 		return nil
 	})
 	if errors.Is(err, sql.ErrNoRows) {
@@ -518,21 +523,42 @@ func (db *Database) Project(ctx context.Context, modulePath string) (*meta.Proje
 	return &project, nil
 }
 
+const projectUpdated = `SELECT updated FROM projects WHERE module_path = $1;`
+
+// ProjectUpdated returns the last time the project was updated.
+// If no project exists, it returns the zero timestamp.
+func (db *Database) ProjectUpdated(ctx context.Context, modulePath string) (time.Time, error) {
+	var updated time.Time
+	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		row := tx.Stmt(db.projectUpdated).QueryRow(modulePath)
+		if err := row.Scan(&updated); err != nil {
+			return err
+		}
+		return nil
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return updated, nil
+}
+
 const insertProject = `
 INSERT INTO projects (
-	module_path, name, url, dir_fmt, file_fmt, line_fmt
+	module_path, name, url, dir_fmt, file_fmt, line_fmt, updated
 ) VALUES (
-	$1, $2, $3, $4, $5, $6
+	$1, $2, $3, $4, $5, $6, NOW()
 ) ON CONFLICT (module_path) DO
-UPDATE SET name = $2, url = $3,
-dir_fmt = $4, file_fmt = $5, line_fmt = $6;
+UPDATE SET name = $2, url = $3, dir_fmt = $4, file_fmt = $5, line_fmt = $6, updated = NOW();
 `
 
 // PutProject puts project information in the database.
-func (db *Database) PutProject(ctx context.Context, project *meta.Project) error {
+func (db *Database) PutProject(ctx context.Context, modulePath string, project *meta.Project) error {
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.Stmt(db.insertProject).Exec(
-			project.ModulePath, project.Name, project.URL,
+			modulePath, project.Name, project.URL,
 			project.DirFmt, project.FileFmt, project.LineFmt)
 		if err != nil {
 			return err

@@ -53,6 +53,7 @@ CREATE TABLE projects (
 	dir_fmt text NOT NULL,
 	file_fmt text NOT NULL,
 	line_fmt text NOT NULL,
+	updated timestamptz NOT NULL,
 	PRIMARY KEY (module_path),
 	FOREIGN KEY (module_path) REFERENCES modules (module_path) ON DELETE CASCADE
 );

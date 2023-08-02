@@ -17,12 +17,11 @@ var ErrNoInfo = errors.New("no project information found")
 
 // Project contains information about a project.
 type Project struct {
-	ModulePath string
-	Name       string
-	URL        string
-	DirFmt     string
-	FileFmt    string
-	LineFmt    string
+	Name    string
+	URL     string
+	DirFmt  string
+	FileFmt string
+	LineFmt string
 }
 
 // Dir returns a link to the provided directory.
@@ -46,21 +45,20 @@ const (
 	stdlibLineFmt = "https://github.com/golang/go/blob/{ref}/src/{path}#L{line}"
 )
 
-// Fetch fetches project information for the provided module path.
-func Fetch(ctx context.Context, client *http.Client, modulePath, userAgent string) (*Project, error) {
+// Fetch fetches project information for the provided module series path.
+func Fetch(ctx context.Context, client *http.Client, seriesPath, userAgent string) (*Project, error) {
 	// Special case for stdlib
-	if stdlib.Contains(modulePath) {
+	if stdlib.Contains(seriesPath) {
 		return &Project{
-			ModulePath: modulePath,
-			Name:       "Go",
-			URL:        "/std",
-			DirFmt:     processTemplate(stdlibDirFmt),
-			FileFmt:    processTemplate(stdlibFileFmt),
-			LineFmt:    processLineTemplate(stdlibLineFmt),
+			Name:    "Go",
+			URL:     "/std",
+			DirFmt:  processTemplate(stdlibDirFmt),
+			FileFmt: processTemplate(stdlibFileFmt),
+			LineFmt: processLineTemplate(stdlibLineFmt),
 		}, nil
 	}
 
-	uri := modulePath
+	uri := seriesPath
 	if !strings.Contains(uri, "/") {
 		// Add slash for root of domain.
 		uri += "/"
@@ -90,8 +88,7 @@ func Fetch(ctx context.Context, client *http.Client, modulePath, userAgent strin
 	d.Strict = false
 
 	project := &Project{
-		ModulePath: modulePath,
-		Name:       path.Base(modulePath),
+		Name: path.Base(seriesPath),
 	}
 	ok := false
 

@@ -111,32 +111,36 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	}
 
 	if mod.ModulePath != modulePath {
-		// The import paths don't match
+		// The module paths don't match
 		return ErrMismatch{
 			ExpectedPath: modulePath,
 			ActualPath:   mod.ModulePath,
 		}
 	}
 
-	// Update the module information in the database
 	if err := s.db.PutModule(ctx, mod); err != nil {
 		return err
 	}
 
 	// Update project information
-	// TODO: Limit how often this can be done
-	project, err := meta.Fetch(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
-	if err != nil && !errors.Is(err, meta.ErrNoInfo) {
-		log.Printf("Error fetching project information for %s: %v", mod.ModulePath, err)
+	lastUpdated, err := s.db.ProjectUpdated(ctx, modulePath)
+	if err != nil {
+		return err
 	}
-	if project != nil {
-		if err := s.db.PutProject(ctx, project); err != nil {
-			return err
+	if time.Since(lastUpdated) > 5*time.Minute {
+		project, err := meta.Fetch(ctx, s.httpClient, mod.SeriesPath, s.cfg.UserAgent)
+		if err != nil && !errors.Is(err, meta.ErrNoInfo) {
+			log.Printf("Error fetching project information for %s: %v", modulePath, err)
+		}
+		if project != nil {
+			if err := s.db.PutProject(ctx, modulePath, project); err != nil {
+				return err
+			}
 		}
 	}
 
 	// If the packages are already in the database, return
-	if ok, err := s.db.HasPackage(ctx, platform, mod.ModulePath, mod.Version); err != nil {
+	if ok, err := s.db.HasPackage(ctx, platform, modulePath, mod.Version); err != nil {
 		return err
 	} else if ok {
 		return nil
@@ -147,7 +151,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	if err != nil {
 		return err
 	}
-	pkgs, err := parsePackages(platform, mod.ModulePath, fsys)
+	pkgs, err := parsePackages(platform, modulePath, fsys)
 	if err != nil {
 		return err
 	}
@@ -162,13 +166,12 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	})
 
 	return s.db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		return s.putModule(tx, platform, mod, pkgs, project)
+		return s.putPackages(tx, platform, mod, pkgs)
 	})
 }
 
-// putModule puts a module and its associated packages in the database.
-// project may be nil.
-func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package, project *meta.Project) error {
+// putPackages puts the packages for a given module in the database.
+func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package) error {
 	// Add packages to the database
 	for importPath, pkg := range pkgs {
 		// Encode source files before rendering documentation, since
@@ -178,6 +181,7 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pk
 			return err
 		}
 
+		// TODO: Handle empty packages
 		// TODO: Truncate large packages?
 
 		docPkg, err := buildDoc(importPath, pkg)
