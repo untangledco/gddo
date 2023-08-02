@@ -105,7 +105,8 @@ func (p *Package) Title() string {
 	if p.IsPackage() {
 		return "package " + p.Name
 	}
-	if p.IsCommand() {
+	if p.Name == "main" {
+		// Command
 		return path.Base(p.ImportPath) + " command"
 	}
 	// Directory
@@ -123,11 +124,6 @@ func (p *Package) ModuleTitle() string {
 // IsPackage reports whether p is a regular package.
 func (p *Package) IsPackage() bool {
 	return p.Name != "" && p.Name != "main"
-}
-
-// IsCommand reports whether p is a command package.
-func (p *Package) IsCommand() bool {
-	return p.Name == "main"
 }
 
 // Cgo reports whether the package uses Cgo.

@@ -14,11 +14,9 @@
     <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
   {{end}}
 
-  {{if or .IsPackage .IsCommand}}
-    <h2 id="pkg-overview">{{.Title}}</h2>
-    {{if .IsPackage}}<p><code>import "{{.ImportPath}}"</code></p>{{end}}
-    {{render_doc .Doc}}
-  {{end}}
+  <h2 id="pkg-overview">{{.Title}}</h2>
+  {{if .IsPackage}}<p><code>import "{{.ImportPath}}"</code></p>{{end}}
+  {{render_doc .Doc}}
 
   {{if .IsPackage}}
     {{template "Examples" .PackageExamples}}

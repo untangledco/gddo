@@ -14,8 +14,8 @@ Output:
 {{.}}```
 {{end}}{{end}}{{end -}}
 
-# {{if .IsCommand}}Command {{else if .Name}}Package {{end}}{{.Title}} - {{config.BrandName}}
-{{if and .Name (not .IsCommand)}}
+# {{.Title}} - {{.ImportPath}} - {{config.BrandName}}
+{{if .IsPackage}}
 ```
 import "{{.ImportPath}}"
 ```
@@ -25,7 +25,7 @@ import "{{.ImportPath}}"
 {{render_doc .Doc}}{{end}}
 {{- template "Examples" .PackageExamples}}
 
-{{- if not .IsCommand}}
+{{- if .IsPackage}}
 
 {{- if .Consts}}
 ## Constants
