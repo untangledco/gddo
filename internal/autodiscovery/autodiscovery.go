@@ -65,12 +65,27 @@ func stdlibProject() *Project {
 	}
 }
 
+func githubProject(seriesPath string) *Project {
+	base := "https://" + seriesPath
+	return &Project{
+		Summary: base,
+		Dir:     base + "/tree/{ref}/{path}",
+		File:    base + "/blob/{ref}/{path}",
+		RawFile: base + "/raw/{ref}/{path}",
+		Line:    base + "/blob/{ref}/{path}#L{line}",
+	}
+}
+
 // Fetch fetches project information for the provided module series path.
 // It returns nil if no project information was found.
 func Fetch(ctx context.Context, client *http.Client, seriesPath, userAgent string) (*Project, error) {
 	// Special case for stdlib
 	if stdlib.Contains(seriesPath) {
 		return stdlibProject(), nil
+	}
+	// Special case for GitHub
+	if strings.HasPrefix(seriesPath, "github.com/") {
+		return githubProject(seriesPath), nil
 	}
 
 	uri := seriesPath
