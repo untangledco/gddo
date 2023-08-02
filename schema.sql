@@ -48,11 +48,11 @@ CREATE INDEX packages_searchtext_idx ON packages USING GIN (searchtext);
 -- Used to store project information
 CREATE TABLE projects (
 	module_path text NOT NULL,
-	name text NOT NULL,
-	url text NOT NULL,
-	dir_fmt text NOT NULL,
-	file_fmt text NOT NULL,
-	line_fmt text NOT NULL,
+	summary text NOT NULL,
+	dir text NOT NULL,
+	file text NOT NULL,
+	rawfile text NOT NULL,
+	line text NOT NULL,
 	updated timestamptz NOT NULL,
 	PRIMARY KEY (module_path),
 	FOREIGN KEY (module_path) REFERENCES modules (module_path) ON DELETE CASCADE

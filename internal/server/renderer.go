@@ -16,8 +16,8 @@ import (
 	"strings"
 	"text/template"
 
+	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
 	"git.sr.ht/~sircmpwn/gddo/internal/gemini"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/printer"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
@@ -28,7 +28,7 @@ type Renderer struct {
 	fset    *token.FileSet
 	parser  *comment.Parser
 	printer *comment.Printer
-	project *meta.Project
+	project *autodiscovery.Project
 	ref     string
 	dir     string
 
@@ -47,7 +47,7 @@ func NewRenderer(p *Package, cfg *Config) *Renderer {
 		fset:    p.FileSet,
 		parser:  p.Parser(),
 		printer: printer,
-		project: p.Project,
+		project: p.project,
 		ref:     p.Reference,
 		dir:     p.dir,
 
@@ -113,7 +113,7 @@ func (r *Renderer) SourceLink(p token.Pos, text string, textOnlyOK bool) htemp.H
 		}
 		return ""
 	}
-	link := r.project.Line(r.ref, r.dir, pos.Filename, strconv.Itoa(pos.Line))
+	link := r.project.LineURL(r.ref, r.dir, pos.Filename, strconv.Itoa(pos.Line))
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
 		htemp.HTMLEscapeString(link),
 		htemp.HTMLEscapeString(text)))

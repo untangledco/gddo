@@ -50,11 +50,11 @@
 
     {{if .Filenames}}
       <h4 id="pkg-files">
-        {{if .Project}}<a rel="noopener nofollow" href="{{.DirURL}}">Package Files</a>{{else}}Package Files{{end}}
+        {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
         <a class="permalink" href="#pkg-files">&para;</a>
       </h4>
 
-      <p>{{range .Filenames}}{{if $.Project}}<a rel="noopener nofollow" href="{{$.FileURL .}}">{{.}}</a>{{else}}{{.}}{{end}} {{end}}</p>
+      <p>{{range $file := .Filenames}}{{with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}} {{end}}</p>
     {{end}}
 
     {{if .Consts}}

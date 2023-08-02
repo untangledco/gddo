@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
+	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/semver"
@@ -128,8 +128,8 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 		return err
 	}
 	if time.Since(lastUpdated) > 5*time.Minute {
-		project, err := meta.Fetch(ctx, s.httpClient, mod.SeriesPath, s.cfg.UserAgent)
-		if err != nil && !errors.Is(err, meta.ErrNoInfo) {
+		project, err := autodiscovery.Fetch(ctx, s.httpClient, mod.SeriesPath, s.cfg.UserAgent)
+		if err != nil {
 			log.Printf("Error fetching project information for %s: %v", modulePath, err)
 		}
 		if project != nil {
@@ -172,7 +172,6 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 
 // putPackages puts the packages for a given module in the database.
 func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package) error {
-	// Add packages to the database
 	for importPath, pkg := range pkgs {
 		// Encode source files before rendering documentation, since
 		// doc.New overwrites the AST.
@@ -194,7 +193,6 @@ func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, 
 			return err
 		}
 	}
-
 	return nil
 }
 

@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
+	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
@@ -31,9 +31,9 @@ type Package struct {
 	Platform    string
 	SubPackages []database.Package
 	Imported    []database.Package
-	Project     *meta.Project
 	Message     string
 
+	project     *autodiscovery.Project
 	dir         string
 	examples    []*Example
 	examplesMap map[any][]*Example
@@ -123,14 +123,28 @@ func (p *Package) Cgo() bool {
 	return false
 }
 
+// SummaryURL returns the URL for the project summary.
+func (p *Package) SummaryURL() string {
+	if p.project != nil {
+		return p.project.Summary
+	}
+	return ""
+}
+
 // DirURL returns the URL for the package directory.
 func (p *Package) DirURL() string {
-	return p.Project.Dir(p.Reference, p.dir)
+	if p.project != nil {
+		return p.project.DirURL(p.Reference, p.dir)
+	}
+	return ""
 }
 
 // FileURL returns the URL for the given file.
 func (p *Package) FileURL(file string) string {
-	return p.Project.File(p.Reference, p.dir, file)
+	if p.project != nil {
+		return p.project.FileURL(p.Reference, p.dir, file)
+	}
+	return ""
 }
 
 // Example is a [doc.Example] with additional information for use in templates.

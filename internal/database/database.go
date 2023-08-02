@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/meta"
+	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
@@ -497,19 +497,17 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 }
 
 const projectQuery = `
-SELECT name, url, dir_fmt, file_fmt, line_fmt
-FROM projects
-WHERE module_path = $1;
+SELECT summary, dir, file, rawfile, line FROM projects WHERE module_path = $1;
 `
 
 // Project returns information about the project associated with the given module.
 // It may return nil if no project exists.
-func (db *Database) Project(ctx context.Context, modulePath string) (*meta.Project, error) {
-	var project meta.Project
+func (db *Database) Project(ctx context.Context, modulePath string) (*autodiscovery.Project, error) {
+	var project autodiscovery.Project
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		row := tx.Stmt(db.projectQuery).QueryRow(modulePath)
-		if err := row.Scan(&project.Name, &project.URL, &project.DirFmt,
-			&project.FileFmt, &project.LineFmt); err != nil {
+		if err := row.Scan(&project.Summary, &project.Dir, &project.File,
+			&project.RawFile, &project.Line); err != nil {
 			return err
 		}
 		return nil
@@ -547,19 +545,19 @@ func (db *Database) ProjectUpdated(ctx context.Context, modulePath string) (time
 
 const insertProject = `
 INSERT INTO projects (
-	module_path, name, url, dir_fmt, file_fmt, line_fmt, updated
+	module_path, summary, dir, file, rawfile, line, updated
 ) VALUES (
 	$1, $2, $3, $4, $5, $6, NOW()
 ) ON CONFLICT (module_path) DO
-UPDATE SET name = $2, url = $3, dir_fmt = $4, file_fmt = $5, line_fmt = $6, updated = NOW();
+UPDATE SET summary = $2, dir = $3, file = $4, rawfile = $5, line = $6, updated = NOW();
 `
 
 // PutProject puts project information in the database.
-func (db *Database) PutProject(ctx context.Context, modulePath string, project *meta.Project) error {
+func (db *Database) PutProject(ctx context.Context, modulePath string, project *autodiscovery.Project) error {
 	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		_, err := tx.Stmt(db.insertProject).Exec(
-			modulePath, project.Name, project.URL,
-			project.DirFmt, project.FileFmt, project.LineFmt)
+			modulePath, project.Summary, project.Dir, project.File,
+			project.RawFile, project.Line)
 		if err != nil {
 			return err
 		}

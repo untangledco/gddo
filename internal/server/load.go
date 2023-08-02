@@ -75,7 +75,7 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		if err != nil {
 			return nil, err
 		}
-		pkg.Project = project
+		pkg.project = project
 	}
 
 	return pkg, nil
