@@ -131,13 +131,13 @@ func (r *Renderer) DocGemini(text string) string {
 }
 
 // FuncString formats a function declaration into a single line.
-func (r *Renderer) FuncString(p *Package, decl *ast.FuncDecl) string {
+func (r *Renderer) FuncString(decl *ast.FuncDecl) string {
 	var out strings.Builder
 	config := goprinter.Config{
 		Mode:     goprinter.UseSpaces,
 		Tabwidth: 4,
 	}
-	config.Fprint(&out, p.FileSet, decl)
+	config.Fprint(&out, r.fset, decl)
 	return out.String()
 }
 
