@@ -529,10 +529,16 @@ dir_fmt = $4, file_fmt = $5, line_fmt = $6;
 `
 
 // PutProject puts project information in the database.
-func (db *Database) PutProject(tx *sql.Tx, project meta.Project) error {
-	_, err := tx.Stmt(db.insertProject).Exec(
-		project.ModulePath, project.Name, project.URL,
-		project.DirFmt, project.FileFmt, project.LineFmt)
+func (db *Database) PutProject(ctx context.Context, project *meta.Project) error {
+	err := db.WithTx(ctx, nil, func(tx *sql.Tx) error {
+		_, err := tx.Stmt(db.insertProject).Exec(
+			project.ModulePath, project.Name, project.URL,
+			project.DirFmt, project.FileFmt, project.LineFmt)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}

@@ -123,6 +123,18 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 		return err
 	}
 
+	// Update project information
+	// TODO: Limit how often this can be done
+	project, err := meta.Fetch(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
+	if err != nil && !errors.Is(err, meta.ErrNoInfo) {
+		log.Printf("Error fetching project information for %s: %v", mod.ModulePath, err)
+	}
+	if project != nil {
+		if err := s.db.PutProject(ctx, project); err != nil {
+			return err
+		}
+	}
+
 	// If the packages are already in the database, return
 	if ok, err := s.db.HasPackage(ctx, platform, mod.ModulePath, mod.Version); err != nil {
 		return err
@@ -148,12 +160,6 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	sort.Slice(mod.Versions, func(i, j int) bool {
 		return semver.Compare(mod.Versions[i], mod.Versions[j]) > 0
 	})
-
-	// Fetch project information
-	project, err := meta.Fetch(ctx, s.httpClient, modulePath, s.cfg.UserAgent)
-	if err != nil && !errors.Is(err, meta.ErrNoInfo) {
-		log.Printf("Error fetching project information for %s: %v", mod.ModulePath, err)
-	}
 
 	return s.db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		return s.putModule(tx, platform, mod, pkgs, project)
@@ -181,13 +187,6 @@ func (s *Server) putModule(tx *sql.Tx, platform string, mod *internal.Module, pk
 			continue
 		}
 		if err := s.db.PutPackage(tx, platform, mod, docPkg, source); err != nil {
-			return err
-		}
-	}
-
-	// Update project information
-	if project != nil {
-		if err := s.db.PutProject(tx, *project); err != nil {
 			return err
 		}
 	}
