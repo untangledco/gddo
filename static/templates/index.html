@@ -1,7 +1,9 @@
-{{define "Head"}}<title>{{config.BrandName}}</title>
-<link rel="search" type="application/opensearchdescription+xml" title="{{config.BrandName}}" href="/-/opensearch.xml"/>{{end}}
+{{define "head"}}
+  <title>{{config.BrandName}}</title>
+  <link rel="search" type="application/opensearchdescription+xml" title="{{config.BrandName}}" href="/-/opensearch.xml"/>
+{{- end}}
 
-{{define "Body"}}
+{{define "body"}}
 <div class="jumbotron">
   <h2>Search for Go Packages</h2>
   {{template "SearchBox" .}}
@@ -12,5 +14,4 @@
 Read the <a href="/-/about">About Page</a> for information about adding packages
 to {{config.BrandName}} and more.
 </p>
-
 {{end}}

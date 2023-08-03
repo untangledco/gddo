@@ -1,16 +1,20 @@
-{{define "Head"}}<title>{{.Title}} versions - {{config.BrandName}}</title>
-<meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "head"}}
+  <title>{{.Title}} versions - {{.ImportPath}} - {{config.BrandName}}</title>
+  <meta name="robots" content="NOINDEX, NOFOLLOW">
+{{- end}}
 
-{{define "Body"}}
-  {{template "ProjectNav" $}}
-  <h3>Versions of {{.Title}}</h3>
-  <ul>{{range .Versions}}
-    <li><a href="/{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{query}}">{{.}}</a> {{if eq . $.LatestVersion}} (latest){{end}}</li>{{end}}
+{{define "body"}}
+  {{- template "ProjectNav" .}}
+  <h2>Versions of {{.Title}}</h2>
+  <ul>
+    {{- range .Versions}}
+    <li><a href="/{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{query}}">{{.}}</a> {{if eq . $.LatestVersion}} (latest){{end}}</li>
+    {{- end}}
   </ul>
-  {{if ne .ImportPath .ModulePath}}
+  {{- if ne .ImportPath .ModulePath}}
   <p>
     <strong>Note</strong>: this list may be incomplete.
-    <a href="/{{view $.ModulePath "versions"}}">View all versions of this module.</a>
+    <a href="{{view $.ModulePath "versions"}}">View all versions of this module.</a>
   </p>
-  {{end}}
-{{end}}
+  {{- end}}
+{{- end}}

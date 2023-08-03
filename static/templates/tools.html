@@ -1,12 +1,13 @@
-{{define "Head"}}<title>{{.Title}} tools - {{config.BrandName}}</title>
-<meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "head"}}
+  <title>{{.Title}} tools - {{config.BrandName}}</title>
+  <meta name="robots" content="NOINDEX, NOFOLLOW">
+{{- end}}
 
-{{define "Body"}}
-  {{template "ProjectNav" $.Package}}
+{{define "body"}}
+  {{- template "ProjectNav" $.Package}}
   <h2>Tools for {{$.Title}}</h2>
 
   <h3>Badge</h3>
-
   <p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="Go Documentation"></a>
 
   <p>Use one of the snippets below to add a link to {{config.BrandName}} from your
@@ -18,11 +19,11 @@
   <h5>Markdown</h5>
   <pre>[![Go Documentation]({{.URI}}?status.svg)]({{.URI}})</pre>
 
-{{if and .IsPackage (not .Doc)}}
+{{- if and .IsPackage (not .Doc)}}
   <p>The {{.Name}} package does not have a package declaration comment.
   See the <a href="https://go.dev/doc/comment">Go documentation guidelines</a>
   for information on how to write a package comment. It's important to write
   a good summary of the package in the first sentence of the package comment.
   {{config.BrandName}} indexes the first sentence and displays it in search results.
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}

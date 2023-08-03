@@ -1,22 +1,26 @@
-{{define "Head"}}<title>{{.Query}} - {{config.BrandName}}</title>
-<meta name="robots" content="NOINDEX">{{end}}
+{{define "head"}}
+  <title>{{.Query}} - {{config.BrandName}}</title>
+  <meta name="robots" content="NOINDEX">
+{{- end}}
 
-{{define "Body"}}
-  {{template "FlashMessage" .Message}}
+{{define "body"}}
+  {{- template "FlashMessage" .Message}}
   <div class="well">
-    {{template "SearchBox" .Query}}
+    {{- template "SearchBox" .Query}}
   </div>
-  {{if .Results}}
-    <table class="table table-condensed">
-      <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-      <tbody>{{range .Results}}
-        <tr>
-          <td><a href="/{{.ImportPath}}">{{.ImportPath}}</a></td>
-          <td class="synopsis">{{.Synopsis}}</td>
-        </tr>
-      {{end}}</tbody>
-    </table>
-  {{else}}
-    <p>No packages found.
-  {{end}}
-{{end}}
+  {{- if .Results}}
+  <table class="table table-condensed">
+    <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+    <tbody>
+      {{- range .Results}}
+      <tr>
+        <td><a href="/{{.ImportPath}}">{{.ImportPath}}</a></td>
+        <td class="synopsis">{{.Synopsis}}</td>
+      </tr>
+      {{- end}}
+    </tbody>
+  </table>
+  {{- else}}
+  <p>No packages found.
+  {{- end}}
+{{- end}}

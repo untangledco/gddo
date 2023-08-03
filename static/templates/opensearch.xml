@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
-    <InputEncoding>UTF-8</InputEncoding>
-    <ShortName>{{config.BrandName}}</ShortName>
-    <Description>{{config.BrandName}}: Go Documentation Service</Description>
-    <Url type="text/html" method="get" template="{{.}}/?q={searchTerms}"/>
+  <InputEncoding>UTF-8</InputEncoding>
+  <ShortName>{{config.BrandName}}</ShortName>
+  <Description>{{config.BrandName}}: Go Documentation Service</Description>
+  <Url type="text/html" method="get" template="{{.}}/?q={searchTerms}"/>
 </OpenSearchDescription>

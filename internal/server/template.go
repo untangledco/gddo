@@ -45,28 +45,25 @@ func (m TemplateMap) Text(name string) *ttemp.Template {
 	return m[name].(*ttemp.Template)
 }
 
-func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, fsys fs.FS, patterns ...string) error {
+func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, fsys fs.FS) error {
 	r := (*Renderer)(nil)
-	t := htemp.New("").Funcs(funcs).Funcs(htemp.FuncMap{
-		"templateName": func() string { return name },
-	}).Funcs(r.HTMLFuncs())
-	if _, err := t.ParseFS(fsys, patterns...); err != nil {
+	t := htemp.New("layout.html").
+		Funcs(funcs).
+		Funcs(r.HTMLFuncs()).
+		Funcs(htemp.FuncMap{
+			"templateName": func() string { return name },
+		})
+	if _, err := t.ParseFS(fsys, "layout.html", name); err != nil {
 		return err
-	}
-	t = t.Lookup("ROOT")
-	if t == nil {
-		return fmt.Errorf("ROOT template not found in %v", patterns)
 	}
 	m[name] = t
 	return nil
 }
 
-func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, fsys fs.FS, patterns ...string) error {
+func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, fsys fs.FS) error {
 	r := (*Renderer)(nil)
-	t := ttemp.New(name).Funcs(funcs).Funcs(ttemp.FuncMap{
-		"templateName": func() string { return name },
-	}).Funcs(r.GeminiFuncs())
-	if _, err := t.ParseFS(fsys, patterns...); err != nil {
+	t := ttemp.New(name).Funcs(funcs).Funcs(r.GeminiFuncs())
+	if _, err := t.ParseFS(fsys, name); err != nil {
 		return err
 	}
 	m[name] = t
@@ -79,16 +76,16 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, files *httputil.FileServer) e
 		return err
 	}
 
-	sets := [][]string{
-		{"about.html", "common.html", "layout.html"},
-		{"doc.html", "common.html", "layout.html"},
-		{"index.html", "common.html", "layout.html"},
-		{"versions.html", "common.html", "layout.html"},
-		{"platforms.html", "common.html", "layout.html"},
-		{"imports.html", "common.html", "layout.html"},
-		{"notfound.html", "common.html", "layout.html"},
-		{"search.html", "common.html", "layout.html"},
-		{"tools.html", "common.html", "layout.html"},
+	tmpls := []string{
+		"about.html",
+		"doc.html",
+		"index.html",
+		"versions.html",
+		"platforms.html",
+		"imports.html",
+		"notfound.html",
+		"search.html",
+		"tools.html",
 	}
 	funcs := htemp.FuncMap{
 		"static_path": func(name string) string {
@@ -97,8 +94,8 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, files *httputil.FileServer) e
 		"humanize": humanize.Time,
 		"config":   func() *Config { return s.cfg },
 	}
-	for _, set := range sets {
-		err := m.ParseHTML(set[0], funcs, fsys, set...)
+	for _, tmpl := range tmpls {
+		err := m.ParseHTML(tmpl, funcs, fsys)
 		if err != nil {
 			return err
 		}
@@ -106,7 +103,7 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, files *httputil.FileServer) e
 	tfuncs := ttemp.FuncMap{
 		"config": func() *Config { return s.cfg },
 	}
-	err = m.ParseText("opensearch.xml", tfuncs, fsys, "opensearch.xml")
+	err = m.ParseText("opensearch.xml", tfuncs, fsys)
 	if err != nil {
 		return err
 	}
@@ -119,21 +116,21 @@ func (s *Server) parseGeminiTemplates(m TemplateMap) error {
 		return err
 	}
 
-	sets := [][]string{
-		{"index.gmi"},
-		{"about.gmi"},
-		{"search.gmi"},
-		{"doc.gmi"},
-		{"versions.gmi"},
-		{"platforms.gmi"},
-		{"imports.gmi"},
+	tmpls := []string{
+		"index.gmi",
+		"about.gmi",
+		"search.gmi",
+		"doc.gmi",
+		"versions.gmi",
+		"platforms.gmi",
+		"imports.gmi",
 	}
 	funcs := ttemp.FuncMap{
 		"humanize": humanize.Time,
 		"config":   func() *Config { return s.cfg },
 	}
-	for _, set := range sets {
-		err := m.ParseText(set[0], funcs, fsys, set...)
+	for _, tmpl := range tmpls {
+		err := m.ParseText(tmpl, funcs, fsys)
 		if err != nil {
 			return err
 		}

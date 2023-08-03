@@ -1,132 +1,58 @@
-{{define "Head"}}
+{{define "head"}}
   <title>{{.Title}} - {{.ImportPath}} - {{config.BrandName}}</title>
-  {{if .Synopsis}}
-    <meta property="og:title" content="{{.Title}}">
-    <meta name="description" content="{{.Synopsis}}">
-    <meta property="og:description" content="{{.Synopsis}}">
-  {{end}}
-{{end}}
+  {{- if .Synopsis}}
+  <meta property="og:title" content="{{.Title}}">
+  <meta name="description" content="{{.Synopsis}}">
+  <meta property="og:description" content="{{.Synopsis}}">
+  {{- end}}
+{{- end}}
 
-{{define "Body"}}
-  {{template "ProjectNav" .}}
+{{define "body"}}
+  {{- template "ProjectNav" .}}
 
-  {{if .Deprecated}}
-    <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
-  {{end}}
+  {{- if .Deprecated}}
+  <div class="alert alert-warning"><strong>Deprecated:</strong> {{.Deprecated}}</div>
+  {{- end}}
 
   <h2 id="pkg-overview">{{.Title}}</h2>
-  {{if .IsPackage}}<p><code>import "{{.ImportPath}}"</code></p>{{end}}
+  {{- if .IsPackage}}
+  <p><code>import "{{.ImportPath}}"</code></p>
+  {{- end}}
   {{render_doc .Doc}}
 
-  {{if .IsPackage}}
-    {{template "Examples" .PackageExamples}}
+  {{- if .IsPackage}}
+  {{- template "package" .}}
+  {{- end}}
 
-    <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">&para;</a></h3>
-    <ul class="list-unstyled">
-      {{if .Consts}}<li><a href="#pkg-constants">Constants</a></li>{{end}}
-      {{if .Vars}}<li><a href="#pkg-variables">Variables</a></li>{{end}}
-      {{range .Funcs}}<li><a href="#{{.Name}}">{{render_func .Decl}}</a></li>{{end}}
-      {{range $t := .Types}}
-        <li><a href="#{{.Name}}">type {{.Name}}</a></li>
-        {{if or .Funcs .Methods}}
-          <ul>
-            {{range .Funcs}}<li><a href="#{{.Name}}">{{render_func .Decl}}</a></li>{{end}}
-            {{range .Methods}}<li><a href="#{{$t.Name}}.{{.Name}}">{{render_func .Decl}}</a></li>{{end}}
-          </ul>
-        {{end}}
-      {{end}}
-      {{if .Notes.BUG}}<li><a href="#pkg-note-bug">Bugs</a></li>{{end}}
-    </ul>
-
-    {{with .AllExamples}}
-      <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">&para;</a></h4>
-      <ul class="list-unstyled">
-        {{range .}}<li><a href="#{{.ID}}">{{or .Symbol "package"}}{{with .Suffix}} ({{.}}){{end}}</a></li>{{end}}
-      </ul>
-    {{end}}
-
-    {{if .Consts}}
-      <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">&para;</a></h3>
-      {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-    {{end}}
-
-    {{if .Vars}}
-      <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">&para;</a></h3>
-      {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-    {{end}}
-
-    {{if .Funcs}}
-      <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">&para;</a></h3>
-      {{range .Funcs}}
-        <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-        <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>
-        {{render_doc .Doc}}
-        {{template "Examples" .|$.ObjExamples}}
-      {{end}}
-    {{end}}
-
-    {{if .Types}}
-      <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">&para;</a></h3>
-      {{range $t := .Types}}
-        <h3 id="{{.Name}}" data-kind="type">type {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h3>
-        <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
-        {{range .Consts}}<div class="decl" data-kind="constant">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-        {{range .Vars}}<div class="decl" data-kind="variable">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}{{end}}
-        {{template "Examples" .|$.ObjExamples}}
-
-        {{range .Funcs}}
-          <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">&para;</a></h4>
-          <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
-          {{template "Examples" .|$.ObjExamples}}
-        {{end}}
-
-        {{range .Methods}}
-          <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">&para;</a></h4>
-          <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
-          {{template "Examples" .|$.ObjExamples}}
-        {{end}}
-      {{end}}
-    {{end}}
-
-    {{with .Notes}}{{with .BUG}}
-      <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">&para;</a></h3>
-      {{range .}}<p>{{source_link .Pos "☞" true}} {{.Body}}{{end}}
-    {{end}}{{end}}
-
-    {{if .Filenames}}
-      <h3 id="pkg-files">
-        {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
-        <a class="permalink" href="#pkg-files">&para;</a>
-      </h3>
-
-      <p>{{range $file := .Filenames}}{{with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}} {{end}}</p>
-    {{end}}
-  {{end}}
-
-  {{if .SubPackages}}<h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">&para;</a></h3>
-    <table class="table table-condensed">
-      <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
-      <tbody>{{range .SubPackages}}<tr><td><a href="{{view .ImportPath ""}}">{{relative_path .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>{{end}}</tbody>
-    </table>
-  {{end}}
+  {{- if .SubPackages}}
+  <h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">¶</a></h3>
+  <table class="table table-condensed">
+    <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
+    <tbody>
+      {{- range .SubPackages}}
+      <tr><td><a href="{{view .ImportPath ""}}">{{relative_path .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>
+      {{- end}}
+    </tbody>
+  </table>
+  {{- end}}
 
   <div id="x-pkginfo">
     <dl>
-{{- if .Version}}
+      {{- if .Version}}
       <dt>Version</dt>
       <dd>{{if .Versions}}<a href="{{view "" "versions"}}">{{.Version}}</a>{{else}}{{.Version}}{{end}}{{if eq .Version .LatestVersion}} (latest){{end}}</dd>
-{{- end}}
-{{- if not .CommitTime.IsZero}}
+      {{- end}}
+      {{- if not .CommitTime.IsZero}}
       <dt>Published</dt>
       <dd><span title="{{.CommitTime.Format "2006-01-02T15:04:05Z"}}">{{.CommitTime.Format "Jan 2, 2006"}}</span></dd>
-{{- end}}
+      {{- end}}
       <dt>Platform</dt>
       <dd><a href="{{view "" "platforms"}}">{{.Platform}}</a>{{if .Cgo}} (Cgo){{end}}</dd>
-{{- if .Imports}}
+      {{- if .Imports}}
       <dt>Imports</dt>
       <dd><a href="{{view "" "imports"}}">{{.Imports|len}} packages</a></dd>
-{{- end}}
-{{- if not .Updated.IsZero}}
+      {{- end}}
+      {{- if not .Updated.IsZero}}
       <dt>Last checked</dt>
       <dd>
         <span title="{{.Updated.Format "2006-01-02T15:04:05Z"}}">{{humanize .Updated}}</span>
@@ -137,12 +63,12 @@
           <button type="submit" class="link" title="Refresh this page from the source.">Refresh now</button>
         </form>
       </dd>
-{{- end}}
+      {{- end}}
     </dl>
     <p><a href="{{view "" "tools"}}">Tools</a> for package owners.</p>
   </div>
 
-{{if .IsPackage}}
+  {{- if .IsPackage}}
   <div id="x-jump" tabindex="-1" class="modal">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -158,13 +84,155 @@
       </div>
     </div>
   </div>
-{{end}}
-{{end}}
+  {{- end}}
+{{- end}}
 
-{{define "Examples"}}
-{{if .}}
+{{define "package"}}
+  {{- template "examples" .PackageExamples}}
+
+  <h3 id="pkg-index">Index <a class="permalink" href="#pkg-index">¶</a></h3>
+  <ul class="list-unstyled">
+    {{- if .Consts}}
+    <li><a href="#pkg-constants">Constants</a></li>
+    {{- end}}
+
+    {{- if .Vars}}
+    <li><a href="#pkg-variables">Variables</a></li>
+    {{- end}}
+
+    {{- range .Funcs}}
+    <li><a href="#{{.Name}}">{{render_func .Decl}}</a></li>
+    {{- end}}
+
+    {{- range $t := .Types}}
+    <li><a href="#{{.Name}}">type {{.Name}}</a></li>
+    {{- if or .Funcs .Methods}}
+    <ul>
+      {{- range .Funcs}}
+      <li><a href="#{{.Name}}">{{render_func .Decl}}</a></li>
+      {{- end}}
+      {{- range .Methods}}
+      <li><a href="#{{$t.Name}}.{{.Name}}">{{render_func .Decl}}</a></li>
+      {{- end}}
+    </ul>
+    {{- end}}
+    {{- end}}
+
+    {{- if .Notes.BUG}}
+    <li><a href="#pkg-note-bug">Bugs</a></li>
+    {{- end}}
+  </ul>
+
+{{- if .AllExamples}}
+  <h4 id="pkg-examples">Examples <a class="permalink" href="#pkg-examples">¶</a></h4>
+  <ul class="list-unstyled">
+    {{- range .AllExamples}}
+    <li><a href="#{{.ID}}">{{or .Symbol "package"}}{{with .Suffix}} ({{.}}){{end}}</a></li>{{end}}
+  </ul>
+{{- end}}
+
+{{- if .Consts}}
+  <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">¶</a></h3>
+  {{- range .Consts}}
+  <div class="decl" data-kind="constant">
+    {{source_link .Decl.Pos "\u2756" false}}
+    {{render_decl .Decl}}
+  </div>
+  {{render_doc .Doc}}
+  {{- end}}
+{{- end}}
+
+{{- if .Vars}}
+  <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">¶</a></h3>
+  {{- range .Vars}}
+  <div class="decl" data-kind="variable">
+    {{source_link .Decl.Pos "\u2756" false}}
+    {{render_decl .Decl}}
+  </div>
+  {{render_doc .Doc}}
+  {{- end}}
+{{- end}}
+
+{{- if .Funcs}}
+  <h3 id="pkg-functions">Functions <a class="permalink" href="#pkg-functions">¶</a></h3>
+  {{- range .Funcs}}
+  <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">¶</a></h4>
+  <div class="funcdecl decl">
+    {{source_link .Decl.Pos "\u2756" false}}
+    {{render_decl .Decl}}
+  </div>
+  {{render_doc .Doc}}
+  {{template "examples" .|$.ObjExamples}}
+  {{- end}}
+{{- end}}
+
+{{- if .Types}}
+  <h3 id="pkg-types">Types <a class="permalink" href="#pkg-types">¶</a></h3>
+  {{- range $t := .Types}}
+  <h4 id="{{.Name}}" data-kind="type">type {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">¶</a></h4>
+  <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">
+    {{source_link .Decl.Pos "\u2756" false}}
+    {{render_decl .Decl}}
+  </div>
+  {{render_doc .Doc}}
+
+  {{- range .Consts}}
+  <div class="decl" data-kind="constant">
+    {{source_link .Decl.Pos "\u2756" false}}
+    {{render_decl .Decl}}
+  </div>
+  {{render_doc .Doc}}
+  {{- end}}
+
+  {{- range .Vars}}
+    <div class="decl" data-kind="variable">
+      {{source_link .Decl.Pos "\u2756" false}}
+      {{render_decl .Decl}}
+    </div>
+    {{render_doc .Doc}}
+  {{- end}}
+
+  {{template "examples" .|$.ObjExamples}}
+
+  {{- range .Funcs}}
+    <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{.Name}}">¶</a></h4>
+    <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+    {{template "examples" .|$.ObjExamples}}
+  {{- end}}
+
+  {{- range .Methods}}
+    <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl.Pos .Name true}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">¶</a></h4>
+    <div class="funcdecl decl">{{source_link .Decl.Pos "\u2756" false}}{{render_decl .Decl}}</div>{{render_doc .Doc}}
+    {{template "examples" .|$.ObjExamples}}
+  {{- end}}
+
+  {{- end}}
+{{- end}}
+
+{{- if .Notes.BUG}}
+  <h3 id="pkg-note-bug">Bugs <a class="permalink" href="#pkg-note-bug">¶</a></h3>
+  {{- range .Notes.BUG}}
+  <p>{{source_link .Pos "☞" true}} {{.Body}}
+  {{- end}}
+{{- end}}
+
+{{- if .Filenames}}
+  <h3 id="pkg-files">
+    {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
+    <a class="permalink" href="#pkg-files">¶</a>
+  </h3>
+  <p>
+    {{- range $file := .Filenames}}
+    {{- with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}}
+    {{- end}}
+  </p>
+{{- end}}
+{{- end}}
+
+{{define "examples"}}
+{{- if .}}
   <div class="panel-group">
-  {{range .}}
+  {{- range .}}
     <details class="panel panel-default">
       <summary id="{{.ID}}" class="panel-heading">Example{{with .Suffix}} ({{.}}){{end}}<a class="permalink" href="#{{.ID}}">¶</a></summary>
       <div class="panel-collapse"><div class="panel-body">
@@ -174,7 +242,7 @@
         {{with .Output}}<p>Output:<pre>{{.}}</pre>{{end}}
       </div></div>
     </details>
-  {{end}}
+  {{- end}}
   </div>
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}

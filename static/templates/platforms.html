@@ -1,10 +1,14 @@
-{{define "Head"}}<title>{{.Title}} platforms - {{config.BrandName}}</title>
-<meta name="robots" content="NOINDEX, NOFOLLOW">{{end}}
+{{define "head"}}
+  <title>{{.Title}} platforms - {{config.BrandName}}</title>
+  <meta name="robots" content="NOINDEX, NOFOLLOW">
+{{- end}}
 
-{{define "Body"}}
-  {{template "ProjectNav" $}}
+{{define "body"}}
+  {{- template "ProjectNav" .}}
   <h3>Platforms</h3>
-  <ul>{{range platforms}}
-    <li><a href="?platform={{.}}">{{.}}</a></li>{{end}}
+  <ul>
+    {{- range platforms}}
+    <li><a href="?platform={{.}}">{{.}}</a></li>
+    {{- end}}
   </ul>
-{{end}}
+{{- end}}
