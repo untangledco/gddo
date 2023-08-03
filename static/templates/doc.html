@@ -223,7 +223,7 @@
   </h3>
   <p>
     {{- range $file := .Filenames}}
-    {{- with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}}
+    {{with $.FileURL $file}}<a rel="noopener nofollow" href="{{.}}">{{$file}}</a>{{else}}{{$file}}{{end}}
     {{- end}}
   </p>
 {{- end}}
