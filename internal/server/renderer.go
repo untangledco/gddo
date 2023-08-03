@@ -106,13 +106,10 @@ func (r *Renderer) GeminiFuncs() template.FuncMap {
 }
 
 // SourceLink returns a source link for given node.
-func (r *Renderer) SourceLink(p token.Pos, text string, textOnlyOK bool) htemp.HTML {
+func (r *Renderer) SourceLink(p token.Pos, text string) htemp.HTML {
 	pos := r.fset.Position(p)
 	if r.project == nil || pos.Line == 0 {
-		if textOnlyOK {
-			return htemp.HTML(htemp.HTMLEscapeString(text))
-		}
-		return ""
+		return htemp.HTML(htemp.HTMLEscapeString(text))
 	}
 	link := r.project.LineURL(r.ref, r.dir, pos.Filename, strconv.Itoa(pos.Line))
 	return htemp.HTML(fmt.Sprintf(`<a title="View Source" rel="noopener nofollow" href="%s">%s</a>`,
