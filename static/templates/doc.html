@@ -135,7 +135,7 @@
   <h3 id="pkg-constants">Constants <a class="permalink" href="#pkg-constants">¶</a></h3>
   {{- range .Consts}}
   <div class="decl" data-kind="constant">
-    {{render_decl .Decl}}
+    {{render_decl .Decl nil}}
   </div>
   {{render_doc .Doc}}
   {{- end}}
@@ -145,7 +145,7 @@
   <h3 id="pkg-variables">Variables <a class="permalink" href="#pkg-variables">¶</a></h3>
   {{- range .Vars}}
   <div class="decl" data-kind="variable">
-    {{render_decl .Decl}}
+    {{render_decl .Decl nil}}
   </div>
   {{render_doc .Doc}}
   {{- end}}
@@ -156,7 +156,7 @@
   {{- range .Funcs}}
   <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name}} <a class="permalink" href="#{{.Name}}">¶</a></h4>
   <div class="funcdecl decl">
-    {{render_decl .Decl}}
+    {{render_decl .Decl nil}}
   </div>
   {{render_doc .Doc}}
   {{template "examples" .|$.ObjExamples}}
@@ -168,20 +168,20 @@
   {{- range $t := .Types}}
   <h4 id="{{.Name}}" data-kind="type">type {{source_link .Decl.Pos .Name}} <a class="permalink" href="#{{.Name}}">¶</a></h4>
   <div class="decl" data-kind="{{if is_interface $t}}method{{else}}field{{end}}">
-    {{render_decl .Decl}}
+    {{render_decl .Decl $t}}
   </div>
   {{render_doc .Doc}}
 
   {{- range .Consts}}
   <div class="decl" data-kind="constant">
-    {{render_decl .Decl}}
+    {{render_decl .Decl nil}}
   </div>
   {{render_doc .Doc}}
   {{- end}}
 
   {{- range .Vars}}
     <div class="decl" data-kind="variable">
-      {{render_decl .Decl}}
+      {{render_decl .Decl nil}}
     </div>
     {{render_doc .Doc}}
   {{- end}}
@@ -191,7 +191,7 @@
   {{- range .Funcs}}
     <h4 id="{{.Name}}" data-kind="function">func {{source_link .Decl.Pos .Name}} <a class="permalink" href="#{{.Name}}">¶</a></h4>
     <div class="funcdecl decl">
-      {{render_decl .Decl}}
+      {{render_decl .Decl nil}}
     </div>
     {{render_doc .Doc}}
     {{template "examples" .|$.ObjExamples}}
@@ -200,7 +200,7 @@
   {{- range .Methods}}
     <h4 id="{{$t.Name}}.{{.Name}}" data-kind="method">func ({{.Recv}}) {{source_link .Decl.Pos .Name}} <a class="permalink" href="#{{$t.Name}}.{{.Name}}">¶</a></h4>
     <div class="funcdecl decl">
-      {{render_decl .Decl}}
+      {{render_decl .Decl nil}}
     </div>
     {{render_doc .Doc}}
     {{template "examples" .|$.ObjExamples}}

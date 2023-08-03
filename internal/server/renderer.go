@@ -256,9 +256,9 @@ func relativePath(path, parentPath string) string {
 }
 
 // DeclHTML renders a Go declaration as HTML.
-func (r *Renderer) DeclHTML(decl ast.Decl) htemp.HTML {
+func (r *Renderer) DeclHTML(decl ast.Decl, typ *doc.Type) htemp.HTML {
 	c := printer.PrintDecl(r.fset, decl)
-	return codeToHTML(c, nil)
+	return codeToHTML(c, typ)
 }
 
 // DeclGemini renders a Go declaration as Gemini text.
