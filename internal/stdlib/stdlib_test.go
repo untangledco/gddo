@@ -185,13 +185,13 @@ func TestTagForVersion(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := TagForVersion(test.version)
+			got, err := tagForVersion(test.version)
 			if (err != nil) != test.wantErr {
-				t.Errorf("TagForVersion(%q) = %q, %v, wantErr %v", test.version, got, err, test.wantErr)
+				t.Errorf("tagForVersion(%q) = %q, %v, wantErr %v", test.version, got, err, test.wantErr)
 				return
 			}
 			if got != test.want {
-				t.Errorf("TagForVersion(%q) = %q, %v, wanted %q, %v", test.version, got, err, test.want, nil)
+				t.Errorf("tagForVersion(%q) = %q, %v, wanted %q, %v", test.version, got, err, test.want, nil)
 			}
 		})
 	}
