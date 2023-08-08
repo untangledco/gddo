@@ -50,7 +50,7 @@ func NewRenderer(p *Package, cfg *Config) *Renderer {
 		printer: printer,
 		project: p.project,
 		ref:     p.Reference,
-		dir:     p.dir,
+		dir:     p.innerPath,
 
 		version:      p.Version,
 		platform:     p.Platform,
@@ -226,8 +226,8 @@ func (r *Renderer) Breadcrumbs(p *Package) []Breadcrumb {
 			Current:    p.ImportPath == p.ModulePath,
 		})
 	}
-	if p.dir != "" {
-		for _, part := range strings.Split(p.dir, "/") {
+	if p.innerPath != "" {
+		for _, part := range strings.Split(p.innerPath, "/") {
 			importPath = path.Join(importPath, part)
 			crumbs = append(crumbs, Breadcrumb{
 				Text:       part,

@@ -28,22 +28,27 @@ type Package struct {
 	Message     string
 
 	project     *autodiscovery.Project
-	dir         string
+	innerPath   string
 	examples    []*Example
 	examplesMap map[any][]*Example
 }
 
 // NewPackage returns a new package for use in templates.
 func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Package) (*Package, error) {
+	// Compute inner path
+	innerPath := strings.TrimPrefix(importPath, mod.ModulePath)
+	innerPath = strings.TrimPrefix(innerPath, "/")
+
 	if src == nil {
 		// A directory with no Go files
 		docPkg := &doc.Package{
 			ImportPath: importPath,
 		}
 		return &Package{
-			Module:   mod,
-			Package:  docPkg,
-			Platform: platform,
+			Module:    mod,
+			Package:   docPkg,
+			Platform:  platform,
+			innerPath: innerPath,
 		}, nil
 	}
 
@@ -53,17 +58,13 @@ func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Pa
 		return nil, err
 	}
 
-	// Compute inner path
-	innerPath := strings.TrimPrefix(importPath, mod.ModulePath)
-	innerPath = strings.TrimPrefix(innerPath, "/")
-
 	pkg := &Package{
-		Module:   mod,
-		Package:  docPkg,
-		FileSet:  src.Fset,
-		Synopsis: docPkg.Synopsis(docPkg.Doc),
-		Platform: platform,
-		dir:      innerPath,
+		Module:    mod,
+		Package:   docPkg,
+		FileSet:   src.Fset,
+		Synopsis:  docPkg.Synopsis(docPkg.Doc),
+		Platform:  platform,
+		innerPath: innerPath,
 	}
 	pkg.collectExamples()
 	return pkg, nil
@@ -136,7 +137,7 @@ func (p *Package) SummaryURL() string {
 // DirURL returns the URL for the package directory.
 func (p *Package) DirURL() string {
 	if p.project != nil {
-		return p.project.DirURL(p.Reference, p.dir)
+		return p.project.DirURL(p.Reference, p.innerPath)
 	}
 	return ""
 }
@@ -144,7 +145,7 @@ func (p *Package) DirURL() string {
 // FileURL returns the URL for the given file.
 func (p *Package) FileURL(file string) string {
 	if p.project != nil {
-		return p.project.FileURL(p.Reference, p.dir, file)
+		return p.project.FileURL(p.Reference, p.innerPath, file)
 	}
 	return ""
 }
