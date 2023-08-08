@@ -25,7 +25,7 @@
   {{- end}}
 
   {{- if .SubPackages}}
-  <h3 id="pkg-subdirectories">Directories <a class="permalink" href="#pkg-subdirectories">¶</a></h3>
+  <h3 id="pkg-directories">Directories <a class="permalink" href="#pkg-directories">¶</a></h3>
   <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>
@@ -218,7 +218,7 @@
 
 {{- if .Filenames}}
   <h3 id="pkg-files">
-    {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Package Files</a>{{else}}Package Files{{end}}
+    {{with .DirURL}}<a rel="noopener nofollow" href="{{.}}">Source Files</a>{{else}}Source Files{{end}}
     <a class="permalink" href="#pkg-files">¶</a>
   </h3>
   <p>
