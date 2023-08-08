@@ -53,17 +53,13 @@ func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Pa
 		return nil, err
 	}
 
-	// Compute package directory (relative to module path)
-	dir := strings.TrimPrefix(importPath, mod.ModulePath)
-	dir = strings.TrimPrefix(dir, "/")
-
 	pkg := &Package{
 		Module:   mod,
 		Package:  docPkg,
 		FileSet:  src.Fset,
 		Synopsis: docPkg.Synopsis(docPkg.Doc),
 		Platform: platform,
-		dir:      dir,
+		dir:      getInnerPath(mod.ModulePath, importPath),
 	}
 	pkg.collectExamples()
 	return pkg, nil

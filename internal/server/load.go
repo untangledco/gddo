@@ -187,6 +187,8 @@ func (s *Server) findModule(importPath, version string) (internal.Source, *inter
 }
 
 // loadPackages loads Go packages from the given filesystem.
+// The resulting map may contain nil packages to signify directories
+// with no Go files in them.
 func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Package, error) {
 	if !platforms.Valid(platform) {
 		return nil, ErrInvalidPlatform
@@ -291,18 +293,33 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 
 	// Add directories to the map
 	for importPath := range pkgs {
-		dirPath := importPath
-		for dirPath != "." && dirPath != modulePath {
-			dirPath = path.Dir(dirPath)
-			_, ok := pkgs[dirPath]
+		innerPath := getInnerPath(modulePath, importPath)
+		for innerPath != "." {
+			innerPath = path.Dir(innerPath)
+			importPath := resolveInnerPath(modulePath, innerPath)
+			_, ok := pkgs[importPath]
 			if ok {
 				break
 			}
-			pkgs[dirPath] = nil
+			pkgs[importPath] = nil
 		}
 	}
 
 	return pkgs, nil
+}
+
+// getInnerPath returns the inner path for the given import path.
+func getInnerPath(modulePath, importPath string) string {
+	return strings.TrimPrefix(importPath, modulePath+"/")
+}
+
+// resolveInnerPath returns the full import path for the given module and
+// inner path.
+func resolveInnerPath(modulePath, innerPath string) string {
+	if modulePath == stdlib.ModulePath && innerPath != "." {
+		return innerPath
+	}
+	return path.Join(modulePath, innerPath)
 }
 
 // ignoredByGoTool reports whether the given file or directory would be
