@@ -12,8 +12,8 @@ import (
 	"go/ast"
 	"log"
 
-	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/codec"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc/codec"
 )
 
 func main() {
@@ -73,10 +73,13 @@ func main() {
 		ast.TypeSwitchStmt{},
 		ast.UnaryExpr{},
 		ast.ValueSpec{},
-		internal.Package{},
 	}
+	// Add in some unexported types in the godoc package. Since they are unexported, we can't
+	// write their names here, but the godoc package can provide us with values of those types,
+	// which the reflect package can examine.
+	types = append(types, godoc.TypesToGenerate...)
 	const filename = "encode_ast.gen.go"
-	if err := codec.GenerateFile(filename, "database", types...); err != nil {
+	if err := codec.GenerateFile(filename, "godoc", types...); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Wrote %s.\n", filename)

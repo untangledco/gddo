@@ -7,7 +7,7 @@
 package somepkg
 
 import (
-	"git.sr.ht/~sircmpwn/gddo/internal/codec"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc/codec"
 )
 
 func encode_map_string_bool(e *codec.Encoder, m map[string]bool) {

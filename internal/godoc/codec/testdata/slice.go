@@ -7,7 +7,7 @@
 package somepkg
 
 import (
-	"git.sr.ht/~sircmpwn/gddo/internal/codec"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc/codec"
 )
 
 func encode_slice_slice_int(e *codec.Encoder, s [][]int) {

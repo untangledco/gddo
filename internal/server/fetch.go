@@ -11,6 +11,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/semver"
@@ -151,7 +152,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	if err != nil {
 		return err
 	}
-	pkgs, err := parsePackages(platform, modulePath, fsys)
+	pkgs, err := loadPackages(platform, modulePath, fsys)
 	if err != nil {
 		return err
 	}
@@ -171,11 +172,11 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 }
 
 // putPackages puts the packages for a given module in the database.
-func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*internal.Package) error {
+func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*godoc.Package) error {
 	for importPath, pkg := range pkgs {
 		// Encode source files before rendering documentation, since
 		// doc.New overwrites the AST.
-		source, err := pkg.FastEncode()
+		source, err := pkg.Encode()
 		if err != nil {
 			return err
 		}

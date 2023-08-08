@@ -135,7 +135,7 @@ type generator struct {
 
 func (g *generator) generate() ([]byte, error) {
 	importMap := map[string]bool{
-		"git.sr.ht/~sircmpwn/gddo/internal/codec": true,
+		"git.sr.ht/~sircmpwn/gddo/internal/godoc/codec": true,
 	}
 	var code []byte
 	for len(g.todo) > 0 {

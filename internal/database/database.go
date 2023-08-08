@@ -1,5 +1,3 @@
-//go:generate go run gen_ast.go
-
 // Package database manages the storage of documentation.
 package database
 
@@ -16,6 +14,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
@@ -273,7 +272,7 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 `
 
 // Package returns information for the given package. It may return nil if no such package was found.
-func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, *internal.Package, error) {
+func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, *godoc.Package, error) {
 	var mod internal.Module
 	var source []byte
 	err := db.WithTx(ctx, &sql.TxOptions{
@@ -318,7 +317,7 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 	if err != nil {
 		return nil, nil, err
 	}
-	pkg, err := internal.FastDecodePackage(source)
+	pkg, err := godoc.DecodePackage(source)
 	if err != nil {
 		return nil, nil, err
 	}

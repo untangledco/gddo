@@ -7,7 +7,7 @@
 package somepkg
 
 import (
-	"git.sr.ht/~sircmpwn/gddo/internal/codec"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc/codec"
 	"go/ast"
 	"go/token"
 )
