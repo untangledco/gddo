@@ -253,7 +253,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 	// Build package documentation
 	pkgs := map[string]*godoc.Package{}
 	for pathname, contents := range files {
-		dir, filename := path.Split(pathname)
+		dir := path.Dir(pathname)
 		importPath := path.Join(modulePath, dir)
 		if modulePath == stdlib.ModulePath {
 			importPath = dir
@@ -265,6 +265,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 			pkgs[importPath] = pkg
 		}
 
+		filename := path.Base(pathname)
 		file, err := parser.ParseFile(pkg.Fset, filename, contents, parser.ParseComments)
 		if err != nil {
 			return nil, err
@@ -295,7 +296,8 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 // working Go programs. We continue to ignore the "." and "testdata"
 // cases, but we've seen valid Go packages with "_", so we accept those.
 func ignoredByGoTool(pathname string) bool {
-	return strings.HasPrefix(pathname, ".") || pathname == "testdata"
+	return pathname != "." && strings.HasPrefix(pathname, ".") ||
+		pathname == "testdata"
 }
 
 // isVendor reports whether the given directory is a vendor directory.
