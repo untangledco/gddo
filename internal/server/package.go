@@ -35,6 +35,18 @@ type Package struct {
 
 // NewPackage returns a new package for use in templates.
 func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Package) (*Package, error) {
+	if src == nil {
+		// A directory with no Go files
+		docPkg := &doc.Package{
+			ImportPath: importPath,
+		}
+		return &Package{
+			Module:   mod,
+			Package:  docPkg,
+			Platform: platform,
+		}, nil
+	}
+
 	// Build documentation
 	docPkg, err := buildDoc(importPath, src)
 	if err != nil {

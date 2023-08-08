@@ -42,7 +42,7 @@ func (s *Server) load(ctx context.Context, platform, importPath, version string,
 }
 
 func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
-	mod, src, err := s.db.Package(ctx, platform, importPath, version)
+	mod, source, err := s.db.Package(ctx, platform, importPath, version)
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +52,21 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		if err != nil {
 			return nil, err
 		}
-		mod, src, err = s.db.Package(ctx, platform, importPath, version)
+		mod, source, err = s.db.Package(ctx, platform, importPath, version)
 		if err != nil {
 			return nil, err
 		}
 		if mod == nil {
 			return nil, internal.ErrNotFound
+		}
+	}
+
+	var src *godoc.Package
+	if len(source) > 0 {
+		var err error
+		src, err = godoc.DecodePackage(source)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -253,10 +262,10 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 	// Build package documentation
 	pkgs := map[string]*godoc.Package{}
 	for pathname, contents := range files {
-		dir := path.Dir(pathname)
-		importPath := path.Join(modulePath, dir)
+		innerPath := path.Dir(pathname)
+		importPath := path.Join(modulePath, innerPath)
 		if modulePath == stdlib.ModulePath {
-			importPath = dir
+			importPath = innerPath
 		}
 
 		pkg := pkgs[importPath]
@@ -274,11 +283,25 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 		removeNodes := true
 		// Don't strip the seemingly unexported functions from the builtin package;
 		// they are actually Go builtins like make, new, etc.
-		if modulePath == stdlib.ModulePath && dir == "builtin" {
+		if modulePath == stdlib.ModulePath && innerPath == "builtin" {
 			removeNodes = false
 		}
 		pkg.AddFile(file, removeNodes)
 	}
+
+	// Add directories to the map
+	for importPath := range pkgs {
+		dirPath := importPath
+		for dirPath != "." && dirPath != modulePath {
+			dirPath = path.Dir(dirPath)
+			_, ok := pkgs[dirPath]
+			if ok {
+				break
+			}
+			pkgs[dirPath] = nil
+		}
+	}
+
 	return pkgs, nil
 }
 

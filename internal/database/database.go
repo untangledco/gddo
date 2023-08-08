@@ -14,7 +14,6 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
-	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
@@ -272,7 +271,7 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 `
 
 // Package returns information for the given package. It may return nil if no such package was found.
-func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, *godoc.Package, error) {
+func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, []byte, error) {
 	var mod internal.Module
 	var source []byte
 	err := db.WithTx(ctx, &sql.TxOptions{
@@ -317,11 +316,7 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 	if err != nil {
 		return nil, nil, err
 	}
-	pkg, err := godoc.DecodePackage(source)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &mod, pkg, nil
+	return &mod, source, nil
 }
 
 const insertPackage = `
@@ -333,7 +328,7 @@ INSERT INTO packages (
 );
 `
 
-// PutPackage stores the package in the database. doc may be nil.
+// PutPackage stores the package in the database.
 func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module, pkg *doc.Package, source []byte) error {
 	synopsis := pkg.Synopsis(pkg.Doc)
 	score := searchScore(pkg)
@@ -342,6 +337,17 @@ func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module
 		platform, pkg.ImportPath, mod.ModulePath, mod.SeriesPath, mod.Version,
 		mod.Reference, mod.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
 		synopsis, score, source)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// PutDirectory stores the directory in the database.
+func (db *Database) PutDirectory(tx *sql.Tx, platform string, mod *internal.Module, importPath string) error {
+	_, err := tx.Stmt(db.insertPackage).Exec(
+		platform, importPath, mod.ModulePath, mod.SeriesPath, mod.Version,
+		mod.Reference, mod.CommitTime, nil, "", "", 0, nil)
 	if err != nil {
 		return err
 	}

@@ -174,6 +174,14 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 // putPackages puts the packages for a given module in the database.
 func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*godoc.Package) error {
 	for importPath, pkg := range pkgs {
+		if pkg == nil {
+			// Special case for directories
+			if err := s.db.PutDirectory(tx, platform, mod, importPath); err != nil {
+				return err
+			}
+			continue
+		}
+
 		// Encode source files before rendering documentation, since
 		// doc.New overwrites the AST.
 		source, err := pkg.Encode()
@@ -181,7 +189,6 @@ func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, 
 			return err
 		}
 
-		// TODO: Handle empty packages
 		// TODO: Truncate large packages?
 
 		docPkg, err := buildDoc(importPath, pkg)
