@@ -292,34 +292,23 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 	}
 
 	// Add directories to the map
+	rootPath := modulePath
+	if modulePath == stdlib.ModulePath {
+		rootPath = "."
+	}
 	for importPath := range pkgs {
-		innerPath := getInnerPath(modulePath, importPath)
-		for innerPath != "." {
-			innerPath = path.Dir(innerPath)
-			importPath := resolveInnerPath(modulePath, innerPath)
-			_, ok := pkgs[importPath]
+		dirPath := importPath
+		for dirPath != rootPath {
+			dirPath = path.Dir(dirPath)
+			_, ok := pkgs[dirPath]
 			if ok {
 				break
 			}
-			pkgs[importPath] = nil
+			pkgs[dirPath] = nil
 		}
 	}
 
 	return pkgs, nil
-}
-
-// getInnerPath returns the inner path for the given import path.
-func getInnerPath(modulePath, importPath string) string {
-	return strings.TrimPrefix(importPath, modulePath+"/")
-}
-
-// resolveInnerPath returns the full import path for the given module and
-// inner path.
-func resolveInnerPath(modulePath, innerPath string) string {
-	if modulePath == stdlib.ModulePath && innerPath != "." {
-		return innerPath
-	}
-	return path.Join(modulePath, innerPath)
 }
 
 // ignoredByGoTool reports whether the given file or directory would be
