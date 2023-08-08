@@ -5,6 +5,9 @@
 // license that can be found in the LICENSE file.
 
 // Package stdlib supports special handling of the Go standard library.
+// Regardless of the how the standard library has been split into modules for
+// development and testing, the discovery site treats it as a single module
+// named "std".
 package stdlib
 
 import (
@@ -91,7 +94,7 @@ func (RepoSource) Module(modulePath, version string) (*internal.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	tag, err := TagForVersion(version)
+	tag, err := tagForVersion(version)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +135,7 @@ func getGoRepo(version string) (*git.Repository, error) {
 	if version == "master" {
 		ref = plumbing.HEAD
 	} else {
-		tag, err := TagForVersion(version)
+		tag, err := tagForVersion(version)
 		if err != nil {
 			return nil, err
 		}
@@ -228,30 +231,36 @@ func versionForTag(tag string) string {
 	return version
 }
 
-// TagForVersion returns the Go standard library repository tag corresponding
+// tagForVersion returns the Go standard library repository tag corresponding
 // to semver. The Go tags differ from standard semantic versions in a few ways,
 // such as beginning with "go" instead of "v".
-func TagForVersion(version string) (string, error) {
+//
+// Starting with go1.21.0, the first patch release of major go versions include
+// the .0 suffix. Previously, the .0 suffix was elided (golang/go#57631).
+func tagForVersion(v string) (string, error) {
 	// Special case: master => master
-	if version == "master" || strings.HasPrefix(version, "v0.0.0") {
+	if v == "master" {
+		return v, nil
+	}
+	if strings.HasPrefix(v, "v0.0.0") {
 		return "master", nil
 	}
-
 	// Special case: v1.0.0 => go1.
-	if version == "v1.0.0" {
+	if v == "v1.0.0" {
 		return "go1", nil
 	}
-	if !semver.IsValid(version) {
-		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q", internal.ErrInvalidVersion, version)
+	if !semver.IsValid(v) {
+		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q ", internal.ErrInvalidVersion, v)
 	}
-	goVersion := semver.Canonical(version)
+	goVersion := semver.Canonical(v)
 	prerelease := semver.Prerelease(goVersion)
 	versionWithoutPrerelease := strings.TrimSuffix(goVersion, prerelease)
 	patch := strings.TrimPrefix(versionWithoutPrerelease, semver.MajorMinor(goVersion)+".")
-	if patch == "0" {
+	if patch == "0" && (semver.Compare(v, "v1.21.0") < 0 || prerelease != "") {
+		// Starting with go1.21.0, the first patch version includes .0.
+		// Prereleases do not include .0 (we don't do prereleases for other patch releases).
 		versionWithoutPrerelease = strings.TrimSuffix(versionWithoutPrerelease, ".0")
 	}
-
 	goVersion = fmt.Sprintf("go%s", strings.TrimPrefix(versionWithoutPrerelease, "v"))
 	if prerelease != "" {
 		// Go prereleases look like  "beta1" instead of "beta.1".
