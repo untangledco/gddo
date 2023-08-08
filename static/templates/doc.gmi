@@ -117,7 +117,7 @@ import "{{.ImportPath}}"
 {{- end}}
 {{- if not .CommitTime.IsZero}}
 * Published: {{.CommitTime.Format "Jan 2, 2006"}}{{end}}
-=> {{view "" "platforms"}} Platform: {{.Platform}}{{if .Cgo}} (Cgo){{end}}
+=> {{view "" "platforms"}} Platform: {{.Platform}}
 {{- if .Imports}}
 => {{view "" "imports"}} Imports: {{.Imports|len}} packages{{end}}
 {{- if not .Updated.IsZero}}

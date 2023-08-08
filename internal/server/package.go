@@ -113,16 +113,6 @@ func (p *Package) IsPackage() bool {
 	return p.Name != "" && p.Name != "main"
 }
 
-// Cgo reports whether the package uses Cgo.
-func (p *Package) Cgo() bool {
-	for i := range p.Imports {
-		if p.Imports[i] == "C" {
-			return true
-		}
-	}
-	return false
-}
-
 // SummaryURL returns the URL for the project summary.
 func (p *Package) SummaryURL() string {
 	if p.project != nil {
