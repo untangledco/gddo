@@ -317,8 +317,7 @@ func loadPackage(goos, goarch, modulePath, innerPath string, fsys fs.FS, pathnam
 
 	// Build package documentation
 	pkg := godoc.NewPackage()
-	for _, pathname := range pathnames {
-		contents := files[pathname]
+	for pathname, contents := range files {
 		file, err := parser.ParseFile(pkg.Fset, path.Base(pathname), contents, parser.ParseComments)
 		if err != nil {
 			return nil, err
