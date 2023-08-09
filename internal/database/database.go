@@ -55,7 +55,7 @@ type Database struct {
 	insertPackage    *sql.Stmt
 	packageExists    *sql.Stmt
 	blockExists      *sql.Stmt
-	synopsisQuery    *sql.Stmt
+	synopsesQuery    *sql.Stmt
 	directoriesQuery *sql.Stmt
 	projectQuery     *sql.Stmt
 	projectUpdated   *sql.Stmt
@@ -116,7 +116,7 @@ func (db *Database) prepare() error {
 	if err != nil {
 		return err
 	}
-	db.synopsisQuery, err = db.pg.Prepare(synopsisQuery)
+	db.synopsesQuery, err = db.pg.Prepare(synopsesQuery)
 	if err != nil {
 		return err
 	}
@@ -448,35 +448,44 @@ func (db *Database) IsBlocked(ctx context.Context, importPath string) (bool, err
 	return blocked, nil
 }
 
-const synopsisQuery = `
-SELECT p.synopsis
+const synopsesQuery = `
+SELECT p.import_path, p.synopsis
 FROM packages p, modules m
-WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path AND p.version = m.latest_version;
+WHERE p.platform = $1 AND p.import_path = ANY($2) AND m.module_path = p.module_path AND p.version = m.latest_version;
 `
 
 // Synopses returns a list of package synopses for the given import paths.
 func (db *Database) Synopses(ctx context.Context, platform string, importPaths []string) ([]Synopsis, error) {
-	var results []Synopsis
+	synopses := make(map[string]string)
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
-		stmt := tx.Stmt(db.synopsisQuery)
-		for _, importPath := range importPaths {
-			var synopsis string
-			row := stmt.QueryRow(platform, importPath)
-			err := row.Scan(&synopsis)
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		rows, err := tx.Stmt(db.synopsesQuery).Query(platform, pq.StringArray(importPaths))
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var res Synopsis
+			if err := rows.Scan(&res.ImportPath, &res.Synopsis); err != nil {
 				return err
 			}
-			results = append(results, Synopsis{
-				ImportPath: importPath,
-				Synopsis:   synopsis,
-			})
+			synopses[res.ImportPath] = res.Synopsis
 		}
-		return nil
+		return rows.Err()
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Add an entry for every import path, even if it is not in the database
+	var results []Synopsis
+	for _, importPath := range importPaths {
+		results = append(results, Synopsis{
+			ImportPath: importPath,
+			Synopsis:   synopses[importPath],
+		})
 	}
 	return results, nil
 }
