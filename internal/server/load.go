@@ -88,7 +88,7 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	}
 
 	if mode&NeedProject != 0 {
-		project, err := s.db.Project(ctx, dpkg.SeriesPath)
+		project, err := s.db.Project(ctx, dpkg.ModulePath)
 		if err != nil {
 			return nil, err
 		}
