@@ -14,13 +14,31 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
 )
 
-// Package contains package information.
+// Package contains package-level information and source code.
 type Package struct {
+	internal.Module
+	Source []byte // encoded Go source files
+	Error  string
+}
+
+// Decode decodes a [godoc.Package] from the encoded Go source files in
+// this package. It returns nil if there are no Go source files.
+func (p *Package) Decode() (*godoc.Package, error) {
+	if len(p.Source) != 0 {
+		return godoc.DecodePackage(p.Source)
+	}
+	return nil, nil
+}
+
+// PackageSynopsis provides access to the fields from a [doc.Package]
+// which can be directly retrieved from the database.
+type PackageSynopsis struct {
 	internal.Module
 	ImportPath string
 	Imports    []string
@@ -226,8 +244,8 @@ LIMIT 20;
 `
 
 // Search performs a search with the provided query string.
-func (db *Database) Search(ctx context.Context, platform, query string) ([]Package, error) {
-	var packages []Package
+func (db *Database) Search(ctx context.Context, platform, query string) ([]PackageSynopsis, error) {
+	var packages []PackageSynopsis
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
@@ -238,7 +256,7 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]Packa
 		defer rows.Close()
 
 		for rows.Next() {
-			var pkg Package
+			var pkg PackageSynopsis
 			if err := rows.Scan(&pkg.ImportPath, &pkg.ModulePath, &pkg.SeriesPath,
 				&pkg.Version, &pkg.Reference, &pkg.CommitTime, &pkg.Name,
 				&pkg.Synopsis); err != nil {
@@ -254,8 +272,8 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]Packa
 const packageQuery = `
 SELECT
 	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
-	m.latest_version, m.versions, m.deprecated, p.imports, p.name, p.synopsis,
-	m.updated
+	p.source, p.error,
+	m.latest_version, m.versions, m.deprecated, m.updated
 FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3
 	AND m.module_path = p.module_path;
@@ -264,16 +282,17 @@ WHERE p.platform = $1 AND p.import_path = $2 AND p.version = $3
 const latestQuery = `
 SELECT
 	p.module_path, p.series_path, p.version, p.reference, p.commit_time,
-	m.latest_version, m.versions, m.deprecated, m.updated, p.source
+	p.source, p.error,
+	m.latest_version, m.versions, m.deprecated, m.updated
 FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path
 	AND p.version = m.latest_version;
 `
 
-// Package returns information for the given package. It may return nil if no such package was found.
-func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*internal.Module, []byte, error) {
-	var mod internal.Module
-	var source []byte
+// Package returns information for the package with the given import path.
+// It may return nil if no such package was found.
+func (db *Database) Package(ctx context.Context, platform, importPath, version string) (*Package, error) {
+	var pkg Package
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
@@ -284,47 +303,48 @@ func (db *Database) Package(ctx context.Context, platform, importPath, version s
 			row = tx.Stmt(db.packageQuery).QueryRow(platform, importPath, version)
 		}
 
-		if err := row.Scan(&mod.ModulePath, &mod.SeriesPath, &mod.Version,
-			&mod.Reference, &mod.CommitTime, &mod.LatestVersion,
-			(*pq.StringArray)(&mod.Versions), &mod.Deprecated, &mod.Updated,
-			&source); err != nil {
+		if err := row.Scan(&pkg.ModulePath, &pkg.SeriesPath,
+			&pkg.Version, &pkg.Reference, &pkg.CommitTime,
+			&pkg.Source, &pkg.Error,
+			&pkg.LatestVersion, (*pq.StringArray)(&pkg.Versions),
+			&pkg.Deprecated, &pkg.Updated); err != nil {
 			return err
 		}
-		if importPath != mod.ModulePath {
+		if importPath != pkg.ModulePath {
 			// Filter available versions
 			stmt := tx.Stmt(db.packageExists)
 			i := 0
-			for j := 0; j < len(mod.Versions); j++ {
+			for j := 0; j < len(pkg.Versions); j++ {
 				exists := false
-				row := stmt.QueryRow(platform, importPath, mod.Versions[j])
+				row := stmt.QueryRow(platform, importPath, pkg.Versions[j])
 				if err := row.Scan(&exists); err != nil {
 					return err
 				}
 				if !exists {
 					continue
 				}
-				mod.Versions[i] = mod.Versions[j]
+				pkg.Versions[i] = pkg.Versions[j]
 				i++
 			}
-			mod.Versions = mod.Versions[:i]
+			pkg.Versions = pkg.Versions[:i]
 		}
 		return nil
 	})
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return &mod, source, nil
+	return &pkg, nil
 }
 
 const insertPackage = `
 INSERT INTO packages (
 	platform, import_path, module_path, series_path, version, reference,
-	commit_time, imports, name, synopsis, score, source
+	commit_time, imports, name, synopsis, score, source, error
 ) VALUES (
-	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+	$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
 );
 `
 
@@ -336,7 +356,7 @@ func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module
 	_, err := tx.Stmt(db.insertPackage).Exec(
 		platform, pkg.ImportPath, mod.ModulePath, mod.SeriesPath, mod.Version,
 		mod.Reference, mod.CommitTime, pq.StringArray(pkg.Imports), pkg.Name,
-		synopsis, score, source)
+		synopsis, score, source, "")
 	if err != nil {
 		return err
 	}
@@ -344,10 +364,10 @@ func (db *Database) PutPackage(tx *sql.Tx, platform string, mod *internal.Module
 }
 
 // PutDirectory stores the directory in the database.
-func (db *Database) PutDirectory(tx *sql.Tx, platform string, mod *internal.Module, importPath string) error {
+func (db *Database) PutDirectory(tx *sql.Tx, platform string, mod *internal.Module, importPath string, errorMsg string) error {
 	_, err := tx.Stmt(db.insertPackage).Exec(
 		platform, importPath, mod.ModulePath, mod.SeriesPath, mod.Version,
-		mod.Reference, mod.CommitTime, nil, "", "", 0, nil)
+		mod.Reference, mod.CommitTime, nil, "", "", 0, nil, errorMsg)
 	if err != nil {
 		return err
 	}
@@ -444,8 +464,8 @@ WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path A
 
 // Packages returns a list of package information for the given import paths.
 // Only the ImportPath and Synopsis fields will be populated.
-func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]Package, error) {
-	var packages []Package
+func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]PackageSynopsis, error) {
+	var packages []PackageSynopsis
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
@@ -457,7 +477,7 @@ func (db *Database) Packages(ctx context.Context, platform string, importPaths [
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
-			packages = append(packages, Package{
+			packages = append(packages, PackageSynopsis{
 				ImportPath: importPath,
 				Synopsis:   synopsis,
 			})
@@ -481,12 +501,12 @@ ORDER BY import_path;
 `
 
 // SubPackages returns the subpackages of the given package.
-func (db *Database) SubPackages(ctx context.Context, platform, modulePath, version, importPath string) ([]Package, error) {
+func (db *Database) SubPackages(ctx context.Context, platform, modulePath, version, importPath string) ([]PackageSynopsis, error) {
 	isModule := modulePath == importPath
 	isInternal := importPath == "internal" ||
 		strings.HasSuffix(importPath, "/internal") ||
 		strings.Contains(importPath, "/internal/")
-	var packages []Package
+	var packages []PackageSynopsis
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
@@ -498,7 +518,7 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 		defer rows.Close()
 
 		for rows.Next() {
-			var pkg Package
+			var pkg PackageSynopsis
 			if err := rows.Scan(&pkg.ImportPath, &pkg.SeriesPath,
 				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
 				return err

@@ -86,7 +86,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 
 	s.templates.Execute(w, "search.gmi", struct {
 		Query   string
-		Results []database.Package
+		Results []database.PackageSynopsis
 	}{q, pkgs})
 	return nil
 }

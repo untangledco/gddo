@@ -176,7 +176,7 @@ func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, 
 	for importPath, pkg := range pkgs {
 		if pkg == nil {
 			// Special case for directories
-			if err := s.db.PutDirectory(tx, platform, mod, importPath); err != nil {
+			if err := s.db.PutDirectory(tx, platform, mod, importPath, ""); err != nil {
 				return err
 			}
 			continue
@@ -189,14 +189,17 @@ func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, 
 			return err
 		}
 
-		// TODO: Truncate large packages?
+		// TODO: Truncate large packages
 
 		docPkg, err := buildDoc(importPath, pkg)
 		if err != nil {
-			// TODO: Surface this error somewhere
-			log.Printf("Failed to build documentation for %s: %v", importPath, err)
+			// Store the error in the database
+			if err := s.db.PutDirectory(tx, platform, mod, importPath, err.Error()); err != nil {
+				return err
+			}
 			continue
 		}
+
 		if err := s.db.PutPackage(tx, platform, mod, docPkg, source); err != nil {
 			return err
 		}

@@ -42,41 +42,37 @@ func (s *Server) load(ctx context.Context, platform, importPath, version string,
 }
 
 func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
-	mod, source, err := s.db.Package(ctx, platform, importPath, version)
+	dpkg, err := s.db.Package(ctx, platform, importPath, version)
 	if err != nil {
 		return nil, err
 	}
-	if mod == nil {
+	if dpkg == nil {
 		// Try fetching the package
 		err := s.fetch(ctx, platform, importPath, version)
 		if err != nil {
 			return nil, err
 		}
-		mod, source, err = s.db.Package(ctx, platform, importPath, version)
-		if err != nil {
-			return nil, err
-		}
-		if mod == nil {
-			return nil, internal.ErrNotFound
-		}
-	}
-
-	var src *godoc.Package
-	if len(source) > 0 {
-		var err error
-		src, err = godoc.DecodePackage(source)
+		dpkg, err = s.db.Package(ctx, platform, importPath, version)
 		if err != nil {
 			return nil, err
 		}
 	}
+	if dpkg == nil {
+		return nil, internal.ErrNotFound
+	}
 
-	pkg, err := NewPackage(mod, platform, importPath, src)
+	src, err := dpkg.Decode()
+	if err != nil {
+		return nil, err
+	}
+
+	pkg, err := NewPackage(&dpkg.Module, platform, importPath, src)
 	if err != nil {
 		return nil, err
 	}
 
 	if mode&NeedSubPackages != 0 {
-		subpkgs, err := s.db.SubPackages(ctx, platform, mod.ModulePath, mod.Version, importPath)
+		subpkgs, err := s.db.SubPackages(ctx, platform, dpkg.ModulePath, dpkg.Version, importPath)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +88,7 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	}
 
 	if mode&NeedProject != 0 {
-		project, err := s.db.Project(ctx, mod.SeriesPath)
+		project, err := s.db.Project(ctx, dpkg.SeriesPath)
 		if err != nil {
 			return nil, err
 		}
@@ -135,7 +131,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 			if !isRoot && !strings.HasPrefix(subPath, prefix) {
 				continue
 			}
-			pkg.SubPackages = append(pkg.SubPackages, database.Package{
+			pkg.SubPackages = append(pkg.SubPackages, database.PackageSynopsis{
 				Module:     *mod,
 				ImportPath: subPath,
 			})
@@ -144,9 +140,9 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 
 	if mode&NeedImports != 0 {
 		// Populate import paths only
-		var imports []database.Package
+		var imports []database.PackageSynopsis
 		for _, importPath := range pkg.Imports {
-			imports = append(imports, database.Package{
+			imports = append(imports, database.PackageSynopsis{
 				ImportPath: importPath,
 			})
 		}

@@ -233,7 +233,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	// TODO: UI to choose which platform to use for searches
 	return s.templates.ExecuteHTML(resp, "search.html", &struct {
 		Query   string
-		Results []database.Package
+		Results []database.PackageSynopsis
 		Message string
 	}{q, pkgs, msg})
 }

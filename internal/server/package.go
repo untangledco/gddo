@@ -23,8 +23,8 @@ type Package struct {
 	FileSet     *token.FileSet
 	Synopsis    string
 	Platform    string
-	SubPackages []database.Package
-	Imported    []database.Package
+	SubPackages []database.PackageSynopsis
+	Imported    []database.PackageSynopsis
 	Message     string
 
 	project     *autodiscovery.Project
@@ -34,23 +34,11 @@ type Package struct {
 }
 
 // NewPackage returns a new package for use in templates.
+// If src is nil, no package documentation will be displayed.
 func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Package) (*Package, error) {
 	// Compute inner path
 	innerPath := strings.TrimPrefix(importPath, mod.ModulePath)
 	innerPath = strings.TrimPrefix(innerPath, "/")
-
-	if src == nil {
-		// A directory with no Go files
-		docPkg := &doc.Package{
-			ImportPath: importPath,
-		}
-		return &Package{
-			Module:    mod,
-			Package:   docPkg,
-			Platform:  platform,
-			innerPath: innerPath,
-		}, nil
-	}
 
 	// Build documentation
 	docPkg, err := buildDoc(importPath, src)
@@ -58,10 +46,15 @@ func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Pa
 		return nil, err
 	}
 
+	var fset *token.FileSet
+	if src != nil {
+		fset = src.Fset
+	}
+
 	pkg := &Package{
 		Module:    mod,
 		Package:   docPkg,
-		FileSet:   src.Fset,
+		FileSet:   fset,
 		Synopsis:  docPkg.Synopsis(docPkg.Doc),
 		Platform:  platform,
 		innerPath: innerPath,
@@ -71,7 +64,14 @@ func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Pa
 }
 
 // buildDoc builds documentation for the given package.
+// If src is nil, it returns an empty [doc.Package].
 func buildDoc(importPath string, src *godoc.Package) (*doc.Package, error) {
+	if src == nil {
+		// No Go source files
+		return &doc.Package{
+			ImportPath: importPath,
+		}, nil
+	}
 	var files []*ast.File
 	for _, f := range src.Files {
 		files = append(files, f.AST)

@@ -28,6 +28,7 @@ CREATE TABLE packages (
 	score float NOT NULL,
 	imports text[],
 	source bytea,
+	error text NOT NULL,
 	searchtext tsvector GENERATED ALWAYS AS (
 		to_tsvector('english', "name") ||
 		to_tsvector('english', coalesce(synopsis, '')) ||

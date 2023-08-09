@@ -36,7 +36,7 @@ type Module struct {
 	LatestVersion string
 	Versions      []string
 	Deprecated    string
-	Updated       time.Time
+	Updated       time.Time // TODO: remove this
 }
 
 // Source represents a source of Go modules.
