@@ -27,7 +27,7 @@ import (
 type LoadMode int
 
 const (
-	NeedSubPackages LoadMode = 1 << iota
+	NeedDirectories LoadMode = 1 << iota
 	NeedImports
 	NeedProject
 )
@@ -71,16 +71,16 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		return nil, err
 	}
 
-	if mode&NeedSubPackages != 0 {
-		subpkgs, err := s.db.SubPackages(ctx, platform, dpkg.ModulePath, dpkg.Version, importPath)
+	if mode&NeedDirectories != 0 {
+		dirs, err := s.db.Directories(ctx, platform, dpkg.ModulePath, dpkg.Version, importPath)
 		if err != nil {
 			return nil, err
 		}
-		pkg.SubPackages = subpkgs
+		pkg.Directories = dirs
 	}
 
 	if mode&NeedImports != 0 {
-		imports, err := s.db.Packages(ctx, platform, pkg.Imports)
+		imports, err := s.db.Synopses(ctx, platform, pkg.Imports)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +121,7 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 		return nil, err
 	}
 
-	if mode&NeedSubPackages != 0 {
+	if mode&NeedDirectories != 0 {
 		isRoot := importPath == mod.ModulePath
 		prefix := importPath + "/"
 		for subPath := range pkgs {
@@ -131,18 +131,16 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 			if !isRoot && !strings.HasPrefix(subPath, prefix) {
 				continue
 			}
-			pkg.SubPackages = append(pkg.SubPackages, database.PackageSynopsis{
-				Module:     *mod,
+			pkg.Directories = append(pkg.Directories, database.Synopsis{
 				ImportPath: subPath,
 			})
 		}
 	}
 
 	if mode&NeedImports != 0 {
-		// Populate import paths only
-		var imports []database.PackageSynopsis
+		var imports []database.Synopsis
 		for _, importPath := range pkg.Imports {
-			imports = append(imports, database.PackageSynopsis{
+			imports = append(imports, database.Synopsis{
 				ImportPath: importPath,
 			})
 		}

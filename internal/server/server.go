@@ -165,7 +165,7 @@ func parseImportPath(q string) (string, error) {
 	return q, nil
 }
 
-func (s *Server) search(ctx context.Context, platform, q string) ([]database.PackageSynopsis, error) {
+func (s *Server) search(ctx context.Context, platform, q string) ([]database.Synopsis, error) {
 	if s.db == nil {
 		// Search requires a database
 		return nil, nil

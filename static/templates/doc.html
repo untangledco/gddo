@@ -24,13 +24,13 @@
   {{- template "package" .}}
   {{- end}}
 
-  {{- if .SubPackages}}
+  {{- if .Directories}}
   <h3 id="pkg-directories">Directories <a class="permalink" href="#pkg-directories">¶</a></h3>
   <table class="table table-condensed">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>
-      {{- range .SubPackages}}
-      <tr><td><a href="{{view .ImportPath ""}}">{{relative_path .ImportPath .ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>
+      {{- range .Directories}}
+      <tr><td><a href="{{view .ImportPath ""}}">{{relative_path .ImportPath $.ModulePath}}</a></td><td>{{.Synopsis}}</td></tr>
       {{- end}}
     </tbody>
   </table>

@@ -36,13 +36,9 @@ func (p *Package) Decode() (*godoc.Package, error) {
 	return nil, nil
 }
 
-// PackageSynopsis provides access to the fields from a [doc.Package]
-// which can be directly retrieved from the database.
-type PackageSynopsis struct {
-	internal.Module
+// Synopsis is a shorthand version of a package useful for package listings.
+type Synopsis struct {
 	ImportPath string
-	Imports    []string
-	Name       string
 	Synopsis   string
 }
 
@@ -60,7 +56,7 @@ type Database struct {
 	packageExists    *sql.Stmt
 	blockExists      *sql.Stmt
 	synopsisQuery    *sql.Stmt
-	subpackagesQuery *sql.Stmt
+	directoriesQuery *sql.Stmt
 	projectQuery     *sql.Stmt
 	projectUpdated   *sql.Stmt
 	insertProject    *sql.Stmt
@@ -124,7 +120,7 @@ func (db *Database) prepare() error {
 	if err != nil {
 		return err
 	}
-	db.subpackagesQuery, err = db.pg.Prepare(subpackagesQuery)
+	db.directoriesQuery, err = db.pg.Prepare(directoriesQuery)
 	if err != nil {
 		return err
 	}
@@ -231,9 +227,7 @@ func (db *Database) TouchModule(ctx context.Context, modulePath string) error {
 }
 
 const searchQuery = `
-SELECT
-	p.import_path, p.module_path, p.series_path, p.version, p.reference,
-	p.commit_time, p.name, p.synopsis
+SELECT p.import_path, p.synopsis
 FROM packages p, modules m
 WHERE p.searchtext @@ websearch_to_tsquery('english', $2)
 	AND p.platform = $1
@@ -244,8 +238,8 @@ LIMIT 20;
 `
 
 // Search performs a search with the provided query string.
-func (db *Database) Search(ctx context.Context, platform, query string) ([]PackageSynopsis, error) {
-	var packages []PackageSynopsis
+func (db *Database) Search(ctx context.Context, platform, query string) ([]Synopsis, error) {
+	var results []Synopsis
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
@@ -256,17 +250,15 @@ func (db *Database) Search(ctx context.Context, platform, query string) ([]Packa
 		defer rows.Close()
 
 		for rows.Next() {
-			var pkg PackageSynopsis
-			if err := rows.Scan(&pkg.ImportPath, &pkg.ModulePath, &pkg.SeriesPath,
-				&pkg.Version, &pkg.Reference, &pkg.CommitTime, &pkg.Name,
-				&pkg.Synopsis); err != nil {
+			var res Synopsis
+			if err := rows.Scan(&res.ImportPath, &res.Synopsis); err != nil {
 				return err
 			}
-			packages = append(packages, pkg)
+			results = append(results, res)
 		}
 		return rows.Err()
 	})
-	return packages, err
+	return results, err
 }
 
 const packageQuery = `
@@ -462,10 +454,9 @@ FROM packages p, modules m
 WHERE p.platform = $1 AND p.import_path = $2 AND m.module_path = p.module_path AND p.version = m.latest_version;
 `
 
-// Packages returns a list of package information for the given import paths.
-// Only the ImportPath and Synopsis fields will be populated.
-func (db *Database) Packages(ctx context.Context, platform string, importPaths []string) ([]PackageSynopsis, error) {
-	var packages []PackageSynopsis
+// Synopses returns a list of package synopses for the given import paths.
+func (db *Database) Synopses(ctx context.Context, platform string, importPaths []string) ([]Synopsis, error) {
+	var results []Synopsis
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
@@ -477,7 +468,7 @@ func (db *Database) Packages(ctx context.Context, platform string, importPaths [
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
-			packages = append(packages, PackageSynopsis{
+			results = append(results, Synopsis{
 				ImportPath: importPath,
 				Synopsis:   synopsis,
 			})
@@ -487,12 +478,12 @@ func (db *Database) Packages(ctx context.Context, platform string, importPaths [
 	if err != nil {
 		return nil, err
 	}
-	return packages, nil
+	return results, nil
 }
 
-const subpackagesQuery = `
+const directoriesQuery = `
 SELECT
-	import_path, series_path, commit_time, name, synopsis
+	import_path, synopsis
 FROM packages
 WHERE platform = $1 AND module_path = $2 AND version = $3
 AND (($4 AND import_path != module_path) OR import_path LIKE replace($5, '_', '\_') || '/%')
@@ -500,17 +491,17 @@ AND ($6 OR import_path NOT SIMILAR TO '(%/)?internal/%')
 ORDER BY import_path;
 `
 
-// SubPackages returns the subpackages of the given package.
-func (db *Database) SubPackages(ctx context.Context, platform, modulePath, version, importPath string) ([]PackageSynopsis, error) {
+// Directories returns the subdirectories for a given package.
+func (db *Database) Directories(ctx context.Context, platform, modulePath, version, importPath string) ([]Synopsis, error) {
 	isModule := modulePath == importPath
 	isInternal := importPath == "internal" ||
 		strings.HasSuffix(importPath, "/internal") ||
 		strings.Contains(importPath, "/internal/")
-	var packages []PackageSynopsis
+	var results []Synopsis
 	err := db.WithTx(ctx, &sql.TxOptions{
 		ReadOnly: true,
 	}, func(tx *sql.Tx) error {
-		rows, err := tx.Stmt(db.subpackagesQuery).Query(
+		rows, err := tx.Stmt(db.directoriesQuery).Query(
 			platform, modulePath, version, isModule, importPath, isInternal)
 		if err != nil {
 			return err
@@ -518,21 +509,18 @@ func (db *Database) SubPackages(ctx context.Context, platform, modulePath, versi
 		defer rows.Close()
 
 		for rows.Next() {
-			var pkg PackageSynopsis
-			if err := rows.Scan(&pkg.ImportPath, &pkg.SeriesPath,
-				&pkg.CommitTime, &pkg.Name, &pkg.Synopsis); err != nil {
+			var res Synopsis
+			if err := rows.Scan(&res.ImportPath, &res.Synopsis); err != nil {
 				return err
 			}
-			pkg.ModulePath = modulePath
-			pkg.Version = version
-			packages = append(packages, pkg)
+			results = append(results, res)
 		}
 		return rows.Err()
 	})
 	if err != nil {
 		return nil, err
 	}
-	return packages, nil
+	return results, nil
 }
 
 const projectQuery = `

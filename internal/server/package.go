@@ -23,8 +23,8 @@ type Package struct {
 	FileSet     *token.FileSet
 	Synopsis    string
 	Platform    string
-	SubPackages []database.PackageSynopsis
-	Imported    []database.PackageSynopsis
+	Directories []database.Synopsis
+	Imported    []database.Synopsis
 	Message     string
 
 	project     *autodiscovery.Project

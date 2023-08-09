@@ -116,7 +116,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 	case "tools":
 	case "import-graph":
 	default:
-		mode |= NeedSubPackages
+		mode |= NeedDirectories
 	}
 
 	pkg, err := s.load(ctx, platform, importPath, version, mode)
@@ -233,7 +233,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	// TODO: UI to choose which platform to use for searches
 	return s.templates.ExecuteHTML(resp, "search.html", &struct {
 		Query   string
-		Results []database.PackageSynopsis
+		Results []database.Synopsis
 		Message string
 	}{q, pkgs, msg})
 }

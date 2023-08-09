@@ -86,7 +86,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 
 	s.templates.Execute(w, "search.gmi", struct {
 		Query   string
-		Results []database.PackageSynopsis
+		Results []database.Synopsis
 	}{q, pkgs})
 	return nil
 }
@@ -109,7 +109,7 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 	case "imports":
 		mode |= NeedImports
 	default:
-		mode |= NeedSubPackages
+		mode |= NeedDirectories
 	}
 
 	pkg, err := s.load(ctx, platform, importPath, version, mode)

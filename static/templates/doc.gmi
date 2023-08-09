@@ -99,9 +99,9 @@ import "{{.ImportPath}}"
 {{end}}
 {{- end}}
 
-{{- if .SubPackages}}
+{{- if .Directories}}
 ## Directories
-{{range .SubPackages}}
+{{range .Directories}}
 => {{view .ImportPath ""}} {{relative_path .ImportPath .ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
