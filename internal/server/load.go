@@ -292,15 +292,21 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 	if modulePath == stdlib.ModulePath {
 		rootPath = "."
 	}
+	if _, ok := pkgs[modulePath]; !ok {
+		pkgs[modulePath] = nil
+	}
 	for importPath := range pkgs {
-		dirPath := importPath
+		if importPath == rootPath {
+			continue
+		}
+		dirPath := path.Dir(importPath)
 		for dirPath != rootPath {
-			dirPath = path.Dir(dirPath)
 			_, ok := pkgs[dirPath]
 			if ok {
 				break
 			}
 			pkgs[dirPath] = nil
+			dirPath = path.Dir(dirPath)
 		}
 	}
 
