@@ -224,6 +224,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	}
 
 	// Build package documentation
+	pkgPaths := []string{}
 	results := map[string]loadResult{}
 	for innerPath, pathnames := range pkgPathnames {
 		importPath := path.Join(modulePath, innerPath)
@@ -233,10 +234,16 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 
 		pkg, err := loadPackage(goos, goarch, modulePath, innerPath, fsys, pathnames)
 		if err != nil {
+			pkgPaths = append(pkgPaths, importPath)
 			results[importPath] = loadResult{
 				Error: err.Error(),
 			}
-		} else {
+			continue
+		}
+		// pkg may be nil if no Go files were matched by the build context.
+		// In that case we do not store the result in the map.
+		if pkg != nil {
+			pkgPaths = append(pkgPaths, importPath)
 			results[importPath] = loadResult{
 				Package: pkg,
 			}
@@ -251,7 +258,8 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	if _, ok := results[modulePath]; !ok {
 		results[modulePath] = loadResult{}
 	}
-	for importPath := range results {
+	// Loop through packages, adding parent directories as necessary
+	for _, importPath := range pkgPaths {
 		if importPath == rootPath {
 			continue
 		}
@@ -269,6 +277,8 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	return results, nil
 }
 
+// loadPackage attempts to load a Go package from the given filesystem.
+// It returns nil if all of the Go files are excluded from the build context.
 func loadPackage(goos, goarch, modulePath, innerPath string, fsys fs.FS, pathnames []string) (*godoc.Package, error) {
 	// Map of Go file paths to file contents
 	files := map[string][]byte{}
@@ -313,6 +323,10 @@ func loadPackage(goos, goarch, modulePath, innerPath string, fsys fs.FS, pathnam
 		if !match {
 			delete(files, pathname)
 		}
+	}
+	if len(files) == 0 {
+		// No Go files were matched
+		return nil, nil
 	}
 
 	// Build package documentation
