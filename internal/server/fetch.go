@@ -11,7 +11,6 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
-	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/semver"
@@ -167,16 +166,15 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	})
 
 	return s.db.WithTx(ctx, nil, func(tx *sql.Tx) error {
-		return s.putPackages(tx, platform, mod, pkgs)
+		return s.putResults(tx, platform, mod, pkgs)
 	})
 }
 
-// putPackages puts the packages for a given module in the database.
-func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]*godoc.Package) error {
-	for importPath, pkg := range pkgs {
-		if pkg == nil {
-			// Special case for directories
-			if err := s.db.PutDirectory(tx, platform, mod, importPath, ""); err != nil {
+// putResults stores the package load results for a given module in the database.
+func (s *Server) putResults(tx *sql.Tx, platform string, mod *internal.Module, pkgs map[string]loadResult) error {
+	for importPath, result := range pkgs {
+		if result.Package == nil {
+			if err := s.db.PutDirectory(tx, platform, mod, importPath, result.Error); err != nil {
 				return err
 			}
 			continue
@@ -184,14 +182,14 @@ func (s *Server) putPackages(tx *sql.Tx, platform string, mod *internal.Module, 
 
 		// Encode source files before rendering documentation, since
 		// doc.New overwrites the AST.
-		source, err := pkg.Encode()
+		source, err := result.Package.Encode()
 		if err != nil {
 			return err
 		}
 
 		// TODO: Truncate large packages
 
-		docPkg, err := buildDoc(importPath, pkg)
+		docPkg, err := buildDoc(importPath, result.Package)
 		if err != nil {
 			// Store the error in the database
 			if err := s.db.PutDirectory(tx, platform, mod, importPath, err.Error()); err != nil {

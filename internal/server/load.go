@@ -111,12 +111,12 @@ func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, ve
 	if err != nil {
 		return nil, err
 	}
-	src := pkgs[importPath]
-	if src == nil {
+	result, ok := pkgs[importPath]
+	if !ok {
 		return nil, internal.ErrNotFound
 	}
 
-	pkg, err := NewPackage(mod, platform, importPath, src)
+	pkg, err := NewPackage(mod, platform, importPath, result.Package)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +182,15 @@ func (s *Server) findModule(importPath, version string) (internal.Source, *inter
 	return source, mod, nil
 }
 
+// loadResult is the result of attempting to load a package.
+// Only one of Package or Error will be populated.
+type loadResult struct {
+	Package *godoc.Package
+	Error   string
+}
+
 // loadPackages loads Go packages from the given filesystem.
-// The resulting map may contain nil packages to signify directories
-// with no Go files in them.
-func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Package, error) {
+func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResult, error) {
 	if !platforms.Valid(platform) {
 		return nil, ErrInvalidPlatform
 	}
@@ -194,6 +199,80 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 		return nil, ErrInvalidPlatform
 	}
 
+	// Collect Go file names
+	pkgPathnames := map[string][]string{}
+	err := fs.WalkDir(fsys, ".", func(pathname string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			// Skip ignored directories
+			if ignoredByGoTool(d.Name()) || isVendor(d.Name()) {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		// Skip ignored files
+		if ignoredByGoTool(pathname) || !strings.HasSuffix(pathname, ".go") {
+			return nil
+		}
+
+		innerPath := path.Dir(pathname)
+		pkgPathnames[innerPath] = append(pkgPathnames[innerPath], pathname)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Build package documentation
+	results := map[string]loadResult{}
+	for innerPath, pathnames := range pkgPathnames {
+		importPath := path.Join(modulePath, innerPath)
+		if modulePath == stdlib.ModulePath {
+			importPath = innerPath
+		}
+
+		pkg, err := loadPackage(goos, goarch, modulePath, innerPath, fsys, pathnames)
+		if err != nil {
+			results[importPath] = loadResult{
+				Error: err.Error(),
+			}
+		} else {
+			results[importPath] = loadResult{
+				Package: pkg,
+			}
+		}
+	}
+
+	// Add directories to the map
+	rootPath := modulePath
+	if modulePath == stdlib.ModulePath {
+		rootPath = "."
+	}
+	if _, ok := results[modulePath]; !ok {
+		results[modulePath] = loadResult{}
+	}
+	for importPath := range results {
+		if importPath == rootPath {
+			continue
+		}
+		dirPath := path.Dir(importPath)
+		for dirPath != rootPath {
+			_, ok := results[dirPath]
+			if ok {
+				break
+			}
+			results[dirPath] = loadResult{}
+			dirPath = path.Dir(dirPath)
+		}
+	}
+
+	return results, nil
+}
+
+func loadPackage(goos, goarch, modulePath, innerPath string, fsys fs.FS, pathnames []string) (*godoc.Package, error) {
+	// Map of Go file paths to file contents
 	files := map[string][]byte{}
 
 	// bctx is used to make decisions about which of the .go files are included
@@ -221,59 +300,28 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 		ReadDir:       func(string) ([]os.FileInfo, error) { panic("internal error: unexpected call to ReadDir") },
 	}
 
-	// Collect Go files
-	err := fs.WalkDir(fsys, ".", func(pathname string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			// Skip ignored directories
-			if ignoredByGoTool(d.Name()) || isVendor(d.Name()) {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		// Skip ignored files
-		if ignoredByGoTool(pathname) || !strings.HasSuffix(pathname, ".go") {
-			return nil
-		}
-
+	// Collect Go file contents
+	for _, pathname := range pathnames {
 		contents, err := fs.ReadFile(fsys, pathname)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		files[pathname] = contents
 
 		match, err := bctx.MatchFile(path.Split(pathname))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !match {
 			delete(files, pathname)
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	// Build package documentation
-	pkgs := map[string]*godoc.Package{}
-	for pathname, contents := range files {
-		innerPath := path.Dir(pathname)
-		importPath := path.Join(modulePath, innerPath)
-		if modulePath == stdlib.ModulePath {
-			importPath = innerPath
-		}
-
-		pkg := pkgs[importPath]
-		if pkg == nil {
-			pkg = godoc.NewPackage()
-			pkgs[importPath] = pkg
-		}
-
-		filename := path.Base(pathname)
-		file, err := parser.ParseFile(pkg.Fset, filename, contents, parser.ParseComments)
+	pkg := godoc.NewPackage()
+	for _, pathname := range pathnames {
+		contents := files[pathname]
+		file, err := parser.ParseFile(pkg.Fset, path.Base(pathname), contents, parser.ParseComments)
 		if err != nil {
 			return nil, err
 		}
@@ -286,31 +334,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]*godoc.Pa
 		}
 		pkg.AddFile(file, removeNodes)
 	}
-
-	// Add directories to the map
-	rootPath := modulePath
-	if modulePath == stdlib.ModulePath {
-		rootPath = "."
-	}
-	if _, ok := pkgs[modulePath]; !ok {
-		pkgs[modulePath] = nil
-	}
-	for importPath := range pkgs {
-		if importPath == rootPath {
-			continue
-		}
-		dirPath := path.Dir(importPath)
-		for dirPath != rootPath {
-			_, ok := pkgs[dirPath]
-			if ok {
-				break
-			}
-			pkgs[dirPath] = nil
-			dirPath = path.Dir(dirPath)
-		}
-	}
-
-	return pkgs, nil
+	return pkg, nil
 }
 
 // ignoredByGoTool reports whether the given file or directory would be
