@@ -106,7 +106,7 @@
   {{- if ne $i 0 -}}
     <span class="text-muted">/</span>
   {{- end -}}
-  {{- if .Current -}}
+  {{- if and .Current (eq templateName "doc.html") -}}
     <span class="text-muted">{{.Text}}</span>
   {{- else -}}
     <a href="/{{.ImportPath}}">{{.Text}}</a>
