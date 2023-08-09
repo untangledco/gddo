@@ -74,9 +74,6 @@ func New(cfg *Config) (*Server, error) {
 		Name: "gddo_modules_total",
 		Help: "Total number of modules indexed",
 	}, func() float64 {
-		if s.db == nil {
-			return 0
-		}
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		count, err := s.db.Modules(ctx)
@@ -137,12 +134,4 @@ func parseImportPath(q string) (string, error) {
 		return "", internal.ErrInvalidPath
 	}
 	return q, nil
-}
-
-func (s *Server) search(ctx context.Context, platform, q string) ([]database.Synopsis, error) {
-	if s.db == nil {
-		// Search requires a database
-		return nil, nil
-	}
-	return s.db.Search(ctx, platform, q)
 }

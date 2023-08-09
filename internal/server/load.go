@@ -7,7 +7,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"errors"
 	"go/build"
 	"go/parser"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
-	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
@@ -34,10 +32,6 @@ const (
 
 // load loads a package.
 func (s *Server) load(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
-	if s.db == nil {
-		// Load the package directly from the source
-		return s.loadPackageDirect(ctx, platform, importPath, version, mode)
-	}
 	return s.loadPackage(ctx, platform, importPath, version, mode)
 }
 
@@ -96,88 +90,6 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 	}
 
 	return pkg, nil
-}
-
-func (s *Server) loadPackageDirect(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
-	source, mod, err := s.findModule(importPath, version)
-	if err != nil {
-		return nil, err
-	}
-	fsys, err := source.Files(mod)
-	if err != nil {
-		return nil, err
-	}
-	pkgs, err := loadPackages(platform, mod.ModulePath, fsys)
-	if err != nil {
-		return nil, err
-	}
-	result, ok := pkgs[importPath]
-	if !ok {
-		return nil, internal.ErrNotFound
-	}
-
-	pkg, err := NewPackage(mod, platform, importPath, result.Package)
-	if err != nil {
-		return nil, err
-	}
-
-	if mode&NeedDirectories != 0 {
-		isRoot := importPath == mod.ModulePath
-		prefix := importPath + "/"
-		for subPath := range pkgs {
-			if subPath == importPath {
-				continue
-			}
-			if !isRoot && !strings.HasPrefix(subPath, prefix) {
-				continue
-			}
-			pkg.Directories = append(pkg.Directories, database.Synopsis{
-				ImportPath: subPath,
-			})
-		}
-	}
-
-	if mode&NeedImports != 0 {
-		var imports []database.Synopsis
-		for _, importPath := range pkg.Imports {
-			imports = append(imports, database.Synopsis{
-				ImportPath: importPath,
-			})
-		}
-		pkg.Imported = imports
-	}
-
-	return pkg, nil
-}
-
-func (s *Server) findModule(importPath, version string) (internal.Source, *internal.Module, error) {
-	// Loop through potential module paths
-	var source internal.Source
-	var mod *internal.Module
-	if stdlib.Contains(importPath) {
-		var err error
-		source, mod, err = s.sources.FindModule(stdlib.ModulePath, version)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
-			var err error
-			source, mod, err = s.sources.FindModule(modulePath, version)
-			if err != nil {
-				if errors.Is(err, internal.ErrNotFound) {
-					// Try parent path
-					continue
-				}
-				return nil, nil, err
-			}
-			break
-		}
-	}
-	if mod == nil {
-		return nil, nil, internal.ErrNotFound
-	}
-	return source, mod, nil
 }
 
 // loadResult is the result of attempting to load a package.

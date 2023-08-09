@@ -18,10 +18,6 @@ import (
 
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, platform, importPath, version string) error {
-	if s.db == nil {
-		return nil
-	}
-
 	if !platforms.Valid(platform) {
 		return ErrInvalidPlatform
 	}

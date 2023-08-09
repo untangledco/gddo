@@ -75,7 +75,7 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 		}
 	}
 
-	pkgs, err := s.search(ctx, platform, q)
+	pkgs, err := s.db.Search(ctx, platform, q)
 	if err != nil {
 		return err
 	}

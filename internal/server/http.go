@@ -221,7 +221,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 		msg, _ = errorMessage(err)
 	}
 
-	pkgs, err := s.search(req.Context(), platform, q)
+	pkgs, err := s.db.Search(req.Context(), platform, q)
 	if err != nil {
 		return err
 	}
