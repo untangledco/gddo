@@ -114,6 +114,11 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 		}
 	}
 
+	// Sort module versions
+	sort.Slice(mod.Versions, func(i, j int) bool {
+		return semver.Compare(mod.Versions[i], mod.Versions[j]) > 0
+	})
+
 	if err := s.db.PutModule(ctx, mod); err != nil {
 		return err
 	}
@@ -155,11 +160,6 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 		// The module has no packages
 		return ErrNoPackages
 	}
-
-	// Sort versions
-	sort.Slice(mod.Versions, func(i, j int) bool {
-		return semver.Compare(mod.Versions[i], mod.Versions[j]) > 0
-	})
 
 	return s.db.WithTx(ctx, nil, func(tx *sql.Tx) error {
 		return s.putResults(tx, platform, mod, pkgs)
