@@ -197,10 +197,6 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 
 	q := strings.TrimSpace(req.Form.Get("q"))
 	if q == "" {
-		if s.defaultModule != "" {
-			http.Redirect(resp, req, "/"+s.defaultModule, http.StatusTemporaryRedirect)
-			return nil
-		}
 		return s.templates.ExecuteHTML(resp, "index.html", nil)
 	}
 

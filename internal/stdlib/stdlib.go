@@ -14,10 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
-	"path"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -42,34 +39,6 @@ func Contains(path string) bool {
 	path = strings.SplitN(path, "/", 2)[0]
 	_, ok := stdlibPackagesMap[path]
 	return ok
-}
-
-// LocalSource fetches the standard library module from GOROOT.
-type LocalSource struct{}
-
-func (LocalSource) Module(modulePath, version string) (*internal.Module, error) {
-	if modulePath != ModulePath {
-		return nil, internal.ErrNotFound
-	}
-
-	tag := runtime.Version()
-	goVersion := versionForTag(tag)
-	if version != goVersion && version != internal.LatestVersion {
-		// Only latest version supported
-		return nil, internal.ErrNotFound
-	}
-	return &internal.Module{
-		ModulePath:    ModulePath,
-		SeriesPath:    ModulePath,
-		Version:       goVersion,
-		Reference:     tag,
-		LatestVersion: goVersion,
-		Versions:      []string{goVersion},
-	}, nil
-}
-
-func (LocalSource) Files(mod *internal.Module) (fs.FS, error) {
-	return os.DirFS(path.Join(runtime.GOROOT(), "src")), nil
 }
 
 // RepoSource fetches the standard library module from the Go git repository.

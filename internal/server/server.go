@@ -3,16 +3,13 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
-	"git.sr.ht/~sircmpwn/gddo/internal/modcache"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"github.com/prometheus/client_golang/prometheus"
@@ -30,9 +27,6 @@ type Server struct {
 	statusSVG  http.Handler
 	sources    internal.SourceList
 	fetches    sync.Map
-
-	// The module to serve instead of the homepage (if any)
-	defaultModule string
 
 	// A semaphore to limit concurrent module fetches.
 	moduleFetchSem chan struct{}
@@ -52,49 +46,29 @@ func New(cfg *Config) (*Server, error) {
 		Timeout: cfg.RequestTimeout,
 	}
 
+	db, err := database.New(cfg.Database)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.RegisterMetrics(prometheus.DefaultRegisterer); err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		cfg:            cfg,
+		db:             db,
 		httpClient:     httpClient,
 		templates:      make(TemplateMap),
 		moduleFetchSem: make(chan struct{}, 30),
 	}
 
-	if cfg.GoProxy != "" {
-		s.sources = append(s.sources,
-			&stdlib.RepoSource{},
-			&proxy.Source{
-				URL:        cfg.GoProxy,
-				HTTPClient: httpClient,
-			},
-		)
-	} else {
-		// Serve the current directory
-		if dir, err := internal.DirectorySource("."); err != nil {
-			return nil, fmt.Errorf("current directory contains invalid module: %w", err)
-		} else if dir != nil {
-			// A valid go.mod file was found
-			s.sources = append(s.sources, dir)
-			s.defaultModule = dir.Mod.ModulePath
-		}
-
-		s.sources = append(s.sources,
-			&stdlib.LocalSource{},
-			&modcache.Source{
-				FS: os.DirFS(cfg.GoModCache),
-			},
-		)
-	}
-
-	if cfg.Database != "" {
-		db, err := database.New(cfg.Database)
-		if err != nil {
-			return nil, err
-		}
-		if err := db.RegisterMetrics(prometheus.DefaultRegisterer); err != nil {
-			return nil, err
-		}
-		s.db = db
-	}
+	s.sources = append(s.sources,
+		&stdlib.RepoSource{},
+		&proxy.Source{
+			URL:        cfg.GoProxy,
+			HTTPClient: httpClient,
+		},
+	)
 
 	s.metrics.modulesTotal = promauto.NewCounterFunc(prometheus.CounterOpts{
 		Name: "gddo_modules_total",

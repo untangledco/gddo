@@ -2,10 +2,8 @@ package server
 
 import (
 	"flag"
-	"os/exec"
 	"path"
 	"runtime"
-	"strings"
 	"time"
 )
 
@@ -21,7 +19,6 @@ type Config struct {
 	CertsDir        string
 	Database        string
 	GoProxy         string
-	GoModCache      string
 	Platform        string
 	UserAgent       string
 	FetchTimeout    time.Duration
@@ -44,7 +41,6 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")
 	flags.StringVar(&c.Database, "db", "", "PostgreSQL database URL")
 	flags.StringVar(&c.GoProxy, "goproxy", "", "Go module proxy")
-	flags.StringVar(&c.GoModCache, "modcache", defaultModCache(), "Go module cache")
 	flags.StringVar(&c.Platform, "platform", defaultPlatform, "Default platform to use for documentation")
 	flags.StringVar(&c.UserAgent, "user-agent", "GoDocBot", "User agent to use for HTTP requests")
 	flags.DurationVar(&c.FetchTimeout, "fetch-timeout", 20*time.Second, "Timeout for fetching documentation")
@@ -52,12 +48,4 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.DurationVar(&c.RefreshInterval, "refresh-interval", 0, "Time to sleep between refreshing modules in the background. Zero disables background refreshing.")
 	flags.DurationVar(&c.MaxAge, "max-age", 24*time.Hour, "Refresh modules that haven't been updated for more than this age")
 	return flags
-}
-
-func defaultModCache() string {
-	b, err := exec.Command("go", "env", "GOMODCACHE").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
 }

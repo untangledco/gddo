@@ -13,16 +13,6 @@
 // automatically generate TLS certificates as needed and place them in the
 // directory specified with the --certs flag.
 //
-// Some of gddo's features (such as search results) require a PostgreSQL
-// database to function. The database connection URL can be specified with
-// the --db flag. gddo also supports standalone operation for viewing
-// documentation locally.
-//
-// If the --goproxy flag is present, gddo will fetch modules from the
-// provided Go module proxy. Otherwise, gddo will load modules from the
-// local Go module cache. The --modcache flag can be used to specify a
-// different module cache directory.
-//
 // The --fetch-timeout flag configures the timeout for fetching
 // documentation. If the timeout is exceeded, gddo will continue fetching
 // the documentation in the background. The user can refresh the page to
