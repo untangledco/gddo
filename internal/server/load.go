@@ -5,7 +5,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"go/build"
 	"go/parser"
@@ -109,6 +108,31 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 		return nil, ErrInvalidPlatform
 	}
 
+	// bctx is used to make decisions about which of the .go files are included
+	// by build constraints.
+	bctx := &build.Context{
+		GOOS:        goos,
+		GOARCH:      goarch,
+		CgoEnabled:  true,
+		Compiler:    build.Default.Compiler,
+		ReleaseTags: build.Default.ReleaseTags,
+
+		JoinPath: path.Join,
+		OpenFile: func(name string) (io.ReadCloser, error) {
+			return fsys.Open(name)
+		},
+
+		// If left nil, the default implementations of these read from disk,
+		// which we do not want. None of these functions should be used
+		// inside this function; it would be an internal error if they are.
+		// Set them to non-nil values to catch if that happens.
+		SplitPathList: func(string) []string { panic("internal error: unexpected call to SplitPathList") },
+		IsAbsPath:     func(string) bool { panic("internal error: unexpected call to IsAbsPath") },
+		IsDir:         func(string) bool { panic("internal error: unexpected call to IsDir") },
+		HasSubdir:     func(string, string) (string, bool) { panic("internal error: unexpected call to HasSubdir") },
+		ReadDir:       func(string) ([]os.FileInfo, error) { panic("internal error: unexpected call to ReadDir") },
+	}
+
 	// Collect Go file names
 	pkgPathnames := map[string][]string{}
 	err := fs.WalkDir(fsys, ".", func(pathname string, d fs.DirEntry, err error) error {
@@ -126,7 +150,13 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 		if ignoredByGoTool(pathname) || !strings.HasSuffix(pathname, ".go") {
 			return nil
 		}
-
+		match, err := bctx.MatchFile(path.Split(pathname))
+		if err != nil {
+			return err
+		}
+		if !match {
+			return nil
+		}
 		innerPath := path.Dir(pathname)
 		pkgPathnames[innerPath] = append(pkgPathnames[innerPath], pathname)
 		return nil
@@ -144,7 +174,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 			importPath = innerPath
 		}
 
-		pkg, err := loadPackage(goos, goarch, modulePath, innerPath, fsys, pathnames)
+		pkg, err := buildPackage(modulePath, innerPath, fsys, pathnames)
 		if err != nil {
 			pkgPaths = append(pkgPaths, importPath)
 			results[importPath] = loadResult{
@@ -152,13 +182,9 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 			}
 			continue
 		}
-		// pkg may be nil if no Go files were matched by the build context.
-		// In that case we do not store the result in the map.
-		if pkg != nil {
-			pkgPaths = append(pkgPaths, importPath)
-			results[importPath] = loadResult{
-				Package: pkg,
-			}
+		pkgPaths = append(pkgPaths, importPath)
+		results[importPath] = loadResult{
+			Package: pkg,
 		}
 	}
 
@@ -189,61 +215,14 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	return results, nil
 }
 
-// loadPackage attempts to load a Go package from the given filesystem.
-// It returns nil if all of the Go files are excluded from the build context.
-func loadPackage(goos, goarch, modulePath, innerPath string, fsys fs.FS, pathnames []string) (*godoc.Package, error) {
-	// Map of Go file paths to file contents
-	files := map[string][]byte{}
-
-	// bctx is used to make decisions about which of the .go files are included
-	// by build constraints.
-	bctx := &build.Context{
-		GOOS:        goos,
-		GOARCH:      goarch,
-		CgoEnabled:  true,
-		Compiler:    build.Default.Compiler,
-		ReleaseTags: build.Default.ReleaseTags,
-
-		JoinPath: path.Join,
-		OpenFile: func(name string) (io.ReadCloser, error) {
-			return io.NopCloser(bytes.NewReader(files[name])), nil
-		},
-
-		// If left nil, the default implementations of these read from disk,
-		// which we do not want. None of these functions should be used
-		// inside this function; it would be an internal error if they are.
-		// Set them to non-nil values to catch if that happens.
-		SplitPathList: func(string) []string { panic("internal error: unexpected call to SplitPathList") },
-		IsAbsPath:     func(string) bool { panic("internal error: unexpected call to IsAbsPath") },
-		IsDir:         func(string) bool { panic("internal error: unexpected call to IsDir") },
-		HasSubdir:     func(string, string) (string, bool) { panic("internal error: unexpected call to HasSubdir") },
-		ReadDir:       func(string) ([]os.FileInfo, error) { panic("internal error: unexpected call to ReadDir") },
-	}
-
-	// Collect Go file contents
+// buildPackage attempts to parse the given Go files into a package.
+func buildPackage(modulePath, innerPath string, fsys fs.FS, pathnames []string) (*godoc.Package, error) {
+	pkg := godoc.NewPackage()
 	for _, pathname := range pathnames {
 		contents, err := fs.ReadFile(fsys, pathname)
 		if err != nil {
 			return nil, err
 		}
-		files[pathname] = contents
-
-		match, err := bctx.MatchFile(path.Split(pathname))
-		if err != nil {
-			return nil, err
-		}
-		if !match {
-			delete(files, pathname)
-		}
-	}
-	if len(files) == 0 {
-		// No Go files were matched
-		return nil, nil
-	}
-
-	// Build package documentation
-	pkg := godoc.NewPackage()
-	for pathname, contents := range files {
 		file, err := parser.ParseFile(pkg.Fset, path.Base(pathname), contents, parser.ParseComments)
 		if err != nil {
 			return nil, err
