@@ -8,7 +8,7 @@ var (
 		"dragonfly/amd64",
 		"freebsd/amd64",
 		"illumos/amd64",
-		"ios/amd64",
+		"ios/arm64",
 		"js/wasm",
 		"linux/amd64",
 		"netbsd/amd64",
