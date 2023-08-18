@@ -15,7 +15,6 @@ import (
 type Package struct {
 	Fset *token.FileSet
 	encPackage
-	renderCalled bool
 }
 
 // encPackage holds the fields of Package that can be directly encoded.
