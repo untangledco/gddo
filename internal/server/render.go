@@ -1,16 +1,16 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"go/ast"
 	"go/doc"
 	"go/doc/comment"
 	"go/format"
-	goprinter "go/printer"
+	"go/printer"
 	"go/token"
 	htemp "html/template"
 	"io"
+	"log"
 	"net/url"
 	"path"
 	"strconv"
@@ -20,7 +20,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
 	"git.sr.ht/~sircmpwn/gddo/internal/gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
-	"git.sr.ht/~sircmpwn/gddo/internal/printer"
+	"git.sr.ht/~sircmpwn/gddo/internal/render"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -127,8 +127,8 @@ func (r *Renderer) DocGemini(text string) string {
 // FuncString formats a function declaration into a single line.
 func (r *Renderer) FuncString(decl *ast.FuncDecl) string {
 	var out strings.Builder
-	config := goprinter.Config{
-		Mode:     goprinter.UseSpaces,
+	config := printer.Config{
+		Mode:     printer.UseSpaces,
 		Tabwidth: 4,
 	}
 	config.Fprint(&out, r.fset, decl)
@@ -236,14 +236,6 @@ func (r *Renderer) Breadcrumbs(p *Package) []Breadcrumb {
 	return crumbs
 }
 
-func formatPathFrag(path, fragment string) string {
-	if len(path) > 0 && path[0] != '/' {
-		path = "/" + path
-	}
-	u := url.URL{Path: path, Fragment: fragment}
-	return u.String()
-}
-
 // relativePath returns a path relative to parentPath.
 func relativePath(path, parentPath string) string {
 	if parentPath != "" && strings.HasPrefix(path, parentPath+"/") {
@@ -254,8 +246,12 @@ func relativePath(path, parentPath string) string {
 
 // DeclHTML renders a Go declaration as HTML.
 func (r *Renderer) DeclHTML(decl ast.Decl, typ *doc.Type) htemp.HTML {
-	c := printer.PrintDecl(r.fset, decl)
-	return codeToHTML(c, typ)
+	html, err := render.DeclHTML(r.fset, decl, typ)
+	if err != nil {
+		log.Printf("Error rendering ast.Decl: %v", err)
+		return "<pre>Error rendering declaration code</pre>"
+	}
+	return html
 }
 
 // DeclGemini renders a Go declaration as Gemini text.
@@ -267,13 +263,23 @@ func (r *Renderer) DeclGemini(decl ast.Decl) string {
 	return buf.String()
 }
 
-// codeString renders example code as a string.
-func (r *Renderer) codeString(ex *doc.Example) (string, error) {
-	var node interface{}
+// CodeHTML renders example code as HTML.
+func (r *Renderer) CodeHTML(ex *doc.Example) htemp.HTML {
+	html, err := render.CodeHTML(r.fset, ex)
+	if err != nil {
+		log.Printf("Error rendering *doc.Example: %v", err)
+		return "<pre>Error rendering example code</pre>"
+	}
+	return html
+}
+
+// CodeGemini renders example code as Gemini text.
+func (r *Renderer) CodeGemini(ex *doc.Example) (string, error) {
+	var node any
 	if ex.Play != nil {
 		node = ex.Play
 	} else {
-		node = &goprinter.CommentedNode{
+		node = &printer.CommentedNode{
 			Node:     ex.Code,
 			Comments: ex.Comments,
 		}
@@ -283,76 +289,4 @@ func (r *Renderer) codeString(ex *doc.Example) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
-}
-
-// CodeHTML renders example code as HTML.
-func (r *Renderer) CodeHTML(ex *doc.Example) (htemp.HTML, error) {
-	var c printer.Code
-	codeStr, err := r.codeString(ex)
-	if err != nil {
-		c = printer.Code{Text: err.Error()}
-	} else {
-		c = printer.PrintExample(codeStr)
-	}
-	return codeToHTML(c, nil), nil
-}
-
-// CodeGemini renders example code as Gemini text.
-func (r *Renderer) CodeGemini(ex *doc.Example) (string, error) {
-	return r.codeString(ex)
-}
-
-var period = []byte{'.'}
-
-// codeToHTML converts annotated Go code to HTML.
-func codeToHTML(c printer.Code, typ *doc.Type) htemp.HTML {
-	var buf bytes.Buffer
-	last := 0
-	src := []byte(c.Text)
-	buf.WriteString("<pre>")
-	for _, a := range c.Annotations {
-		htemp.HTMLEscape(&buf, src[last:a.Pos])
-		switch a.Kind {
-		case printer.PackageLinkAnnotation:
-			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(c.Paths[a.PathIndex], ""))
-			buf.WriteString(`">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</a>`)
-		case printer.LinkAnnotation, printer.BuiltinAnnotation:
-			var p string
-			if a.Kind == printer.BuiltinAnnotation {
-				p = "builtin"
-			} else if a.PathIndex >= 0 {
-				p = c.Paths[a.PathIndex]
-			}
-			n := src[a.Pos:a.End]
-			n = n[bytes.LastIndex(n, period)+1:]
-			buf.WriteString(`<a href="`)
-			buf.WriteString(formatPathFrag(p, string(n)))
-			buf.WriteString(`">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</a>`)
-		case printer.CommentAnnotation:
-			buf.WriteString(`<span class="com">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</span>`)
-		case printer.AnchorAnnotation:
-			buf.WriteString(`<span id="`)
-			if typ != nil {
-				htemp.HTMLEscape(&buf, []byte(typ.Name))
-				buf.WriteByte('.')
-			}
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`">`)
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-			buf.WriteString(`</span>`)
-		default:
-			htemp.HTMLEscape(&buf, src[a.Pos:a.End])
-		}
-		last = int(a.End)
-	}
-	htemp.HTMLEscape(&buf, src[last:])
-	buf.WriteString("</pre>")
-	return htemp.HTML(buf.String())
 }

@@ -4,8 +4,8 @@
 // license that can be found in the LICENSE file or at
 // https://developers.google.com/open-source/licenses/bsd.
 
-// Package printer implements annotated rendering of Go code.
-package printer
+// Package render implements rendering of Go code.
+package render
 
 import (
 	"bytes"
@@ -16,51 +16,47 @@ import (
 	"go/printer"
 	"go/scanner"
 	"go/token"
+	"html/template"
+	"net/url"
 	"strconv"
 )
 
-type AnnotationKind int16
+type annotationKind int16
 
 const (
 	// Link to export in package specified by Paths[PathIndex] with fragment
 	// Text[strings.LastIndex(Text[Pos:End], ".")+1:End].
-	LinkAnnotation AnnotationKind = iota
+	linkAnnotation annotationKind = iota
 
 	// Anchor with name specified by Text[Pos:End] or typeName + "." +
 	// Text[Pos:End] for type declarations.
-	AnchorAnnotation
+	anchorAnnotation
 
 	// Comment.
-	CommentAnnotation
+	commentAnnotation
 
 	// Link to package specified by Paths[PathIndex].
-	PackageLinkAnnotation
+	packageAnnotation
 
 	// Link to builtin entity with name Text[Pos:End].
-	BuiltinAnnotation
+	builtinAnnotation
 )
 
-type Annotation struct {
+type annotation struct {
 	Pos, End  int32
-	Kind      AnnotationKind
+	Kind      annotationKind
 	PathIndex int16
-}
-
-type Code struct {
-	Text        string
-	Annotations []Annotation
-	Paths       []string
 }
 
 // declVisitor modifies a declaration AST for printing and collects annotations.
 type declVisitor struct {
-	annotations []Annotation
+	annotations []annotation
 	paths       []string
 	pathIndex   map[string]int
 	comments    []*ast.CommentGroup
 }
 
-func (v *declVisitor) add(kind AnnotationKind, importPath string) {
+func (v *declVisitor) add(kind annotationKind, importPath string) {
 	pathIndex := -1
 	if importPath != "" {
 		var ok bool
@@ -71,7 +67,7 @@ func (v *declVisitor) add(kind AnnotationKind, importPath string) {
 			v.pathIndex[importPath] = pathIndex
 		}
 	}
-	v.annotations = append(v.annotations, Annotation{Kind: kind, PathIndex: int16(pathIndex)})
+	v.annotations = append(v.annotations, annotation{Kind: kind, PathIndex: int16(pathIndex)})
 }
 
 func (v *declVisitor) ignoreName() {
@@ -89,14 +85,14 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 		case *ast.InterfaceType:
 			for _, f := range n.Methods.List {
 				for range f.Names {
-					v.add(AnchorAnnotation, "")
+					v.add(anchorAnnotation, "")
 				}
 				ast.Walk(v, f.Type)
 			}
 		case *ast.StructType:
 			for _, f := range n.Fields.List {
 				for range f.Names {
-					v.add(AnchorAnnotation, "")
+					v.add(anchorAnnotation, "")
 				}
 				ast.Walk(v, f.Type)
 			}
@@ -116,7 +112,7 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 		ast.Walk(v, n.Type)
 	case *ast.ValueSpec:
 		for range n.Names {
-			v.add(AnchorAnnotation, "")
+			v.add(anchorAnnotation, "")
 		}
 		if n.Type != nil {
 			ast.Walk(v, n.Type)
@@ -127,10 +123,10 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 	case *ast.Ident:
 		switch {
 		case n.Obj == nil && doc.IsPredeclared(n.Name):
-			v.add(BuiltinAnnotation, "")
+			v.add(builtinAnnotation, "")
 		case n.Obj != nil && ast.IsExported(n.Name):
 			if _, ok := n.Obj.Decl.(*ast.TypeSpec); ok {
-				v.add(LinkAnnotation, "")
+				v.add(linkAnnotation, "")
 			} else {
 				v.ignoreName()
 			}
@@ -142,11 +138,11 @@ func (v *declVisitor) Visit(n ast.Node) ast.Visitor {
 			if obj := x.Obj; obj != nil && obj.Kind == ast.Pkg {
 				if spec, _ := obj.Decl.(*ast.ImportSpec); spec != nil {
 					if path, err := strconv.Unquote(spec.Path.Value); err == nil {
-						v.add(PackageLinkAnnotation, path)
+						v.add(packageAnnotation, path)
 						if path == "C" {
 							v.ignoreName()
 						} else {
-							v.add(LinkAnnotation, path)
+							v.add(linkAnnotation, path)
 						}
 						return nil
 					}
@@ -194,8 +190,8 @@ func newScanner(src []byte) (*scanner.Scanner, *token.File) {
 	return s, file
 }
 
-// PrintDecl prints and annotates the given decl.
-func PrintDecl(fset *token.FileSet, decl ast.Decl) Code {
+// DeclHTML renders the given decl as HTML.
+func DeclHTML(fset *token.FileSet, decl ast.Decl, typ *doc.Type) (template.HTML, error) {
 	v := &declVisitor{pathIndex: make(map[string]int)}
 	ast.Walk(v, decl)
 
@@ -205,12 +201,12 @@ func PrintDecl(fset *token.FileSet, decl ast.Decl) Code {
 	}
 	var buf bytes.Buffer
 	if err := format.Node(&buf, fset, node); err != nil {
-		return Code{Text: err.Error()}
+		return "", err
 	}
 
 	src := buf.Bytes()
 	s, file := newScanner(src)
-	annotations := []Annotation{}
+	annotations := []annotation{}
 	prevTok := token.ILLEGAL
 loop:
 	for {
@@ -224,7 +220,7 @@ loop:
 			if prevTok == token.COMMENT {
 				annotations[len(annotations)-1].End = int32(e)
 			} else {
-				annotations = append(annotations, Annotation{Kind: CommentAnnotation, Pos: int32(p), End: int32(e)})
+				annotations = append(annotations, annotation{Kind: commentAnnotation, Pos: int32(p), End: int32(e)})
 			}
 		case token.IDENT:
 			if len(v.annotations) == 0 {
@@ -244,13 +240,28 @@ loop:
 		}
 		prevTok = tok
 	}
-	return Code{Text: string(src), Annotations: annotations, Paths: v.paths}
+	return html(src, annotations, v.paths, typ), nil
 }
 
-// PrintExample prints and annotates the given example.
-func PrintExample(src string) Code {
-	var annotations []Annotation
+// CodeHTML renders the given example code as HTML.
+func CodeHTML(fset *token.FileSet, ex *doc.Example) (template.HTML, error) {
+	var node any
+	if ex.Play != nil {
+		node = ex.Play
+	} else {
+		node = &printer.CommentedNode{
+			Node:     ex.Code,
+			Comments: ex.Comments,
+		}
+	}
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, node); err != nil {
+		return "", err
+	}
+
+	src := buf.Bytes()
 	s, file := newScanner([]byte(src))
+	annotations := []annotation{}
 	prevTok := token.ILLEGAL
 scanLoop:
 	for {
@@ -264,11 +275,71 @@ scanLoop:
 			if prevTok == token.COMMENT {
 				annotations[len(annotations)-1].End = int32(e)
 			} else {
-				annotations = append(annotations, Annotation{Kind: CommentAnnotation, Pos: int32(p), End: int32(e)})
+				annotations = append(annotations, annotation{Kind: commentAnnotation, Pos: int32(p), End: int32(e)})
 			}
 		}
 		prevTok = tok
 	}
+	return html(src, annotations, nil, nil), nil
+}
 
-	return Code{Text: string(src), Annotations: annotations}
+var period = []byte{'.'}
+
+func html(src []byte, annotations []annotation, paths []string, typ *doc.Type) template.HTML {
+	last := 0
+	var buf bytes.Buffer
+	buf.WriteString("<pre>")
+	for _, a := range annotations {
+		template.HTMLEscape(&buf, src[last:a.Pos])
+		switch a.Kind {
+		case packageAnnotation:
+			buf.WriteString(`<a href="`)
+			buf.WriteString(formatPathFrag(paths[a.PathIndex], ""))
+			buf.WriteString(`">`)
+			template.HTMLEscape(&buf, src[a.Pos:a.End])
+			buf.WriteString(`</a>`)
+		case linkAnnotation, builtinAnnotation:
+			var p string
+			if a.Kind == builtinAnnotation {
+				p = "builtin"
+			} else if a.PathIndex >= 0 {
+				p = paths[a.PathIndex]
+			}
+			n := src[a.Pos:a.End]
+			n = n[bytes.LastIndex(n, period)+1:]
+			buf.WriteString(`<a href="`)
+			buf.WriteString(formatPathFrag(p, string(n)))
+			buf.WriteString(`">`)
+			template.HTMLEscape(&buf, src[a.Pos:a.End])
+			buf.WriteString(`</a>`)
+		case commentAnnotation:
+			buf.WriteString(`<span class="com">`)
+			template.HTMLEscape(&buf, src[a.Pos:a.End])
+			buf.WriteString(`</span>`)
+		case anchorAnnotation:
+			buf.WriteString(`<span id="`)
+			if typ != nil {
+				template.HTMLEscape(&buf, []byte(typ.Name))
+				buf.WriteByte('.')
+			}
+			template.HTMLEscape(&buf, src[a.Pos:a.End])
+			buf.WriteString(`">`)
+			template.HTMLEscape(&buf, src[a.Pos:a.End])
+			buf.WriteString(`</span>`)
+		default:
+			template.HTMLEscape(&buf, src[a.Pos:a.End])
+		}
+		last = int(a.End)
+	}
+	template.HTMLEscape(&buf, src[last:])
+	buf.WriteString("</pre>")
+	return template.HTML(buf.String())
+}
+
+func formatPathFrag(path, fragment string) string {
+	if len(path) > 0 && path[0] != '/' {
+		path = "/" + path
+	}
+	u := url.URL{Path: path, Fragment: fragment}
+	return u.String()
 }
