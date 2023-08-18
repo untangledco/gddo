@@ -28,7 +28,7 @@ import (
 type Renderer struct {
 	fset    *token.FileSet
 	parser  *comment.Parser
-	printer *comment.Printer
+	printer *htmlPrinter
 	project *autodiscovery.Project
 	ref     string
 	dir     string
@@ -41,13 +41,10 @@ type Renderer struct {
 
 // NewRenderer returns a new renderer for the given package.
 func NewRenderer(p *Package, cfg *Config) *Renderer {
-	printer := p.Printer()
-	printer.HeadingLevel = 4
-
 	return &Renderer{
 		fset:    p.FileSet,
 		parser:  p.Parser(),
-		printer: printer,
+		printer: &htmlPrinter{},
 		project: p.project,
 		ref:     p.Reference,
 		dir:     p.innerPath,
