@@ -54,7 +54,6 @@ func (s *Server) serveGeminiSearch(ctx context.Context, w gemini.ResponseWriter,
 	}
 	q = strings.TrimSpace(q)
 
-	// TODO: Some way of specifying the platform in Gemini searches
 	platform := s.cfg.Platform
 
 	importPath, err := parseImportPath(q)
