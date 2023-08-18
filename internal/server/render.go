@@ -18,7 +18,6 @@ import (
 	"text/template"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
-	"git.sr.ht/~sircmpwn/gddo/internal/gemini"
 	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/render"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
@@ -28,7 +27,6 @@ import (
 type Renderer struct {
 	fset    *token.FileSet
 	parser  *comment.Parser
-	printer *htmlPrinter
 	project *autodiscovery.Project
 	ref     string
 	dir     string
@@ -44,7 +42,6 @@ func NewRenderer(p *Package, cfg *Config) *Renderer {
 	return &Renderer{
 		fset:    p.FileSet,
 		parser:  p.Parser(),
-		printer: &htmlPrinter{},
 		project: p.project,
 		ref:     p.Reference,
 		dir:     p.innerPath,
@@ -116,12 +113,12 @@ func (r *Renderer) SourceLink(p token.Pos, text string) htemp.HTML {
 
 // DocHTML returns formatted HTML for the doc comment text.
 func (r *Renderer) DocHTML(text string) htemp.HTML {
-	return htemp.HTML(r.printer.HTML(r.parser.Parse(text)))
+	return render.DocHTML(r.parser.Parse(text))
 }
 
 // DocGemini returns formatted Gemini content for the doc comment text.
 func (r *Renderer) DocGemini(text string) string {
-	return string(gemini.Print(r.parser.Parse(text)))
+	return render.DocGemini(r.parser.Parse(text))
 }
 
 // FuncString formats a function declaration into a single line.

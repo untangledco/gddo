@@ -1,7 +1,6 @@
 {{define "Examples"}}
 {{- range . }}
-
-Example{{with .Suffix}} ({{.}}){{end}}
+### Example{{with .Suffix}} ({{.}}){{end}}
 {{if .Doc}}
 {{render_doc .Doc}}{{end}}
 Code:

@@ -2,13 +2,20 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package server
+package render
 
 import (
 	"bytes"
 	"fmt"
 	"go/doc/comment"
+	"html/template"
 )
+
+// DocHTML returns an HTML formatting of the Doc.
+func DocHTML(d *comment.Doc) template.HTML {
+	p := &htmlPrinter{}
+	return template.HTML(p.HTML(d))
+}
 
 // An htmlPrinter holds the state needed for printing a Doc as HTML.
 type htmlPrinter struct {
