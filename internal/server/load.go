@@ -16,7 +16,6 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
@@ -100,7 +99,7 @@ type loadResult struct {
 
 // loadPackages loads Go packages from the given filesystem.
 func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResult, error) {
-	if !platforms.Valid(platform) {
+	if !validPlatform(platform) {
 		return nil, ErrInvalidPlatform
 	}
 	goos, goarch, found := strings.Cut(platform, "/")

@@ -11,14 +11,13 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
-	"git.sr.ht/~sircmpwn/gddo/internal/platforms"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/semver"
 )
 
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, platform, importPath, version string) error {
-	if !platforms.Valid(platform) {
+	if !validPlatform(platform) {
 		return ErrInvalidPlatform
 	}
 
