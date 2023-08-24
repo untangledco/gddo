@@ -11,6 +11,7 @@ import (
 	htemp "html/template"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"path"
 	"strconv"
@@ -53,7 +54,8 @@ func NewRenderer(p *Package, cfg *Config) *Renderer {
 }
 
 // ExecuteHTML executes an HTML template.
-func (r *Renderer) ExecuteHTML(t *htemp.Template, w io.Writer, data any) error {
+func (r *Renderer) ExecuteHTML(t *htemp.Template, w http.ResponseWriter, data any) error {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	return htemp.Must(t.Clone()).Funcs(r.HTMLFuncs()).Execute(w, data)
 }
 
