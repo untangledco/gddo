@@ -84,7 +84,9 @@ func (s *Server) fetchModule(ctx context.Context, platform, modulePath, version 
 	defer s.metrics.fetchesActive.Dec()
 
 	if err := s.fetchModule_(ctx, platform, modulePath, version); err != nil {
-		s.metrics.fetchErrorsTotal.Inc()
+		if !errors.Is(err, internal.ErrNotFound) {
+			s.metrics.fetchErrorsTotal.Inc()
+		}
 		return err
 	}
 	return nil
