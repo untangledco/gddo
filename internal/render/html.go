@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"go/doc/comment"
 	"html/template"
+	"regexp"
+	"strings"
+	"unicode"
 )
 
 // DocHTML returns an HTML formatting of the Doc.
@@ -110,7 +113,7 @@ func (p *htmlPrinter) text(out *bytes.Buffer, x []comment.Text) {
 	for _, t := range x {
 		switch t := t.(type) {
 		case comment.Plain:
-			p.escape(out, string(t))
+			p.linkRFCs(out, string(t))
 		case comment.Italic:
 			out.WriteString("<i>")
 			p.escape(out, string(t))
@@ -166,4 +169,47 @@ func (p *htmlPrinter) escape(out *bytes.Buffer, s string) {
 		}
 	}
 	out.WriteString(s[start:])
+}
+
+var (
+	// Regexp for RFCs.
+	rfcRx = regexp.MustCompile(`RFC\s+(\d{3,5})(,?\s+[Ss]ection\s+(\d+(\.\d+)*))?`)
+)
+
+// linkRFCs prints s to out,
+// converting RFC references to links.
+func (p *htmlPrinter) linkRFCs(out *bytes.Buffer, s string) {
+	for len(s) > 0 {
+		m0, m1 := len(s), len(s)
+		if m := rfcRx.FindStringIndex(s); m != nil {
+			m0, m1 = m[0], m[1]
+		}
+		if m0 > 0 {
+			p.escape(out, s[:m0])
+		}
+		if m1 > m0 {
+			text := s[m0:m1]
+			// Strip all characters except for letters, numbers, and '.' to
+			// obtain RFC fields.
+			rfcFields := strings.FieldsFunc(text, func(c rune) bool {
+				return !unicode.IsLetter(c) && !unicode.IsNumber(c) && c != '.'
+			})
+			var url string
+			if len(rfcFields) >= 4 {
+				// RFC x Section y
+				url = fmt.Sprintf("https://rfc-editor.org/rfc/rfc%s.html#section-%s",
+					rfcFields[1], rfcFields[3])
+			} else if len(rfcFields) >= 2 {
+				url = fmt.Sprintf("https://rfc-editor.org/rfc/rfc%s.html", rfcFields[1])
+			}
+			if url != "" {
+				out.WriteString(`<a href="`)
+				p.escape(out, url)
+				out.WriteString(`">`)
+				p.escape(out, text)
+				out.WriteString("</a>")
+			}
+		}
+		s = s[m1:]
+	}
 }
