@@ -40,7 +40,7 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.Hostname, "hostname", "", "Hostname to accept Gemini requests for")
 	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")
 	flags.StringVar(&c.Database, "db", "", "PostgreSQL database URL")
-	flags.StringVar(&c.GoProxy, "goproxy", "", "Go module proxy")
+	flags.StringVar(&c.GoProxy, "goproxy", "https://proxy.golang.org/cached-only", "Go module proxy")
 	flags.StringVar(&c.Platform, "platform", defaultPlatform, "Default platform to use for documentation")
 	flags.StringVar(&c.UserAgent, "user-agent", "GoDocBot", "User agent to use for HTTP requests")
 	flags.DurationVar(&c.FetchTimeout, "fetch-timeout", 20*time.Second, "Timeout for fetching documentation")

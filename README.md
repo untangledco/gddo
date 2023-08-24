@@ -28,8 +28,9 @@ Then run:
 
 	gddo \
 		--db "postgres://localhost" \
-		--http :8080 \
-		--goproxy "https://proxy.golang.org"
+		--http :8080
+
+See `gddo --help` for all available flags.
 
 ## Gemini support
 
