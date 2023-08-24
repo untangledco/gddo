@@ -180,3 +180,29 @@ dl {
     grid-template-columns: auto 1fr;
     grid-gap: .2rem 1rem;
 }
+
+@media (prefers-color-scheme: dark) {
+    body, .panel {
+        background-color: #333;
+        color: white;
+    }
+    code, .panel-default > .panel-heading {
+        color: white;
+    }
+    a, .navbar-default .navbar-brand, .link {
+        color: #4E7BD4;
+    }
+    pre {
+        background-color: #262626;
+        color: white;
+    }
+    pre .com {
+        color: #2D802D;
+    }
+    .jumbotron {
+        background-color: #888;
+    }
+    :target {
+        color: #333 !important;
+    }
+}
