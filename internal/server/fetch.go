@@ -17,6 +17,9 @@ import (
 
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, platform, importPath, version string) error {
+	ctx, cancel := context.WithTimeout(ctx, s.cfg.FetchTimeout)
+	defer cancel()
+
 	if !validPlatform(platform) {
 		return ErrInvalidPlatform
 	}

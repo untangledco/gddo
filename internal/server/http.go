@@ -171,12 +171,9 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
-	ctx, cancel := context.WithTimeout(req.Context(), s.cfg.FetchTimeout)
-	defer cancel()
-
 	importPath := req.Form.Get("import_path")
 	platform := req.Form.Get("platform")
-	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
+	err := s.fetch(req.Context(), platform, importPath, internal.LatestVersion)
 	var mismatch ErrMismatch
 	if errors.As(err, &mismatch) {
 		http.Redirect(resp, req, "/"+mismatch.ActualPath, http.StatusFound)

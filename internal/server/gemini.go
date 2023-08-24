@@ -136,9 +136,6 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 }
 
 func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error {
-	ctx, cancel := context.WithTimeout(ctx, s.cfg.FetchTimeout)
-	defer cancel()
-
 	importPath := r.URL.Query().Get("import_path")
 	platform := r.URL.Query().Get("platform")
 	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
