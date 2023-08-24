@@ -101,7 +101,7 @@ import "{{.ImportPath}}"
 {{- if .Directories}}
 ## Directories
 {{range .Directories}}
-=> {{view .ImportPath ""}} {{relative_path .ImportPath .ModulePath}}
+=> {{view .ImportPath ""}} {{relative_path .ImportPath $.ModulePath}}
 {{- if .Synopsis}}
 {{.Synopsis}}{{end}}{{end}}
 {{end}}
