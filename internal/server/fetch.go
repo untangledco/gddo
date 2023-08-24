@@ -55,7 +55,7 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 				continue
 			}
 			ch <- err
-			break
+			return
 		}
 		ch <- internal.ErrNotFound
 	}()
