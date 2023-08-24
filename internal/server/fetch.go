@@ -219,6 +219,7 @@ func (s *Server) Refresh(ctx context.Context) {
 	if time.Since(timestamp) < s.cfg.MaxAge {
 		return
 	}
+	s.metrics.bgRefreshTotal.Inc()
 	log.Println("REFRESH", modulePath)
 	if err := s.fetchModule(ctx, s.cfg.Platform, modulePath, internal.LatestVersion); err != nil {
 		log.Printf("Error refreshing %s: %v", modulePath, err)

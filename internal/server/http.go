@@ -160,6 +160,8 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 			return nil
 		}
 
+		s.metrics.httpPackageTotal.Inc()
+
 		etag := httpEtag(pkg)
 		if req.Header.Get("If-None-Match") == etag {
 			resp.WriteHeader(http.StatusNotModified)
@@ -171,6 +173,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 }
 
 func (s *Server) serveRefresh(resp http.ResponseWriter, req *http.Request) error {
+	s.metrics.httpRefreshTotal.Inc()
 	importPath := req.Form.Get("import_path")
 	platform := req.Form.Get("platform")
 	err := s.fetch(req.Context(), platform, importPath, internal.LatestVersion)

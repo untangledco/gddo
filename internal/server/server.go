@@ -37,6 +37,11 @@ type Server struct {
 		fetchesTotal     prometheus.Counter
 		fetchesActive    prometheus.Gauge
 		fetchErrorsTotal prometheus.Counter
+		httpPackageTotal prometheus.Counter
+		httpRefreshTotal prometheus.Counter
+		gmniPackageTotal prometheus.Counter
+		gmniRefreshTotal prometheus.Counter
+		bgRefreshTotal   prometheus.Counter
 	}
 }
 
@@ -93,6 +98,26 @@ func New(cfg *Config) (*Server, error) {
 	s.metrics.fetchErrorsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gddo_fetch_errors_total",
 		Help: "Total number of module fetch errors",
+	})
+	s.metrics.httpPackageTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_http_requests_total",
+		Help: "Total number of HTTP package documentation requests",
+	})
+	s.metrics.httpRefreshTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_http_refreshes_total",
+		Help: "Total number of HTTP refresh form submissions",
+	})
+	s.metrics.gmniPackageTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_gemini_requests_total",
+		Help: "Total number of Gemini package documentation requests",
+	})
+	s.metrics.gmniRefreshTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_gemini_refreshes_total",
+		Help: "Total number of Gemini refresh requests",
+	})
+	s.metrics.bgRefreshTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gddo_background_refreshes_total",
+		Help: "Total number of background module refreshes",
 	})
 
 	return s, nil

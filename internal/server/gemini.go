@@ -130,12 +130,14 @@ func (s *Server) serveGeminiPackage(ctx context.Context, w gemini.ResponseWriter
 		renderer.ExecuteGemini(s.templates.Text("imports.gmi"), w, pkg)
 
 	default:
+		s.metrics.gmniPackageTotal.Inc()
 		renderer.ExecuteGemini(s.templates.Text("doc.gmi"), w, pkg)
 	}
 	return nil
 }
 
 func (s *Server) serveGeminiRefresh(ctx context.Context, w gemini.ResponseWriter, r *gemini.Request) error {
+	s.metrics.gmniRefreshTotal.Inc()
 	importPath := r.URL.Query().Get("import_path")
 	platform := r.URL.Query().Get("platform")
 	err := s.fetch(ctx, platform, importPath, internal.LatestVersion)
