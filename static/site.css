@@ -183,7 +183,7 @@ dl {
 
 @media (prefers-color-scheme: dark) {
     body, .panel {
-        background-color: #333;
+        background-color: hsl(209, 30%, 10%);
         color: white;
     }
     code, .panel-default > .panel-heading {
@@ -199,10 +199,15 @@ dl {
     pre .com {
         color: #2D802D;
     }
-    .jumbotron {
+    .jumbotron, .well {
         background-color: #888;
+        border-color: #777;
     }
     :target {
         color: #333 !important;
+    }
+    .navbar-default, #x-footer {
+        background-color: hsl(209, 30%, 24%);
+        border-color: hsl(209, 30%, 20%);
     }
 }
