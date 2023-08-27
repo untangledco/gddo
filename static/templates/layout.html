@@ -88,8 +88,7 @@
     {{else}}
       <strong class="text-muted">{{.ModuleTitle}}</strong>
     {{end}}
-    {{with breadcrumbs .}}
-      <span class="text-muted">&ndash;</span> {{template "breadcrumbs" .}}
+    {{with breadcrumbs .}}&ndash; {{template "breadcrumbs" .}}
     {{end}}
     {{if eq templateName "doc.html"}}
       <span class="float-right">
@@ -110,10 +109,10 @@
 {{define "breadcrumbs"}}
 {{- range $i, $crumb := . -}}
   {{- if ne $i 0 -}}
-    <span class="text-muted">/</span>
+    /
   {{- end -}}
   {{- if and .Current (eq templateName "doc.html") -}}
-    <span class="text-muted">{{.Text}}</span>
+    {{.Text}}
   {{- else -}}
     <a href="/{{.ImportPath}}">{{.Text}}</a>
   {{- end -}}
