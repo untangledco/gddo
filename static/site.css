@@ -23,7 +23,7 @@ body {
     color: var(--body-color);
 }
 
-h4 {
+h3, h4 {
     margin-top: 1.25rem;
 }
 
