@@ -86,7 +86,7 @@
     {{with .SummaryURL}}
       <a rel="noopener nofollow" href="{{.}}"><strong>{{$.ModuleTitle}}</strong></a>
     {{else}}
-      <strong class="text-muted">{{.ModuleTitle}}</strong>
+      <strong>{{.ModuleTitle}}</strong>
     {{end}}
     {{with breadcrumbs .}}&ndash; {{template "breadcrumbs" .}}
     {{end}}
