@@ -155,6 +155,10 @@ a:hover, a:focus {
     color: var(--link-hover);
 }
 
+.card {
+    margin-bottom: 1.25rem;
+}
+
 .card, .card-header {
     background-color: transparent;
     border-color: var(--panel-border);

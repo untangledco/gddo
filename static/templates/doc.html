@@ -232,19 +232,15 @@
 {{- end}}
 
 {{define "examples"}}
-{{- if .}}
-  <div class="card-group">
   {{- range .}}
-    <details class="card">
-      <summary id="{{.ID}}" class="card-header">Example{{with .Suffix}} ({{.}}){{end}}<a class="permalink" href="#{{.ID}}">¶</a></summary>
-      <div class="card-body">
-        {{if .Doc}}<p>{{render_doc .Doc}}{{end}}
-        <p>Code:{{if .Play}}<span class="float-right"><a href="?play={{play_id .}}">play</a>&nbsp;</span>{{end}}
-        {{render_code .Example}}
-        {{with .Output}}<p>Output:<pre>{{.}}</pre>{{end}}
-      </div>
-    </details>
+  <details class="card">
+    <summary id="{{.ID}}" class="card-header">Example{{with .Suffix}} ({{.}}){{end}}<a class="permalink" href="#{{.ID}}">¶</a></summary>
+    <div class="card-body">
+      {{if .Doc}}<p>{{render_doc .Doc}}{{end}}
+      <p>Code:{{if .Play}}<span class="float-right"><a href="?play={{play_id .}}">play</a>&nbsp;</span>{{end}}
+      {{render_code .Example}}
+      {{with .Output}}<p>Output:<pre>{{.}}</pre>{{end}}
+    </div>
+  </details>
   {{- end}}
-  </div>
-{{- end}}
 {{- end}}
