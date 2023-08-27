@@ -41,7 +41,7 @@
 
   <footer id="x-footer" class="footer">
     <div class="container">
-      {{with config.WebsiteIssues}}<a href="{{.}}">Website Issues</a> <span class="text-muted">|</span>{{end}}
+      {{with config.WebsiteIssues}}<a href="{{.}}">Website Issues</a> |{{end}}
       <a href="https://go.dev">Go Language</a>
       <span class="float-right"><a href="#">Back to top</a></span>
     </div>
@@ -82,7 +82,7 @@
 
 {{define "ProjectNav"}}
   {{with .Message}}<div class="alert alert-warning">{{.}}</div>{{end}}
-  <div class="clearfix" id="x-projnav">
+  <div id="x-projnav">
     {{with .SummaryURL}}
       <a rel="noopener nofollow" href="{{.}}"><strong>{{$.ModuleTitle}}</strong></a>
     {{else}}
@@ -94,11 +94,11 @@
       <span class="float-right">
         {{if .IsPackage}}
           <a href="#pkg-index">Index</a>
-          {{if .AllExamples}}<span class="text-muted">|</span> <a href="#pkg-examples">Examples</a>{{end}}
-          <span class="text-muted">|</span> <a href="#pkg-files">Files</a>
+          {{if .AllExamples}}| <a href="#pkg-examples">Examples</a>{{end}}
+          | <a href="#pkg-files">Files</a>
         {{end}}
         {{if .Directories}}
-          {{if .IsPackage}}<span class="text-muted">|</span>{{end}}
+          {{if .IsPackage}}|{{end}}
           <a href="#pkg-directories">Directories</a>
         {{end}}
       </span>

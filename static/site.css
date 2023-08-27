@@ -1,13 +1,12 @@
 :root {
     --body-background: white;
-    --body-color: #333;
-    --navbar-background: hsl(209, 51%, 92%);
-    --navbar-border: hsl(209, 51%, 88%);
+    --body-color: #212529;
+    --navbar-background: hsl(209, 51%, 95%);
+    --navbar-border: hsl(209, 51%, 85%);
+    --panel-background: hsl(209, 16%, 95%);
+    --panel-border: hsl(209, 16%, 85%);
     --link-color: #375eab;
-    --pre-background: #f5f5f5;
-    --pre-border: #ccc;
     --comment-color: #006600;
-    --gray: #eee;
 }
 
 html {
@@ -42,11 +41,15 @@ main {
     color: var(--link-color);
 }
 
-#x-projnav {
-    background-color: var(--gray);
-    border-radius: 4px;
-    padding: 0.5rem;
-    margin-bottom: 1.25rem;
+.navbar-light .navbar-nav .nav-link {
+    color: inherit;
+    opacity: 0.75;
+}
+
+.navbar-light .navbar-nav .nav-link:hover,
+.navbar-light .navbar-nav .nav-link:focus {
+    color: inherit;
+    opacity: 1;
 }
 
 footer {
@@ -60,13 +63,27 @@ footer {
     background-color: #FDFF9E !important;
 }
 
-.pkginfo {
-    border-top: 1px solid #ccc;
-    padding-top: 1.25rem;
-    margin-bottom: 1.25rem;
+.jumbotron {
+    background-color: var(--panel-background);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
 }
 
 .searchbox {
+    margin-bottom: 1.25rem;
+}
+
+#x-projnav {
+    background-color: var(--panel-background);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.pkginfo {
+    border-top: 1px solid #ccc;
+    padding-top: 1.25rem;
     margin-bottom: 1.25rem;
 }
 
@@ -78,8 +95,8 @@ code {
 }
 
 pre {
-    background-color: var(--pre-background);
-    border: 1px solid var(--pre-border);
+    background-color: var(--panel-background);
+    border: 1px solid var(--panel-border);
     border-radius: 4px;
     padding: 0.625rem;
     margin-bottom: 0.625rem;
@@ -173,22 +190,18 @@ dd {
     :root {
         --body-background: hsl(209, 30%, 10%);
         --body-color: white;
-        --link-color: #4e7bd4;
-        --pre-background: #262626;
-        --pre-border: white;
-        --comment-color: #2d802d;
-        --navbar-background: hsl(209, 30%, 24%);
-        --navbar-border: hsl(209, 30%, 20%);
+        --panel-background: hsl(209, 16%, 15%);
+        --panel-border: hsl(209, 16%, 25%);
+        --navbar-background: hsl(209, 30%, 15%);
+        --navbar-border: hsl(209, 30%, 25%);
+        --link-color: #819dd5;
+        --comment-color: #3caa3c;
     }
     pre, .table {
         color: inherit;
     }
     .card {
         border-color: white;
-    }
-    .jumbotron {
-        background-color: #888;
-        border-color: #777;
     }
     :target {
         color: #333 !important;
