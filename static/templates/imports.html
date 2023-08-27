@@ -6,7 +6,7 @@
 {{define "body"}}
   {{- template "ProjectNav" .}}
   <h2>Imports of {{.Title}}</h2>
-  <table class="table table-condensed">
+  <table class="table table-sm">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>
       {{- range .Imported}}

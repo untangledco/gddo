@@ -5,17 +5,17 @@
 
 {{define "body"}}
   {{- template "FlashMessage" .Message}}
-  <div class="well">
+  <div class="searchbox">
     {{- template "SearchBox" .Query}}
   </div>
   {{- if .Results}}
-  <table class="table table-condensed">
+  <table class="table table-sm">
     <thead><tr><th>Path</th><th>Synopsis</th></tr></thead>
     <tbody>
       {{- range .Results}}
       <tr>
         <td><a href="/{{.ImportPath}}">{{.ImportPath}}</a></td>
-        <td class="synopsis">{{.Synopsis}}</td>
+        <td>{{.Synopsis}}</td>
       </tr>
       {{- end}}
     </tbody>

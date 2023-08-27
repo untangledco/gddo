@@ -160,9 +160,9 @@ JumpModal.prototype.show = function() {
 	this.filter.focus()
 }
 
-// navbar toggle
-var navToggle = document.querySelector(".navbar-toggle")
-navToggle.onclick = function() {
+// navbar toggler
+var navToggler = document.querySelector(".navbar-toggler")
+navToggler.onclick = function() {
 	document.querySelector(".navbar-collapse").classList.toggle("show")
 }
 

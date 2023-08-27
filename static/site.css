@@ -1,72 +1,88 @@
+:root {
+    --body-background: white;
+    --body-color: #333;
+    --navbar-background: hsl(209, 51%, 92%);
+    --navbar-border: hsl(209, 51%, 88%);
+    --link-color: #375eab;
+    --pre-background: #f5f5f5;
+    --pre-border: #ccc;
+    --comment-color: #006600;
+    --gray: #eee;
+}
+
 html {
     height: 100%;
+    font-size: 14px;
 }
 
 body {
     min-height: 100%;
     display: flex;
     flex-direction: column;
-    background-color: white;
-    color: #333;
+    background-color: var(--body-background);
+    color: var(--body-color);
 }
 
 h4 {
-    margin-top: 20px;
+    margin-top: 1.25rem;
 }
 
 main {
     flex: 1;
 }
 
-.container {
-    max-width: 728px;
+.navbar-light {
+    background-color: var(--navbar-background);
+    border-bottom: 1px solid var(--navbar-border);
+    margin-bottom: 1.25rem;
 }
 
-#pkg-overview {
-    font-size: 24px;
+.navbar-light .navbar-brand {
+    font-weight: bold;
+    color: var(--link-color);
 }
 
 #x-projnav {
-    min-height: 20px;
-    margin-bottom: 20px;
-    background-color: #eee;
-    padding: 9px;
-    border-radius: 3px;
+    background-color: var(--gray);
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-bottom: 1.25rem;
 }
 
-#x-footer {
-    padding-top: 14px;
-    padding-bottom: 15px;
-    margin-top: 5px;
-    background-color: #eee;
-    border-top-style: solid;
-    border-top-width: 1px;
+footer {
+    background-color: var(--navbar-background);
+    border-top: 1px solid var(--navbar-border);
+    padding: 1rem 0;
+    margin-top: 0.25rem;
 }
 
 :target {
     background-color: #FDFF9E !important;
 }
 
-#x-pkginfo {
-    margin-top: 25px;
+.pkginfo {
     border-top: 1px solid #ccc;
-    padding-top: 20px;
-    margin-bottom: 15px;
+    padding-top: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.searchbox {
+    margin-bottom: 1.25rem;
 }
 
 code {
     background-color: inherit;
     border: none;
-    color: #222;
+    color: inherit;
     padding: 0;
 }
 
 pre {
-    color: #222;
-    overflow: auto;
-    white-space: pre;
-    word-break: normal;
-    word-wrap: normal;
+    background-color: var(--pre-background);
+    border: 1px solid var(--pre-border);
+    border-radius: 4px;
+    padding: 0.625rem;
+    margin-bottom: 0.625rem;
 }
 
 .funcdecl > pre {
@@ -76,41 +92,30 @@ pre {
 }
 
 pre .com {
-    color: #006600;
+    color: var(--comment-color);
 }
 
-a, .navbar-default .navbar-brand, .link {
-    color: #375eab;
+a {
+    color: var(--link-color);
 }
 
-.link {
-    display: inline-block;
-    border: none;
-    background: none;
+.btn-link {
+    color: var(--link-color);
     padding: 0;
-    margin: 0;
 }
 
-.navbar-default, #x-footer {
-    background-color: hsl(209, 51%, 92%);
-    border-color: hsl(209, 51%, 88%);
-}
-
-.navbar-default .navbar-nav > li > a:hover,
-.navbar-default .navbar-nav > li > a:focus {
-    color: #000;
-}
-
-.panel-default > .panel-heading {
-    cursor: pointer;
-    display: list-item;
-    color: #333;
+.card, .card-header {
     background-color: transparent;
-
 }
 
-a.permalink {
+.permalink {
     display: none;
+}
+
+summary .permalink {
+    float: right;
+    font-size: 1.3em;
+    line-height: 1.3em;
 }
 
 h1:hover .permalink,
@@ -124,23 +129,6 @@ h6:hover .permalink {
 
 summary:hover .permalink {
     display: inline-block;
-    float: right;
-    font-size: 1.3em;
-    line-height: 1.3em;
-}
-
-@media (max-width : 768px) {
-    .form-control {
-        font-size:16px;
-    }
-}
-
-.inline-form {
-    display: inline-block;
-}
-
-.synopsis {
-    opacity: 0.87;
 }
 
 .modal {
@@ -161,53 +149,48 @@ summary:hover .permalink {
     opacity: 1;
 }
 
-.navbar-collapse {
-    display: none;
-}
-
-@media (min-width: 768px) {
-    .navbar-collapse {
-        display: block;
-    }
-}
-
-.jumbotron {
-    margin-bottom: 2rem;
-}
-
 dl {
     display: grid;
     grid-template-columns: auto 1fr;
     grid-gap: .2rem 1rem;
 }
 
+dd {
+    margin-bottom: 0;
+}
+
+.refresh-form {
+    display: inline-block;
+}
+
+@media (min-width: 768px) {
+    .container {
+        max-width: 728px;
+    }
+}
+
 @media (prefers-color-scheme: dark) {
-    body, .panel {
-        background-color: hsl(209, 30%, 10%);
-        color: white;
+    :root {
+        --body-background: hsl(209, 30%, 10%);
+        --body-color: white;
+        --link-color: #4e7bd4;
+        --pre-background: #262626;
+        --pre-border: white;
+        --comment-color: #2d802d;
+        --navbar-background: hsl(209, 30%, 24%);
+        --navbar-border: hsl(209, 30%, 20%);
     }
-    code, .panel-default > .panel-heading {
-        color: white;
+    pre, .table {
+        color: inherit;
     }
-    a, .navbar-default .navbar-brand, .link {
-        color: #4E7BD4;
+    .card {
+        border-color: white;
     }
-    pre {
-        background-color: #262626;
-        color: white;
-    }
-    pre .com {
-        color: #2D802D;
-    }
-    .jumbotron, .well {
+    .jumbotron {
         background-color: #888;
         border-color: #777;
     }
     :target {
         color: #333 !important;
-    }
-    .navbar-default, #x-footer {
-        background-color: hsl(209, 30%, 24%);
-        border-color: hsl(209, 30%, 20%);
     }
 }
