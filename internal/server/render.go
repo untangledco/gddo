@@ -200,7 +200,11 @@ func (r *Renderer) IsInterface(t *doc.Type) bool {
 
 // PlayID returns the play ID for the given example.
 func (r *Renderer) PlayID(ex *Example) string {
-	return ex.Symbol + "-" + ex.Example.Suffix
+	symbol := ex.Symbol
+	if symbol == "" {
+		symbol = "package"
+	}
+	return symbol + "-" + ex.Example.Suffix
 }
 
 // View returns a link for the current package.
