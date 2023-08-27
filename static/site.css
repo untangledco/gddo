@@ -5,7 +5,8 @@
     --navbar-border: hsl(209, 51%, 85%);
     --panel-background: hsl(209, 16%, 95%);
     --panel-border: hsl(209, 16%, 85%);
-    --link-color: #375eab;
+    --link-color: hsl(220, 51%, 44%);
+    --link-hover: hsl(208, 56%, 31%);
     --comment-color: #006600;
 }
 
@@ -39,6 +40,10 @@ main {
 .navbar-light .navbar-brand {
     font-weight: bold;
     color: var(--link-color);
+}
+
+.navbar-light .navbar-brand:hover, .navbar-light .navbar-brand:focus {
+    color: var(--link-hover);
 }
 
 .navbar-light .navbar-nav .nav-link {
@@ -116,9 +121,17 @@ a {
     color: var(--link-color);
 }
 
+a:hover, a:focus {
+    color: var(--link-hover);
+}
+
 .btn-link {
     color: var(--link-color);
     padding: 0;
+}
+
+.btn-link:hover, .btn-link:focus {
+    color: var(--link-hover);
 }
 
 .card, .card-header {
@@ -194,7 +207,8 @@ dd {
         --panel-border: hsl(209, 16%, 25%);
         --navbar-background: hsl(209, 30%, 15%);
         --navbar-border: hsl(209, 30%, 25%);
-        --link-color: #819dd5;
+        --link-color: hsl(220, 51%, 67%);
+        --link-hover: hsl(208, 56%, 75%);
         --comment-color: #3caa3c;
     }
     pre, .table {
