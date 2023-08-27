@@ -5,9 +5,15 @@
     --navbar-border: hsl(209, 51%, 85%);
     --panel-background: hsl(209, 16%, 95%);
     --panel-border: hsl(209, 16%, 85%);
+    --card-border: hsl(209, 16%, 85%);
     --link-color: hsl(220, 51%, 44%);
     --link-hover: hsl(208, 56%, 31%);
     --comment-color: #006600;
+}
+
+:target {
+    background-color: #fdff9e !important;
+    color: #212529 !important;
 }
 
 html {
@@ -64,10 +70,6 @@ footer {
     margin-top: 0.25rem;
 }
 
-:target {
-    background-color: #FDFF9E !important;
-}
-
 .jumbotron {
     background-color: var(--panel-background);
     border: 1px solid var(--panel-border);
@@ -103,6 +105,7 @@ pre {
     background-color: var(--panel-background);
     border: 1px solid var(--panel-border);
     border-radius: 4px;
+    color: inherit;
     padding: 0.625rem;
     margin-bottom: 0.625rem;
 }
@@ -115,6 +118,10 @@ pre {
 
 pre .com {
     color: var(--comment-color);
+}
+
+.table {
+    color: inherit;
 }
 
 a {
@@ -136,6 +143,11 @@ a:hover, a:focus {
 
 .card, .card-header {
     background-color: transparent;
+    border-color: var(--panel-border);
+}
+
+.card:not([open]) .card-header {
+    border-bottom: none;
 }
 
 .permalink {
@@ -210,14 +222,5 @@ dd {
         --link-color: hsl(220, 51%, 67%);
         --link-hover: hsl(208, 56%, 75%);
         --comment-color: #3caa3c;
-    }
-    pre, .table {
-        color: inherit;
-    }
-    .card {
-        border-color: white;
-    }
-    :target {
-        color: #333 !important;
     }
 }
