@@ -29,8 +29,16 @@ body {
     color: var(--body-color);
 }
 
+#pkg-overview {
+    font-size: 24px;
+}
+
 h3, h4 {
     margin-top: 1.25rem;
+}
+
+h4 {
+    font-size: 18px;
 }
 
 main {
@@ -108,6 +116,7 @@ pre {
     color: inherit;
     padding: 0.625rem;
     margin-bottom: 0.625rem;
+    font-size: 13px;
 }
 
 .funcdecl > pre {
@@ -122,6 +131,10 @@ pre .com {
 
 .table {
     color: inherit;
+}
+
+.table th {
+    border-top: none;
 }
 
 a {
