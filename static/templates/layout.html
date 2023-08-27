@@ -24,9 +24,11 @@
             <a class="nav-link" href="/-/about">About</a>
           </li>
         </ul>
+        {{- if ne templateName "index.html" }}
         <form class="form-inline" id="x-search" action="/">
           <input class="form-control" type="search" id="x-search-query" name="q" placeholder="Search">
         </form>
+        {{- end }}
       </div>
     </div>
   </nav>
