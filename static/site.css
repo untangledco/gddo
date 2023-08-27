@@ -27,6 +27,7 @@ body {
     flex-direction: column;
     background-color: var(--body-background);
     color: var(--body-color);
+    font-family: Helvetica, Arial, sans-serif;
 }
 
 #pkg-overview {
