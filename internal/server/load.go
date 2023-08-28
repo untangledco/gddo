@@ -6,10 +6,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"go/build"
 	"go/parser"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -17,6 +19,13 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
+	"golang.org/x/mod/module"
+)
+
+const (
+	// MaxFileSize is the maximum file size that is allowed for reading.
+	MaxFileSize = 30 * megabyte
+	megabyte    = 1000 * 1000
 )
 
 // A LoadMode configures the amount of detail returned when loading a package.
@@ -134,6 +143,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 
 	// Collect Go file names
 	pkgPathnames := map[string][]string{}
+	incompleteDirs := map[string]error{}
 	err := fs.WalkDir(fsys, ".", func(pathname string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -149,6 +159,32 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 		if ignoredByGoTool(pathname) || !strings.HasSuffix(pathname, ".go") {
 			return nil
 		}
+		innerPath := path.Dir(pathname)
+		if _, ok := incompleteDirs[innerPath]; ok {
+			// Something went wrong while processing this directory, so skip
+			return nil
+		}
+		// It's possible to have a Go package in a directory that does not result in a valid import path.
+		// That package cannot be imported, but that may be fine if it's a main package, intended to be
+		// built and run from that directory.
+		// We're not set up to handle invalid import paths, so skip these packages.
+		if err := module.CheckFilePath(pathname); err != nil {
+			log.Printf("module %s: %v", modulePath, err)
+			incompleteDirs[innerPath] = err
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if info.Size() > MaxFileSize {
+			log.Printf("module %s: file %s size %d exceeds max limit %d",
+				modulePath, pathname, info.Size(), MaxFileSize)
+			err := fmt.Errorf("Unable to process %s: file size %d exceeds max limit %d",
+				pathname, info.Size(), MaxFileSize)
+			incompleteDirs[innerPath] = err
+			return nil
+		}
 		match, err := bctx.MatchFile(path.Split(pathname))
 		if err != nil {
 			return err
@@ -156,7 +192,6 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 		if !match {
 			return nil
 		}
-		innerPath := path.Dir(pathname)
 		pkgPathnames[innerPath] = append(pkgPathnames[innerPath], pathname)
 		return nil
 	})
@@ -184,6 +219,17 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 		pkgPaths = append(pkgPaths, importPath)
 		results[importPath] = loadResult{
 			Package: pkg,
+		}
+	}
+
+	// Add incomplete directories to the map
+	for innerPath, err := range incompleteDirs {
+		importPath := path.Join(modulePath, innerPath)
+		if modulePath == stdlib.ModulePath {
+			importPath = innerPath
+		}
+		results[importPath] = loadResult{
+			Error: err.Error(),
 		}
 	}
 
