@@ -33,7 +33,7 @@
     </div>
   </nav>
 
-  <main role="main">
+  <main>
     <div class="container">
       {{block "body" .}}{{end}}
     </div>
@@ -45,7 +45,7 @@
       <a href="https://go.dev">Go Language</a>
       <span class="float-right"><a href="#">Back to top</a></span>
     </div>
-  </div>
+  </footer>
 
   <div id="x-shortcuts" tabindex="-1" class="modal">
     <div class="modal-dialog">
@@ -61,14 +61,14 @@
             {{- $mutePkg := false}}
             {{- if ne templateName "doc.html"}}{{$mutePkg = true}}
             {{- else if not .IsPackage}}{{$mutePkg = true}}{{end}}
-            <tr><td align="right"><b>?</b></td><td> : This menu</td></tr>
-            <tr><td align="right"><b>/</b></td><td> : Search site</td></tr>
-            <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>f</b></td><td> : Jump to identifier</td></tr>
-            <tr><td align="right"><b>g</b> then <b>g</b></td><td> : Go to top of page</td></tr>
-            <tr><td align="right"><b>g</b> then <b>b</b></td><td> : Go to end of page</td></tr>
-            <tr><td align="right"><b>G</b></td><td> : Go to end of page</td></tr>
-            <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>i</b></td><td> : Go to index</td></tr>
-            <tr{{if $mutePkg}} class="text-muted"{{end}}><td align="right"><b>g</b> then <b>e</b></td><td> : Go to examples</td></tr>
+            <tr><td class="text-right"><b>?</b></td><td> : This menu</td></tr>
+            <tr><td class="text-right"><b>/</b></td><td> : Search site</td></tr>
+            <tr{{if $mutePkg}} class="text-muted"{{end}}><td class="text-right"><b>f</b></td><td> : Jump to identifier</td></tr>
+            <tr><td class="text-right"><b>g</b> then <b>g</b></td><td> : Go to top of page</td></tr>
+            <tr><td class="text-right"><b>g</b> then <b>b</b></td><td> : Go to end of page</td></tr>
+            <tr><td class="text-right"><b>G</b></td><td> : Go to end of page</td></tr>
+            <tr{{if $mutePkg}} class="text-muted"{{end}}><td class="text-right"><b>g</b> then <b>i</b></td><td> : Go to index</td></tr>
+            <tr{{if $mutePkg}} class="text-muted"{{end}}><td class="text-right"><b>g</b> then <b>e</b></td><td> : Go to examples</td></tr>
           </table>
         </div>
       </div>
@@ -122,7 +122,7 @@
 {{define "SearchBox"}}
   <form>
     <div class="input-group">
-      <input type="text" class="form-control" name="q" autofocus="autofocus" value="{{.}}" placeholder="Search for package by import path or keyword.">
+      <input type="search" class="form-control" name="q" autofocus="autofocus" value="{{.}}" placeholder="Search for package by import path or keyword.">
       <div class="input-group-append">
         <button class="btn btn-primary" type="submit">Go!</button>
       </div>
