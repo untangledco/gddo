@@ -22,12 +22,6 @@ import (
 	"golang.org/x/mod/module"
 )
 
-const (
-	// MaxFileSize is the maximum file size that is allowed for reading.
-	MaxFileSize = 30 * megabyte
-	megabyte    = 1000 * 1000
-)
-
 // A LoadMode configures the amount of detail returned when loading a package.
 type LoadMode int
 

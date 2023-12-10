@@ -47,6 +47,8 @@ func errorMessage(err error) (string, int) {
 		return "Error fetching module: Invalid version.", http.StatusNotFound
 	case errors.Is(err, ErrInvalidPlatform):
 		return "Error fetching module: Invalid platform.", http.StatusNotFound
+	case errors.Is(err, internal.ErrTooLarge):
+		return fmt.Sprintf("Error fetching module: The requested module exceeds the maximum module size of %dMB.", MaxFileSize/(1000*1000)), http.StatusBadRequest
 	case errors.Is(err, internal.ErrNotFound), errors.Is(err, ErrBlocked):
 		// No error message
 		return "", http.StatusNotFound

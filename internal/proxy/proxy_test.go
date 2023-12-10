@@ -11,7 +11,7 @@ import (
 )
 
 func TestEncodedURL(t *testing.T) {
-	s := &Source{URL: "u"}
+	s := &Client{URL: "u"}
 	for _, test := range []struct {
 		path, version, suffix string
 		want                  string // empty => error

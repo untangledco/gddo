@@ -20,6 +20,9 @@ var (
 
 	// ErrBadModule indicates a problem with a module.
 	ErrBadModule = errors.New("bad module")
+
+	// ErrTooLarge indicates that the requested module is too large to fetch.
+	ErrTooLarge = errors.New("too large")
 )
 
 // Module contains module information.
@@ -33,6 +36,7 @@ type Module struct {
 	Versions      []string
 	Deprecated    string
 	Updated       time.Time // TODO: remove this
+	ZipSize       int64
 }
 
 // Source represents a source of Go modules.

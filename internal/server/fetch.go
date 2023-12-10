@@ -15,6 +15,12 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+const (
+	// MaxFileSize is the maximum file size that is allowed for reading.
+	MaxFileSize = 30 * megabyte
+	megabyte    = 1000 * 1000
+)
+
 // fetch fetches package documentation from the module proxy and updates the database.
 func (s *Server) fetch(ctx context.Context, platform, importPath, version string) error {
 	ctx, cancel := context.WithTimeout(ctx, s.cfg.FetchTimeout)
@@ -152,6 +158,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	}
 
 	// Retrieve packages
+	log.Printf("FETCH %s@%s %d (%dMB)", modulePath, mod.Version, mod.ZipSize, mod.ZipSize/(1000*1000))
 	fsys, err := source.Files(mod)
 	if err != nil {
 		return err

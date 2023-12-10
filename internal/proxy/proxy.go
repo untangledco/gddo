@@ -9,6 +9,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
+	"golang.org/x/net/context/ctxhttp"
 )
 
 var (
@@ -28,35 +30,38 @@ var (
 	ErrProxyTimedOut = errors.New("proxy timed out")
 )
 
-// Source fetches Go modules from a module proxy.
-type Source struct {
+// Client fetches Go modules from a module proxy.
+type Client struct {
 	// URL of the module proxy web server.
 	URL string
 
 	// Client used for HTTP requests.
 	HTTPClient *http.Client
+
+	// MaxZipSize is the maximum zip file size allowed for reading.
+	MaxZipSize int64
 }
 
 // Module fetches a module from the module proxy. If the module is in the
 // standard library, it is fetched from the Go git repository instead.
-func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
+func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 	// Get version info
-	info, err := s.getInfo(modulePath, version)
+	info, err := c.getInfo(modulePath, version)
 	if err != nil {
 		return nil, err
 	}
-	latest, err := s.getInfo(modulePath, internal.LatestVersion)
+	latest, err := c.getInfo(modulePath, internal.LatestVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	versions, err := s.listVersions(modulePath)
+	versions, err := c.listVersions(modulePath)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get module file
-	mod, err := s.getMod(modulePath, info.Version)
+	mod, err := c.getMod(modulePath, info.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +71,7 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 	}
 	// Get deprecated
 	var deprecated string
-	latestMod, err := s.getMod(modulePath, latest.Version)
+	latestMod, err := c.getMod(modulePath, latest.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +91,14 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 		reference = rev
 	}
 
+	zipSize, err := c.ZipSize(context.TODO(), modulePath, info.Version)
+	if err != nil {
+		return nil, err
+	}
+	if zipSize > c.MaxZipSize {
+		return nil, internal.ErrTooLarge
+	}
+
 	return &internal.Module{
 		ModulePath:    modulePath,
 		SeriesPath:    seriesPath,
@@ -95,13 +108,14 @@ func (s *Source) Module(modulePath, version string) (*internal.Module, error) {
 		LatestVersion: latest.Version,
 		Versions:      versions,
 		Deprecated:    deprecated,
+		ZipSize:       zipSize,
 	}, nil
 }
 
 // Files returns the module's files.
-func (s *Source) Files(mod *internal.Module) (fs.FS, error) {
+func (c *Client) Files(mod *internal.Module) (fs.FS, error) {
 	// Get module zip
-	zip, err := s.getZip(mod.ModulePath, mod.Version)
+	zip, err := c.getZip(mod.ModulePath, mod.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +127,27 @@ func (s *Source) Files(mod *internal.Module) (fs.FS, error) {
 	return fsys, nil
 }
 
+// ZipSize gets the size in bytes of the zip from the proxy, without downloading it.
+// The version must be resolved, as by a call to Client.Info.
+func (c *Client) ZipSize(ctx context.Context, modulePath, resolvedVersion string) (int64, error) {
+	url, err := c.escapedURL(modulePath, resolvedVersion, "zip")
+	if err != nil {
+		return 0, err
+	}
+	res, err := ctxhttp.Head(ctx, c.HTTPClient, url)
+	if err != nil {
+		return 0, fmt.Errorf("ctxhttp.Head(ctx, client, %q): %v", url, err)
+	}
+	defer res.Body.Close()
+	if err := responseError(res); err != nil {
+		return 0, err
+	}
+	if res.ContentLength < 0 {
+		return 0, errors.New("unknown content length")
+	}
+	return res.ContentLength, nil
+}
+
 // versionInfo contains metadata about a given version of a module.
 type versionInfo struct {
 	Version string
@@ -121,8 +156,8 @@ type versionInfo struct {
 
 // getInfo makes a request to $GOPROXY/<module>/@v/<requestedVersion>.info and
 // transforms that data into a *versionInfo.
-func (s *Source) getInfo(modulePath, requestedVersion string) (*versionInfo, error) {
-	data, err := s.readBody(modulePath, requestedVersion, "info")
+func (c *Client) getInfo(modulePath, requestedVersion string) (*versionInfo, error) {
+	data, err := c.readBody(modulePath, requestedVersion, "info")
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +169,8 @@ func (s *Source) getInfo(modulePath, requestedVersion string) (*versionInfo, err
 }
 
 // getMod makes a request to $GOPROXY/<module>/@v/<resolvedVersion>.mod and returns the raw data.
-func (s *Source) getMod(modulePath, resolvedVersion string) ([]byte, error) {
-	return s.readBody(modulePath, resolvedVersion, "mod")
+func (c *Client) getMod(modulePath, resolvedVersion string) ([]byte, error) {
+	return c.readBody(modulePath, resolvedVersion, "mod")
 }
 
 // getZip makes a request to $GOPROXY/<modulePath>/@v/<resolvedVersion>.zip and
@@ -143,8 +178,8 @@ func (s *Source) getMod(modulePath, resolvedVersion string) ([]byte, error) {
 // been resolved by first making a request to
 // $GOPROXY/<modulePath>/@v/<requestedVersion>.info to obtain the valid
 // semantic version.
-func (s *Source) getZip(modulePath, resolvedVersion string) (*zip.Reader, error) {
-	bodyBytes, err := s.readBody(modulePath, resolvedVersion, "zip")
+func (c *Client) getZip(modulePath, resolvedVersion string) (*zip.Reader, error) {
+	bodyBytes, err := c.readBody(modulePath, resolvedVersion, "zip")
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +190,7 @@ func (s *Source) getZip(modulePath, resolvedVersion string) (*zip.Reader, error)
 	return zipReader, nil
 }
 
-func (s *Source) escapedURL(modulePath, requestedVersion, suffix string) (string, error) {
+func (c *Client) escapedURL(modulePath, requestedVersion, suffix string) (string, error) {
 	if suffix != "info" && suffix != "mod" && suffix != "zip" {
 		return "", errors.New(`suffix must be "info", "mod" or "zip"`)
 	}
@@ -167,22 +202,22 @@ func (s *Source) escapedURL(modulePath, requestedVersion, suffix string) (string
 		if suffix != "info" {
 			return "", fmt.Errorf("cannot ask for latest with suffix %q", suffix)
 		}
-		return fmt.Sprintf("%s/%s/@latest", s.URL, escapedPath), nil
+		return fmt.Sprintf("%s/%s/@latest", c.URL, escapedPath), nil
 	}
 	escapedVersion, err := module.EscapeVersion(requestedVersion)
 	if err != nil {
 		return "", fmt.Errorf("version: %v: %w", err, internal.ErrInvalidVersion)
 	}
-	return fmt.Sprintf("%s/%s/@v/%s.%s", s.URL, escapedPath, escapedVersion, suffix), nil
+	return fmt.Sprintf("%s/%s/@v/%s.%s", c.URL, escapedPath, escapedVersion, suffix), nil
 }
 
-func (s *Source) readBody(modulePath, requestedVersion, suffix string) ([]byte, error) {
-	u, err := s.escapedURL(modulePath, requestedVersion, suffix)
+func (c *Client) readBody(modulePath, requestedVersion, suffix string) ([]byte, error) {
+	u, err := c.escapedURL(modulePath, requestedVersion, suffix)
 	if err != nil {
 		return nil, err
 	}
 	var data []byte
-	err = s.executeRequest(u, func(body io.Reader) error {
+	err = c.executeRequest(u, func(body io.Reader) error {
 		var err error
 		data, err = io.ReadAll(body)
 		return err
@@ -195,14 +230,14 @@ func (s *Source) readBody(modulePath, requestedVersion, suffix string) ([]byte, 
 
 // listVersions makes a request to $GOPROXY/<path>/@v/list and returns the
 // resulting version strings.
-func (s *Source) listVersions(modulePath string) ([]string, error) {
+func (c *Client) listVersions(modulePath string) ([]string, error) {
 	escapedPath, err := module.EscapePath(modulePath)
 	if err != nil {
 		return nil, internal.ErrInvalidPath
 	}
-	u := fmt.Sprintf("%s/%s/@v/list", s.URL, escapedPath)
+	u := fmt.Sprintf("%s/%s/@v/list", c.URL, escapedPath)
 	var versions []string
-	err = s.executeRequest(u, func(body io.Reader) error {
+	err = c.executeRequest(u, func(body io.Reader) error {
 		scanner := bufio.NewScanner(body)
 		for scanner.Scan() {
 			versions = append(versions, scanner.Text())
@@ -217,12 +252,12 @@ func (s *Source) listVersions(modulePath string) ([]string, error) {
 
 // executeRequest executes an HTTP GET request for u, then calls the bodyFunc
 // on the response body, if no error occurred.
-func (s *Source) executeRequest(u string, bodyFunc func(body io.Reader) error) (err error) {
+func (c *Client) executeRequest(u string, bodyFunc func(body io.Reader) error) (err error) {
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return err
 	}
-	r, err := s.HTTPClient.Do(req)
+	r, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
