@@ -17,11 +17,11 @@ It's important to write a good summary of the package in the first sentence of t
 
 ## Add a package
 
-To add a package to {{config.BrandName}}, search for the package by import path. If {{config.BrandName}} does not already have the documentation for the package, it will fetch the package source code on the fly and add the documentation.
+To add a package to {{config.BrandName}}, search for the package by import path. If {{config.BrandName}} does not already have the documentation for the package, it will fetch the package source code from the Go module proxy on the fly.
 
 => /-/search Search for a package
 
-{{config.BrandName}} checks for package updates periodically. You can force {{config.BrandName}} to update the documentation immediately by clicking the refresh link at the bottom of the package documentation page.
+{{config.BrandName}} checks for module updates periodically. You can force {{config.BrandName}} to check for updates by clicking the refresh link at the bottom of the package documentation page. If that doesn't work, it's possible that the module proxy doesn't know about the update yet. You can try fetching the module with 'go get' to force the module proxy to check for updates.
 
 {{if config.AdminEmail -}}
 ## Remove a package

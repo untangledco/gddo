@@ -21,18 +21,13 @@ in search results.
 
 <p>To add a package to {{config.BrandName}}, <a href="/">search</a> for the package by
 import path. If {{config.BrandName}} does not already have the documentation for the
-package, it will fetch the package source code on the fly and add the
-documentation.
+package, it will fetch the package source code from the Go module proxy on the fly.
 
-<p>{{config.BrandName}} checks for package updates periodically. You can force
-{{config.BrandName}} to update the documentation immediately by clicking the refresh
-button at the bottom of the package documentation page.
-
-<p>To add a badge to your project like this:
-
-<p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="Go Documentation"></a>
-
-<p>Click on "tools" for package owners at the bottom of the page.
+<p>{{config.BrandName}} checks for module updates periodically. You can force
+{{config.BrandName}} to check for updates by clicking the refresh button at the
+bottom of the package documentation page. If that doesn't work, it's possible
+that the module proxy doesn't know about the update yet. You can try fetching
+the module with 'go get' to force the module proxy to check for updates.
 
 {{if config.AdminEmail -}}
 <h4 id="remove">Remove a package</h4>
@@ -42,7 +37,15 @@ send mail to {{config.AdminEmail}} with the import path of the path of the packa
 you want to remove.
 {{- end}}
 
-<h4 id="shortcuts">Keyboard Shortcuts</h4>
+<h4 id="tools">Tools for package owners</h4>
+
+<p>To add a badge to your project like this:
+
+<p><a href="{{.URI}}"><img src="{{.URI}}?status.svg" alt="Go Documentation"></a>
+
+<p>Click on "tools" for package owners at the bottom of the documentation page.
+
+<h4 id="shortcuts">Keyboard shortcuts</h4>
 
 <p>{{config.BrandName}} has keyboard shortcuts for navigating package documentation
 pages. Type '?' on a package page for help.
