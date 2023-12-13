@@ -68,7 +68,6 @@ func New(cfg *Config) (*Server, error) {
 	}
 
 	s.sources = append(s.sources,
-		&stdlib.RepoSource{},
 		&proxy.Client{
 			URL:        cfg.GoProxy,
 			HTTPClient: httpClient,

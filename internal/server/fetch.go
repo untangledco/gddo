@@ -11,6 +11,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/semver"
 )
@@ -52,7 +53,7 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 		ctx := context.Background()
 		// Special case for stdlib packages
 		if stdlib.Contains(importPath) {
-			ch <- s.fetchModule(ctx, platform, stdlib.ModulePath, version)
+			ch <- s.fetchModule(ctx, platform, proxy.StdlibModulePath, version)
 			return
 		}
 		// Loop through potential module paths

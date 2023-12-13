@@ -12,7 +12,7 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
 	"git.sr.ht/~sircmpwn/gddo/internal/database"
 	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 )
 
 // Package is a [doc.Package] with additional information for use in templates.
@@ -99,7 +99,7 @@ func buildDoc(importPath string, src *godoc.Package) (*doc.Package, error) {
 
 // Title returns a title for the package.
 func (p *Package) Title() string {
-	if p.ImportPath == stdlib.ModulePath {
+	if p.ImportPath == proxy.StdlibModulePath {
 		return "Standard library"
 	}
 	if p.IsPackage() {
@@ -115,7 +115,7 @@ func (p *Package) Title() string {
 
 // ModuleTitle returns a title for the module.
 func (p *Package) ModuleTitle() string {
-	if p.ModulePath == stdlib.ModulePath {
+	if p.ModulePath == proxy.StdlibModulePath {
 		return "Standard library"
 	}
 	return path.Base(p.ModulePath)

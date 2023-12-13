@@ -28,8 +28,10 @@ var (
 // Module contains module information.
 type Module struct {
 	ModulePath    string
+	RawModulePath string
 	SeriesPath    string
 	Version       string
+	RawVersion    string
 	Reference     string
 	CommitTime    time.Time
 	LatestVersion string

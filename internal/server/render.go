@@ -19,8 +19,8 @@ import (
 	"text/template"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/render"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 )
 
 // Renderer provides functions to render Go documentation.
@@ -257,13 +257,13 @@ type Breadcrumb struct {
 
 // Breadcrumbs computes breadcrumbs for the given package.
 func (r *Renderer) Breadcrumbs(p *Package) []Breadcrumb {
-	if p.ImportPath == stdlib.ModulePath {
+	if p.ImportPath == proxy.StdlibModulePath {
 		return nil
 	}
 
 	crumbs := []Breadcrumb{}
 	importPath := p.ModulePath
-	if p.ModulePath == stdlib.ModulePath {
+	if p.ModulePath == proxy.StdlibModulePath {
 		importPath = ""
 	} else {
 		crumbs = append(crumbs, Breadcrumb{

@@ -42,9 +42,12 @@ type Client struct {
 	MaxZipSize int64
 }
 
-// Module fetches a module from the module proxy. If the module is in the
-// standard library, it is fetched from the Go git repository instead.
+// Module fetches a module from the module proxy.
 func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
+	if modulePath == StdlibModulePath {
+		return c.stdlibModule(version)
+	}
+
 	// Get version info
 	info, err := c.getInfo(modulePath, version)
 	if err != nil {
@@ -54,7 +57,6 @@ func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	versions, err := c.listVersions(modulePath)
 	if err != nil {
 		return nil, err
@@ -101,8 +103,10 @@ func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 
 	return &internal.Module{
 		ModulePath:    modulePath,
+		RawModulePath: modulePath,
 		SeriesPath:    seriesPath,
 		Version:       info.Version,
+		RawVersion:    info.Version,
 		Reference:     reference,
 		CommitTime:    info.Time,
 		LatestVersion: latest.Version,
@@ -112,14 +116,59 @@ func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 	}, nil
 }
 
-// Files returns the module's files.
-func (c *Client) Files(mod *internal.Module) (fs.FS, error) {
-	// Get module zip
-	zip, err := c.getZip(mod.ModulePath, mod.Version)
+func (c *Client) stdlibModule(version string) (*internal.Module, error) {
+	// Get version info
+	v, err := toolchainVersion(version)
 	if err != nil {
 		return nil, err
 	}
-	prefix := fmt.Sprintf("%s@%s", mod.ModulePath, mod.Version)
+	info, err := c.getInfo(ToolchainModulePath, v)
+	if err != nil {
+		return nil, err
+	}
+	latest, err := c.getInfo(ToolchainModulePath, internal.LatestVersion)
+	if err != nil {
+		return nil, err
+	}
+	versions, err := c.listVersions(ToolchainModulePath)
+	if err != nil {
+		return nil, err
+	}
+
+	zipSize, err := c.ZipSize(context.TODO(), ToolchainModulePath, info.Version)
+	if err != nil {
+		return nil, err
+	}
+	// No size limit for Go toolchain modules
+
+	tag := stdlibTag(info.Version)
+	latestTag := stdlibTag(latest.Version)
+
+	return &internal.Module{
+		ModulePath:    StdlibModulePath,
+		RawModulePath: ToolchainModulePath,
+		SeriesPath:    StdlibModulePath,
+		Version:       versionForTag(tag),
+		RawVersion:    info.Version,
+		Reference:     tag,
+		CommitTime:    info.Time,
+		LatestVersion: versionForTag(latestTag),
+		Versions:      stdlibVersions(versions),
+		ZipSize:       zipSize,
+	}, nil
+}
+
+// Files returns the module's files.
+func (c *Client) Files(mod *internal.Module) (fs.FS, error) {
+	// Get module zip
+	prefix := fmt.Sprintf("%s@%s", mod.RawModulePath, mod.RawVersion)
+	if mod.ModulePath == StdlibModulePath {
+		prefix += "/" + stdlibDir(mod.Version)
+	}
+	zip, err := c.getZip(mod.RawModulePath, mod.RawVersion)
+	if err != nil {
+		return nil, err
+	}
 	fsys, err := fs.Sub(zip, prefix)
 	if err != nil {
 		return nil, err
