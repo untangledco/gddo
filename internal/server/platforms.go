@@ -2,10 +2,10 @@ package server
 
 var (
 	platforms = []string{
-		"darwin/amd64",
-		"js/wasm",
 		"linux/amd64",
 		"windows/amd64",
+		"darwin/amd64",
+		"js/wasm",
 	}
 	platformsMap = make(map[string]struct{})
 )
