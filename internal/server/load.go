@@ -18,7 +18,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
-	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
+	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"golang.org/x/mod/module"
 )
 
@@ -198,7 +198,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	results := map[string]loadResult{}
 	for innerPath, pathnames := range pkgPathnames {
 		importPath := path.Join(modulePath, innerPath)
-		if modulePath == stdlib.ModulePath {
+		if modulePath == proxy.StdlibModulePath {
 			importPath = innerPath
 		}
 
@@ -219,7 +219,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	// Add incomplete directories to the map
 	for innerPath, err := range incompleteDirs {
 		importPath := path.Join(modulePath, innerPath)
-		if modulePath == stdlib.ModulePath {
+		if modulePath == proxy.StdlibModulePath {
 			importPath = innerPath
 		}
 		results[importPath] = loadResult{
@@ -229,7 +229,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 
 	// Add directories to the map
 	rootPath := modulePath
-	if modulePath == stdlib.ModulePath {
+	if modulePath == proxy.StdlibModulePath {
 		rootPath = "."
 	}
 	if _, ok := results[modulePath]; !ok {
@@ -270,7 +270,7 @@ func buildPackage(modulePath, innerPath string, fsys fs.FS, pathnames []string) 
 		removeNodes := true
 		// Don't strip the seemingly unexported functions from the builtin package;
 		// they are actually Go builtins like make, new, etc.
-		if modulePath == stdlib.ModulePath && innerPath == "builtin" {
+		if modulePath == proxy.StdlibModulePath && innerPath == "builtin" {
 			removeNodes = false
 		}
 		pkg.AddFile(file, removeNodes)
