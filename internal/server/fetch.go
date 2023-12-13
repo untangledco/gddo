@@ -158,7 +158,7 @@ func (s *Server) fetchModule_(ctx context.Context, platform, modulePath, version
 	}
 
 	// Retrieve packages
-	log.Printf("FETCH %s@%s %d (%dMB)", modulePath, mod.Version, mod.ZipSize, mod.ZipSize/(1000*1000))
+	log.Printf("FETCH %s@%s %s %d (%dMB)", modulePath, mod.Version, platform, mod.ZipSize, mod.ZipSize/(1000*1000))
 	fsys, err := source.Files(mod)
 	if err != nil {
 		return err
