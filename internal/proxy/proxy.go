@@ -118,19 +118,23 @@ func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 
 func (c *Client) stdlibModule(version string) (*internal.Module, error) {
 	// Get version info
-	v, err := toolchainVersion(version)
+	rawVersions, err := c.listVersions(ToolchainModulePath)
+	if err != nil {
+		return nil, err
+	}
+	versions := stdlibVersions(rawVersions)
+	latestVersion := stdlibLatest(versions)
+
+	resolvedVersion := version
+	if version == internal.LatestVersion {
+		resolvedVersion = latestVersion
+	}
+
+	v, err := toolchainVersion(resolvedVersion)
 	if err != nil {
 		return nil, err
 	}
 	info, err := c.getInfo(ToolchainModulePath, v)
-	if err != nil {
-		return nil, err
-	}
-	latest, err := c.getInfo(ToolchainModulePath, internal.LatestVersion)
-	if err != nil {
-		return nil, err
-	}
-	versions, err := c.listVersions(ToolchainModulePath)
 	if err != nil {
 		return nil, err
 	}
@@ -141,19 +145,16 @@ func (c *Client) stdlibModule(version string) (*internal.Module, error) {
 	}
 	// No size limit for Go toolchain modules
 
-	tag := stdlibTag(info.Version)
-	latestTag := stdlibTag(latest.Version)
-
 	return &internal.Module{
 		ModulePath:    StdlibModulePath,
 		RawModulePath: ToolchainModulePath,
 		SeriesPath:    StdlibModulePath,
-		Version:       versionForTag(tag),
+		Version:       resolvedVersion,
 		RawVersion:    info.Version,
-		Reference:     tag,
+		Reference:     stdlibTag(info.Version),
 		CommitTime:    info.Time,
-		LatestVersion: versionForTag(latestTag),
-		Versions:      stdlibVersions(versions),
+		LatestVersion: latestVersion,
+		Versions:      versions,
 		ZipSize:       zipSize,
 	}, nil
 }

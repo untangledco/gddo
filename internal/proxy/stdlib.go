@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
+	"golang.org/x/mod/module"
 	"golang.org/x/mod/semver"
 )
 
@@ -36,6 +37,8 @@ func stdlibTag(v string) string {
 	return strings.TrimPrefix(v, "v0.0.1-")
 }
 
+// stdlibVersions returns the corresponding semantic versions for the given
+// Go toolchain versions.
 func stdlibVersions(vs []string) []string {
 	result := []string{}
 	for i := 0; i < len(vs); i++ {
@@ -45,6 +48,25 @@ func stdlibVersions(vs []string) []string {
 		result = append(result, versionForTag(stdlibTag(vs[i])))
 	}
 	return result
+}
+
+// stdlibLatest returns the latest standard library version from the given
+// semantic versions.
+func stdlibLatest(vs []string) string {
+	var latestVersion string
+	for _, v := range vs {
+		if !strings.HasPrefix(v, "v") {
+			continue
+		}
+		if module.IsPseudoVersion(v) || semver.Prerelease(v) != "" {
+			// We expect there to always be at least 1 release version.
+			continue
+		}
+		if semver.Compare(v, latestVersion) > 0 {
+			latestVersion = v
+		}
+	}
+	return latestVersion
 }
 
 // stdlibDir returns the directory of the standard library relative to the toolchain root.
