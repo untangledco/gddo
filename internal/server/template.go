@@ -61,8 +61,7 @@ func (m TemplateMap) ParseHTML(name string, funcs htemp.FuncMap, fsys fs.FS) err
 }
 
 func (m TemplateMap) ParseText(name string, funcs ttemp.FuncMap, fsys fs.FS) error {
-	r := (*Renderer)(nil)
-	t := ttemp.New(name).Funcs(funcs).Funcs(r.GeminiFuncs())
+	t := ttemp.New(name).Funcs(funcs)
 	if _, err := t.ParseFS(fsys, name); err != nil {
 		return err
 	}
@@ -106,34 +105,6 @@ func (s *Server) parseHTMLTemplates(m TemplateMap, files *httputil.FileServer) e
 	err = m.ParseText("opensearch.xml", tfuncs, fsys)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-func (s *Server) parseGeminiTemplates(m TemplateMap) error {
-	fsys, err := fs.Sub(static.FS, "templates")
-	if err != nil {
-		return err
-	}
-
-	tmpls := []string{
-		"index.gmi",
-		"about.gmi",
-		"search.gmi",
-		"doc.gmi",
-		"versions.gmi",
-		"platforms.gmi",
-		"imports.gmi",
-	}
-	funcs := ttemp.FuncMap{
-		"humanize": humanize.Time,
-		"config":   func() *Config { return s.cfg },
-	}
-	for _, tmpl := range tmpls {
-		err := m.ParseText(tmpl, funcs, fsys)
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }

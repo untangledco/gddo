@@ -3,7 +3,6 @@ module git.sr.ht/~sircmpwn/gddo
 go 1.21
 
 require (
-	git.sr.ht/~adnano/go-gemini v0.2.4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-cmp v0.6.0
 	github.com/lib/pq v1.10.9
@@ -20,6 +19,5 @@ require (
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 )

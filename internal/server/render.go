@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/doc"
 	"go/doc/comment"
-	"go/format"
 	"go/printer"
 	"go/token"
 	htemp "html/template"
@@ -64,11 +63,6 @@ func (r *Renderer) ExecuteHTTP(t *template.Template, w io.Writer, data any) erro
 	return t.Execute(w, data)
 }
 
-// ExecuteGemini executes a Gemini text template.
-func (r *Renderer) ExecuteGemini(t *template.Template, w io.Writer, data any) error {
-	return template.Must(t.Clone()).Funcs(r.GeminiFuncs()).Execute(w, data)
-}
-
 // HTMLFuncs returns a [template.FuncMap] for use in HTML templates.
 func (r *Renderer) HTMLFuncs() template.FuncMap {
 	return template.FuncMap{
@@ -87,27 +81,9 @@ func (r *Renderer) HTMLFuncs() template.FuncMap {
 	}
 }
 
-// GeminiFuncs returns a [template.FuncMap] for use in Gemini templates.
-func (r *Renderer) GeminiFuncs() template.FuncMap {
-	return template.FuncMap{
-		"render_doc":    r.DocGemini,
-		"render_decl":   r.DeclGemini,
-		"render_code":   r.CodeGemini,
-		"view":          r.View,
-		"query":         r.Query,
-		"relative_path": relativePath,
-		"platforms":     platformList,
-	}
-}
-
 // DocHTML returns formatted HTML for the doc comment text.
 func (r *Renderer) DocHTML(text string) htemp.HTML {
 	return render.DocHTML(r.parser.Parse(text))
-}
-
-// DocGemini returns formatted Gemini content for the doc comment text.
-func (r *Renderer) DocGemini(text string) string {
-	return render.DocGemini(r.parser.Parse(text))
 }
 
 // FuncString formats a function declaration into a single line.
@@ -131,15 +107,6 @@ func (r *Renderer) DeclHTML(decl ast.Decl, typ *doc.Type) htemp.HTML {
 	return html
 }
 
-// DeclGemini renders a Go declaration as Gemini text.
-func (r *Renderer) DeclGemini(decl ast.Decl) string {
-	var buf strings.Builder
-	if err := format.Node(&buf, r.fset, decl); err != nil {
-		return err.Error()
-	}
-	return buf.String()
-}
-
 // CodeHTML renders example code as HTML.
 func (r *Renderer) CodeHTML(ex *doc.Example) htemp.HTML {
 	html, err := render.CodeHTML(r.fset, ex)
@@ -148,24 +115,6 @@ func (r *Renderer) CodeHTML(ex *doc.Example) htemp.HTML {
 		return "<pre>Error rendering example code</pre>"
 	}
 	return html
-}
-
-// CodeGemini renders example code as Gemini text.
-func (r *Renderer) CodeGemini(ex *doc.Example) (string, error) {
-	var node any
-	if ex.Play != nil {
-		node = ex.Play
-	} else {
-		node = &printer.CommentedNode{
-			Node:     ex.Code,
-			Comments: ex.Comments,
-		}
-	}
-	var buf strings.Builder
-	if err := format.Node(&buf, r.fset, node); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
 }
 
 // SourceLink returns a source link for the given position.

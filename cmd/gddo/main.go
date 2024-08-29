@@ -4,14 +4,7 @@
 //
 //	gddo --help
 //
-// gddo supports running as an HTTP server, a Gemini server, or both. The
-// --http and --gemini flags control which addresses gddo will listen on.
-// If neither are specified, gddo will not listen for any connections.
-//
-// When the --gemini flag is present, gddo will only accept requests for
-// the hostname specified with the --hostname flag. gddo will also
-// automatically generate TLS certificates as needed and place them in the
-// directory specified with the --certs flag.
+// The --http flag controls which addresses gddo will listen on.
 //
 // The --fetch-timeout flag configures the timeout for fetching
 // documentation. If the timeout is exceeded, gddo will continue fetching
@@ -45,8 +38,6 @@ import (
 	"sync"
 	"time"
 
-	"git.sr.ht/~adnano/go-gemini"
-	"git.sr.ht/~adnano/go-gemini/certificate"
 	"git.sr.ht/~sircmpwn/gddo/internal/server"
 )
 
@@ -64,27 +55,13 @@ func main() {
 		log.Fatalf("error creating server: %v", err)
 	}
 
+	go func() {
+		if err := serveHTTP(ctx, s, cfg); err != nil {
+			log.Println(err)
+		}
+	}()
 	var wg sync.WaitGroup
 	defer wg.Wait()
-
-	if cfg.BindHTTP != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := serveHTTP(ctx, s, cfg); err != nil {
-				log.Println(err)
-			}
-		}()
-	}
-	if cfg.BindGemini != "" {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := serveGemini(ctx, s, cfg); err != nil {
-				log.Println(err)
-			}
-		}()
-	}
 	// Refresh modules in the background
 	if cfg.RefreshInterval > 0 {
 		wg.Add(1)
@@ -125,42 +102,6 @@ func serveHTTP(ctx context.Context, s *server.Server, cfg *server.Config) error 
 	}
 }
 
-func serveGemini(ctx context.Context, s *server.Server, cfg *server.Config) error {
-	h, err := s.GeminiHandler()
-	if err != nil {
-		return err
-	}
-
-	certs := &certificate.Store{}
-	certs.Register(cfg.Hostname)
-	if err := certs.Load(cfg.CertsDir); err != nil {
-		return err
-	}
-
-	srv := &gemini.Server{
-		Addr:           cfg.BindGemini,
-		GetCertificate: certs.Get,
-		Handler:        h,
-		ReadTimeout:    30 * time.Second,
-		WriteTimeout:   30 * time.Second,
-	}
-
-	// Listen for interrupt signal
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	errch := make(chan error, 1)
-	go func() {
-		errch <- srv.ListenAndServe(ctx)
-	}()
-
-	select {
-	case <-c:
-		return srv.Shutdown(ctx)
-	case err := <-errch:
-		return err
-	}
-}
 
 func refreshBackground(ctx context.Context, s *server.Server, cfg *server.Config) {
 	// Listen for interrupt signal

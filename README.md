@@ -32,15 +32,6 @@ Then run:
 
 See `gddo --help` for all available flags.
 
-## Gemini support
-
-gddo can also serve documentation over the
-[Gemini protocol](https://gemini.circumlunar.space).
-
-To serve documentation over Gemini only, run:
-
-	gddo --gemini :1965 --certs /var/lib/gemini/certs --hostname example.com
-
 See the [documentation](https://godocs.io/git.sr.ht/~sircmpwn/gddo/cmd/gddo) for
 more information.
 

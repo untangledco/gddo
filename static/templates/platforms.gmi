@@ -1,3 +1,0 @@
-# {{.Title}} platforms - {{config.BrandName}}
-{{range platforms}}
-=> ?platform={{.}} {{.}}{{end}}

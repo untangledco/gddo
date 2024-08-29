@@ -1,8 +1,0 @@
-# {{.Title}} imports - {{config.BrandName}}
-{{if .Imported}}{{range .Imported}}
-=> /{{.ImportPath}}{{query}} {{.ImportPath}}
-{{- if .Synopsis}}
-{{.Synopsis}}{{end}}{{end}}
-{{else}}
-No packages found.
-{{end}}

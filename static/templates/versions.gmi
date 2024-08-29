@@ -1,5 +1,0 @@
-# {{.Title}} versions - {{config.BrandName}}
-{{range .Versions}}
-=> /{{$.ImportPath}}{{if ne . $.LatestVersion}}@{{.}}{{end}}{{query}} {{.}}{{if eq . $.LatestVersion}} (latest){{end}}{{end}}
-{{if ne .ImportPath .ModulePath}}
-=> {{view $.ModulePath "versions"}} View all versions of this module{{end}}

@@ -1,6 +1,0 @@
-# {{config.BrandName}}
-
-=> /-/about About
-=> /-/search Search for Go packages
-
-{{config.BrandName}} serves documentation for Go packages. Read the About page for information about adding packages to {{config.BrandName}} and more.

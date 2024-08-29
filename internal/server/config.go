@@ -14,7 +14,6 @@ type Config struct {
 	AdminEmail      string
 	WebsiteIssues   string
 	BindHTTP        string
-	BindGemini      string
 	Hostname        string
 	CertsDir        string
 	Database        string
@@ -36,9 +35,6 @@ func (c *Config) FlagSet() *flag.FlagSet {
 	flags.StringVar(&c.AdminEmail, "admin-email", "", "Admin email address to use in templates")
 	flags.StringVar(&c.WebsiteIssues, "website-issues", "", "URL for website issues to use in templates")
 	flags.StringVar(&c.BindHTTP, "http", "", "Listen for HTTP connections on this address")
-	flags.StringVar(&c.BindGemini, "gemini", "", "Listen for Gemini connections on this address")
-	flags.StringVar(&c.Hostname, "hostname", "", "Hostname to accept Gemini requests for")
-	flags.StringVar(&c.CertsDir, "certs", "", "Directory to store Gemini TLS certificates")
 	flags.StringVar(&c.Database, "db", "", "PostgreSQL database URL")
 	flags.StringVar(&c.GoProxy, "goproxy", "https://proxy.golang.org/cached-only", "Go module proxy")
 	flags.StringVar(&c.Platform, "platform", defaultPlatform, "Default platform to use for documentation")
