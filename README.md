@@ -9,14 +9,7 @@ A hosted instance is available at [godocs.io](https://godocs.io).
 
 ## Installation
 
-First install the dependencies:
-
-- Go 1.19 or above
-
-Then compile and install:
-
-	$ make
-	# make install
+	go install ./cmd/gddo/
 
 ## Running
 
