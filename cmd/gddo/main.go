@@ -35,40 +35,41 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"time"
 
 	"git.sr.ht/~sircmpwn/gddo/internal/server"
 )
 
 func main() {
-	ctx := context.Background()
-
 	cfg := &server.Config{}
 	flags := cfg.FlagSet()
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		log.Fatal(err)
 	}
 
-	s, err := server.New(cfg)
+	srv, err := server.New(cfg)
 	if err != nil {
 		log.Fatalf("error creating server: %v", err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		if err := serveHTTP(ctx, s, cfg); err != nil {
-			log.Println(err)
+		if err := serveHTTP(ctx, srv, cfg); err != nil {
+			log.Fatal(err)
 		}
 	}()
-	var wg sync.WaitGroup
-	defer wg.Wait()
 	// Refresh modules in the background
 	if cfg.RefreshInterval > 0 {
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			refreshBackground(ctx, s, cfg)
+			refreshBackground(ctx, srv, cfg)
 		}()
+	}
+
+	sig := make(chan os.Signal)
+	signal.Notify(sig, os.Interrupt)
+	select {
+	case <-sig:
+		cancel()
 	}
 }
 
@@ -77,44 +78,33 @@ func serveHTTP(ctx context.Context, s *server.Server, cfg *server.Config) error 
 	if err != nil {
 		return err
 	}
-
 	srv := &http.Server{
 		Addr:         cfg.BindHTTP,
 		Handler:      h,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
-
-	// Listen for interrupt signal
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
-	errch := make(chan error, 1)
+	errch := make(chan error)
 	go func() {
 		errch <- srv.ListenAndServe()
 	}()
 
 	select {
-	case <-c:
+	case <-ctx.Done():
 		return srv.Shutdown(ctx)
 	case err := <-errch:
 		return err
 	}
 }
 
-
 func refreshBackground(ctx context.Context, s *server.Server, cfg *server.Config) {
-	// Listen for interrupt signal
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-
 	ticker := time.NewTicker(cfg.RefreshInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
 			s.Refresh(ctx)
-		case <-c:
+		case <-ctx.Done():
 			return
 		}
 	}
