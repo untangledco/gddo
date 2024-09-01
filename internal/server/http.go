@@ -119,7 +119,7 @@ func (s *Server) servePackage(resp http.ResponseWriter, req *http.Request) error
 		mode |= NeedDirectories
 	}
 
-	pkg, err := s.load(ctx, platform, importPath, version, mode)
+	pkg, err := s.loadPackage(ctx, platform, importPath, version, mode)
 	var mismatch ErrMismatch
 	if errors.As(err, &mismatch) {
 		http.Redirect(resp, req, "/"+mismatch.ActualPath, http.StatusFound)
@@ -208,7 +208,7 @@ func (s *Server) serveHome(resp http.ResponseWriter, req *http.Request) error {
 	var msg string
 	importPath, err := parseImportPath(q)
 	if err == nil {
-		_, err = s.load(req.Context(), platform, importPath, internal.LatestVersion, 0)
+		_, err = s.loadPackage(req.Context(), platform, importPath, internal.LatestVersion, 0)
 		if err == nil || errors.Is(err, ErrFetching) {
 			http.Redirect(resp, req, "/"+importPath, http.StatusFound)
 			return nil

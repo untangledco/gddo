@@ -30,11 +30,6 @@ const (
 	NeedProject
 )
 
-// load loads a package.
-func (s *Server) load(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
-	return s.loadPackage(ctx, platform, importPath, version, mode)
-}
-
 func (s *Server) loadPackage(ctx context.Context, platform, importPath, version string, mode LoadMode) (*Package, error) {
 	dpkg, err := s.db.Package(ctx, platform, importPath, version)
 	if err != nil {
