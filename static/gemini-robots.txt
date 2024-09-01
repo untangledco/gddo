@@ -1,5 +1,0 @@
-User-agent: *
-Disallow: /*?view=versions*
-Disallow: /*?view=platforms*
-Disallow: /*?view=imports*
-Disallow: /-/refresh*
