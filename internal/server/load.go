@@ -137,7 +137,7 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 		}
 		if d.IsDir() {
 			// Skip ignored directories
-			if ignoredByGoTool(d.Name()) || isVendor(d.Name()) {
+			if ignoredByGoTool(d.Name()) || d.Name() == "vendor" {
 				return fs.SkipDir
 			}
 			return nil
@@ -267,12 +267,4 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 func ignoredByGoTool(pathname string) bool {
 	return pathname != "." && strings.HasPrefix(pathname, ".") ||
 		pathname == "testdata"
-}
-
-// isVendor reports whether the given directory is a vendor directory.
-//
-// The logic for what is considered a vendor directory is documented at
-// https://golang.org/cmd/go/#hdr-Vendor_Directories.
-func isVendor(dir string) bool {
-	return dir == "vendor"
 }
