@@ -1,7 +1,6 @@
 package server
 
 import (
-	"go/ast"
 	"go/doc"
 	"go/token"
 	"path"
@@ -41,7 +40,7 @@ func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Pa
 	innerPath = strings.TrimPrefix(innerPath, "/")
 
 	// Build documentation
-	docPkg, err := buildDoc(importPath, src)
+	docPkg, err := godoc.BuildDoc(src, importPath)
 	if err != nil {
 		return nil, err
 	}
@@ -60,40 +59,6 @@ func NewPackage(mod *internal.Module, platform, importPath string, src *godoc.Pa
 		innerPath: innerPath,
 	}
 	pkg.collectExamples()
-	return pkg, nil
-}
-
-// buildDoc builds documentation for the given package.
-// If src is nil, it returns an empty [doc.Package].
-func buildDoc(importPath string, src *godoc.Package) (*doc.Package, error) {
-	if src == nil {
-		// No Go source files
-		return &doc.Package{
-			ImportPath: importPath,
-		}, nil
-	}
-	var files []*ast.File
-	for _, f := range src.Files {
-		files = append(files, f.AST)
-	}
-	mode := doc.Mode(0)
-	if importPath == "builtin" {
-		mode |= doc.AllDecls
-	}
-	pkg, err := doc.NewFromFiles(src.Fset, files, importPath, mode)
-	if err != nil {
-		return nil, err
-	}
-	if importPath == "builtin" {
-		// Remove type associations
-		for _, t := range pkg.Types {
-			pkg.Funcs = append(pkg.Funcs, t.Funcs...)
-			t.Funcs = nil
-		}
-		sort.Slice(pkg.Funcs, func(i, j int) bool {
-			return pkg.Funcs[i].Name < pkg.Funcs[j].Name
-		})
-	}
 	return pkg, nil
 }
 

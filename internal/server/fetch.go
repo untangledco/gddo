@@ -11,6 +11,7 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
+	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"git.sr.ht/~sircmpwn/gddo/internal/proxy"
 	"git.sr.ht/~sircmpwn/gddo/internal/stdlib"
 	"golang.org/x/mod/semver"
@@ -196,7 +197,7 @@ func (s *Server) putResults(tx *sql.Tx, platform string, mod *internal.Module, p
 
 		// TODO: Truncate large packages
 
-		docPkg, err := buildDoc(importPath, result.Package)
+		docPkg, err := godoc.BuildDoc(result.Package, importPath)
 		if err != nil {
 			// Store the error in the database
 			if err := s.db.PutDirectory(tx, platform, mod, importPath, err.Error()); err != nil {

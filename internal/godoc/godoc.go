@@ -7,10 +7,12 @@ package godoc
 
 import (
 	"go/ast"
+	"go/doc"
 	"go/parser"
 	"go/token"
 	"io/fs"
 	"path"
+	"sort"
 	"strings"
 )
 
@@ -77,6 +79,40 @@ func removeUnusedASTNodes(pf *ast.File) {
 	}
 	// Don't remove pf.Comments; they may contain Notes.
 	pf.Decls = decls
+}
+
+// buildDoc builds documentation for the given package.
+// If src is nil, it returns an empty [doc.Package].
+func BuildDoc(src *Package, importPath string) (*doc.Package, error) {
+	if src == nil {
+		// No Go source files
+		return &doc.Package{
+			ImportPath: importPath,
+		}, nil
+	}
+	var files []*ast.File
+	for _, f := range src.Files {
+		files = append(files, f.AST)
+	}
+	mode := doc.Mode(0)
+	if importPath == "builtin" {
+		mode |= doc.AllDecls
+	}
+	pkg, err := doc.NewFromFiles(src.Fset, files, importPath, mode)
+	if err != nil {
+		return nil, err
+	}
+	if importPath == "builtin" {
+		// Remove type associations
+		for _, t := range pkg.Types {
+			pkg.Funcs = append(pkg.Funcs, t.Funcs...)
+			t.Funcs = nil
+		}
+		sort.Slice(pkg.Funcs, func(i, j int) bool {
+			return pkg.Funcs[i].Name < pkg.Funcs[j].Name
+		})
+	}
+	return pkg, nil
 }
 
 // ParseFiles parses each abstract syntax tree from the named files in fsys.
