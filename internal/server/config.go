@@ -15,7 +15,6 @@ type Config struct {
 	WebsiteIssues   string
 	BindHTTP        string
 	Hostname        string
-	CertsDir        string
 	Database        string
 	GoProxy         string
 	Platform        string
