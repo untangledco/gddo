@@ -59,8 +59,7 @@ func (s *Server) fetch(ctx context.Context, platform, importPath, version string
 		// Loop through potential module paths
 		for modulePath := importPath; modulePath != "."; modulePath = path.Dir(modulePath) {
 			err := s.fetchModule(ctx, platform, modulePath, version)
-			if errors.Is(err, internal.ErrNotFound) ||
-				errors.Is(err, internal.ErrInvalidPath) {
+			if errors.Is(err, internal.ErrNotFound) || errors.Is(err, internal.ErrInvalidPath) {
 				// Try parent path
 				continue
 			}
