@@ -9,7 +9,6 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,7 +21,6 @@ import (
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
-	"golang.org/x/net/context/ctxhttp"
 )
 
 var (
@@ -93,9 +91,9 @@ func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 		reference = rev
 	}
 
-	zipSize, err := c.ZipSize(context.TODO(), modulePath, info.Version)
+	zipSize, err := c.zipSize(modulePath, info.Version)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("zip size: %w", err)
 	}
 	if zipSize > c.MaxZipSize {
 		return nil, internal.ErrTooLarge
@@ -112,7 +110,6 @@ func (c *Client) Module(modulePath, version string) (*internal.Module, error) {
 		LatestVersion: latest.Version,
 		Versions:      versions,
 		Deprecated:    deprecated,
-		ZipSize:       zipSize,
 	}, nil
 }
 
@@ -138,13 +135,6 @@ func (c *Client) stdlibModule(version string) (*internal.Module, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	zipSize, err := c.ZipSize(context.TODO(), ToolchainModulePath, info.Version)
-	if err != nil {
-		return nil, err
-	}
-	// No size limit for Go toolchain modules
-
 	return &internal.Module{
 		ModulePath:    StdlibModulePath,
 		RawModulePath: ToolchainModulePath,
@@ -155,7 +145,6 @@ func (c *Client) stdlibModule(version string) (*internal.Module, error) {
 		CommitTime:    info.Time,
 		LatestVersion: latestVersion,
 		Versions:      versions,
-		ZipSize:       zipSize,
 	}, nil
 }
 
@@ -179,14 +168,14 @@ func (c *Client) Files(mod *internal.Module) (fs.FS, error) {
 
 // ZipSize gets the size in bytes of the zip from the proxy, without downloading it.
 // The version must be resolved, as by a call to Client.Info.
-func (c *Client) ZipSize(ctx context.Context, modulePath, resolvedVersion string) (int64, error) {
+func (c *Client) zipSize(modulePath, resolvedVersion string) (int64, error) {
 	url, err := c.escapedURL(modulePath, resolvedVersion, "zip")
 	if err != nil {
 		return 0, err
 	}
-	res, err := ctxhttp.Head(ctx, c.HTTPClient, url)
+	res, err := c.HTTPClient.Head(url)
 	if err != nil {
-		return 0, fmt.Errorf("ctxhttp.Head(ctx, client, %q): %v", url, err)
+		return 0, fmt.Errorf("HEAD %s: %w", url, err)
 	}
 	defer res.Body.Close()
 	if err := responseError(res); err != nil {

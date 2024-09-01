@@ -8,7 +8,6 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/prometheus/client_golang v1.18.0
 	golang.org/x/mod v0.14.0
-	golang.org/x/net v0.20.0
 )
 
 require (
