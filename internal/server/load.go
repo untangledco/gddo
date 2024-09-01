@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"go/build"
-	"go/parser"
 	"io"
 	"io/fs"
 	"log"
@@ -56,11 +55,10 @@ func (s *Server) loadPackage(ctx context.Context, platform, importPath, version 
 		return nil, internal.ErrNotFound
 	}
 
-	src, err := dpkg.Decode()
+	src, err := godoc.DecodePackage(dpkg.Source)
 	if err != nil {
 		return nil, err
 	}
-
 	pkg, err := NewPackage(&dpkg.Module, platform, importPath, src)
 	if err != nil {
 		return nil, err
@@ -202,7 +200,11 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 			importPath = innerPath
 		}
 
-		pkg, err := buildPackage(modulePath, innerPath, fsys, pathnames)
+		isBuiltin := false
+		if modulePath == proxy.StdlibModulePath && innerPath == "builtin" {
+			isBuiltin = true
+		}
+		pkg, err := godoc.ParseFiles(fsys, pathnames, isBuiltin)
 		if err != nil {
 			pkgPaths = append(pkgPaths, importPath)
 			results[importPath] = loadResult{
@@ -252,30 +254,6 @@ func loadPackages(platform, modulePath string, fsys fs.FS) (map[string]loadResul
 	}
 
 	return results, nil
-}
-
-// buildPackage attempts to parse the given Go files into a package.
-func buildPackage(modulePath, innerPath string, fsys fs.FS, pathnames []string) (*godoc.Package, error) {
-	pkg := godoc.NewPackage()
-	for _, pathname := range pathnames {
-		contents, err := fs.ReadFile(fsys, pathname)
-		if err != nil {
-			return nil, err
-		}
-		file, err := parser.ParseFile(pkg.Fset, path.Base(pathname), contents, parser.ParseComments)
-		if err != nil {
-			return nil, err
-		}
-
-		removeNodes := true
-		// Don't strip the seemingly unexported functions from the builtin package;
-		// they are actually Go builtins like make, new, etc.
-		if modulePath == proxy.StdlibModulePath && innerPath == "builtin" {
-			removeNodes = false
-		}
-		pkg.AddFile(file, removeNodes)
-	}
-	return pkg, nil
 }
 
 // ignoredByGoTool reports whether the given file or directory would be

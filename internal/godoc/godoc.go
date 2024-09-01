@@ -7,7 +7,10 @@ package godoc
 
 import (
 	"go/ast"
+	"go/parser"
 	"go/token"
+	"io/fs"
+	"path"
 	"strings"
 )
 
@@ -37,13 +40,6 @@ type encPackage struct { // fields that can be directly encoded
 type File struct {
 	Name string // full file pathname relative to zip content directory
 	AST  *ast.File
-}
-
-// NewPackage returns a new Package.
-func NewPackage() *Package {
-	return &Package{
-		Fset: token.NewFileSet(),
-	}
 }
 
 // AddFile adds a file to the Package. After it returns, the contents of the ast.File
@@ -81,4 +77,27 @@ func removeUnusedASTNodes(pf *ast.File) {
 	}
 	// Don't remove pf.Comments; they may contain Notes.
 	pf.Decls = decls
+}
+
+// ParseFiles parses each abstract syntax tree from the named files in fsys.
+// The returned package contains...
+func ParseFiles(fsys fs.FS, names []string, isBuiltin bool) (*Package, error) {
+	pkg := &Package{Fset: token.NewFileSet()}
+	for _, name := range names {
+		f, err := fsys.Open(name)
+		if err != nil {
+			return nil, err
+		}
+		file, err := parser.ParseFile(pkg.Fset, path.Base(name), f, parser.ParseComments)
+		if err != nil {
+			return nil, err
+		}
+		f.Close()
+
+		// Don't strip the seemingly unexported functions from the builtin package;
+		// they are actually Go builtins like make, new, etc.
+		removeUnused := !isBuiltin
+		pkg.AddFile(file, removeUnused)
+	}
+	return pkg, nil
 }

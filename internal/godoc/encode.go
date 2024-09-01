@@ -32,8 +32,10 @@ func (p *Package) Encode() ([]byte, error) {
 
 // DecodePackage decodes a byte slice encoded with Package.Encode into a Package.
 func DecodePackage(data []byte) (*Package, error) {
-	if len(data) < encodingTypeLen {
-		return nil, ErrInvalidEncodingType
+	if len(data) == 0 {
+		return nil, nil
+	} else if len(data) < encodingTypeLen {
+		return nil, fmt.Errorf("short slice: have %d bytes, need at least %d", len(data), encodingTypeLen)
 	}
 	switch string(data[:encodingTypeLen]) {
 	case fastEncodingType:

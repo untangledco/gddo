@@ -14,7 +14,6 @@ import (
 
 	"git.sr.ht/~sircmpwn/gddo/internal"
 	"git.sr.ht/~sircmpwn/gddo/internal/autodiscovery"
-	"git.sr.ht/~sircmpwn/gddo/internal/godoc"
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	promcollectors "github.com/prometheus/client_golang/prometheus/collectors"
@@ -25,15 +24,6 @@ type Package struct {
 	internal.Module
 	Source []byte // encoded Go source files
 	Error  string
-}
-
-// Decode decodes a [godoc.Package] from the encoded Go source files in
-// this package. It returns nil if there are no Go source files.
-func (p *Package) Decode() (*godoc.Package, error) {
-	if len(p.Source) != 0 {
-		return godoc.DecodePackage(p.Source)
-	}
-	return nil, nil
 }
 
 // Synopsis is a shorthand version of a package useful for package listings.
